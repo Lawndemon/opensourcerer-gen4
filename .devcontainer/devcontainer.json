@@ -1,5 +1,5 @@
 {
-    "name": "Azure Search OpenAI Demo",
+    "name": "Emergency Response Plan Coordinator",
     // Workaround for https://github.com/devcontainers/images/issues/1752
     "build": {
         "dockerfile": "Dockerfile"
