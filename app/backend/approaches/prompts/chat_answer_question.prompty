@@ -28,9 +28,9 @@ Possible citations for current question: {% for citation in citations %} [{{ cit
 {% if include_follow_up_questions %}
 Generate 3 very brief follow-up questions that the user would likely ask next.
 Enclose the follow-up questions in double angle brackets. Example:
-<<Are there exclusions for prescriptions?>>
-<<Which pharmacies can be ordered from?>>
-<<What is the limit for over-the-counter medication?>>
+<<What do I do for a fuel spill in the refinery?>>
+<<Waht do I do for am imjured worker in the refinery?>>
+<<What do I do if I see someone acting in an unsafe way?>>
 Do not repeat questions that have already been asked.
 Make sure the last question ends with ">>".
 {% endif %}

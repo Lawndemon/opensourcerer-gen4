@@ -1,6 +1,6 @@
 {
-    "pageTitle": "Azure OpenAI + AI Search",
-    "headerTitle": "Azure OpenAI + AI Search",
+    "pageTitle": "Emergency Response Plan Coordinator",
+    "headerTitle": "Emergency Response Plan Coordinator",
     "chat": "Chat",
     "login": "Login",
     "logout": "Logout",
@@ -36,17 +36,17 @@
     "chatEmptyStateTitle": "Chat with your data",
     "chatEmptyStateSubtitle": "Ask anything or try an example",
     "defaultExamples": {
-        "1": "What is included in my Northwind Health Plus plan that is not in standard?",
-        "2": "What happens in a performance review?",
-        "3": "What does a Product Manager do?",
-        "placeholder": "Type a new question (e.g. does my plan cover annual eye exams?)"
+        "1": "What should I do in the event of a fuel spill?",
+        "2": "What should I do in the event of an injury?",
+        "3": "When were the Emergency Response Plan documents last updated and by whom?",
+        "placeholder": "Type a new question (e.g. what are our emergency resopnse standards?)"
     },
     "askTitle": "Ask your data",
     "multimodalExamples": {
-        "1": "Compare the impact of interest rates and GDP in financial markets.",
-        "2": "What is the expected trend for the S&P 500 index over the next five years? Compare it to the past S&P 500 performance",
-        "3": "Can you identify any correlation between oil prices and stock market trends?",
-        "placeholder": "Example: Does my plan cover annual eye exams?"
+        "1": "What should I do in the event of a fuel spill?",
+        "2": "What should I do in the event of an injury?",
+        "3": "When were the Emergency Response Plan documents last updated and by whom?",
+        "placeholder": "Type a new question (e.g. what are our emergency resopnse standards?)"
     },
     "generatingAnswer": "Generating answer",
     "citationWithColon": "Citation:",

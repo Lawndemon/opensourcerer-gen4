@@ -85,7 +85,7 @@ def sized_page(page: Page, request):
 
 def test_home(page: Page, live_server_url: str):
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
 
 
 def test_chat(sized_page: Page, live_server_url: str):
@@ -119,7 +119,7 @@ def test_chat(sized_page: Page, live_server_url: str):
 
     # Check initial page state
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
     expect(page.get_by_role("heading", name="Chat with your data")).to_be_visible()
     expect(page.get_by_role("button", name="Clear chat")).to_be_disabled()
     expect(page.get_by_role("button", name="Developer settings")).to_be_enabled()
@@ -181,7 +181,7 @@ def test_chat_stop_button_visibility(page: Page, live_server_url: str):
 
     # Check initial page state
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
 
     # Verify the submit button is visible initially (not the stop button)
     expect(page.get_by_label("Submit question")).to_be_visible()
@@ -218,7 +218,7 @@ def test_chat_stop_restores_question(page: Page, live_server_url: str):
 
     # Check initial page state
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
 
     # Type a question
     question_input = page.get_by_placeholder("Type a new question (e.g. does my plan cover annual eye exams?)")
@@ -272,7 +272,7 @@ def test_chat_customization(page: Page, live_server_url: str):
 
     # Check initial page state
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
 
     # Customize all the settings
     page.get_by_role("button", name="Developer settings").click()
@@ -374,7 +374,7 @@ def test_chat_customization_multimodal(page: Page, live_server_url: str):
 
     # Check initial page state
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
 
     # Open Developer settings
     page.get_by_role("button", name="Developer settings").click()
@@ -422,7 +422,7 @@ def test_chat_nonstreaming(page: Page, live_server_url: str):
 
     # Check initial page state
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
     expect(page.get_by_role("button", name="Developer settings")).to_be_enabled()
     page.get_by_role("button", name="Developer settings").click()
     page.get_by_text("Stream chat completion responses").click()
@@ -461,7 +461,7 @@ def test_chat_followup_streaming(page: Page, live_server_url: str):
 
     # Check initial page state
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
     expect(page.get_by_role("button", name="Developer settings")).to_be_enabled()
     page.get_by_role("button", name="Developer settings").click()
     page.get_by_text("Suggest follow-up questions").click()
@@ -498,7 +498,7 @@ def test_chat_followup_nonstreaming(page: Page, live_server_url: str):
 
     # Check initial page state
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
     expect(page.get_by_role("button", name="Developer settings")).to_be_enabled()
     page.get_by_role("button", name="Developer settings").click()
     page.get_by_text("Stream chat completion responses").click()
@@ -567,7 +567,7 @@ def test_upload_hidden(page: Page, live_server_url: str):
 
     page.goto(live_server_url)
 
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
 
     expect(page.get_by_role("button", name="Clear chat")).to_be_visible()
     expect(page.get_by_role("button", name="Manage file uploads")).not_to_be_visible()
@@ -617,7 +617,7 @@ def test_upload_disabled(page: Page, live_server_url: str):
 
     page.goto(live_server_url)
 
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
 
     expect(page.get_by_role("button", name="Manage file uploads")).to_be_visible()
     expect(page.get_by_role("button", name="Manage file uploads")).to_be_disabled()
@@ -689,7 +689,7 @@ def test_agentic_retrieval_effort_minimal_disables_web(page: Page, live_server_u
     page.route("*/**/config", handle_config)
 
     page.goto(live_server_url)
-    expect(page).to_have_title("Azure OpenAI + AI Search")
+    expect(page).to_have_title("Emergency Response Plan Coordinator")
 
     # Open Developer settings
     page.get_by_role("button", name="Developer settings").click()

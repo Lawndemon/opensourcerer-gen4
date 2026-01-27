@@ -6,16 +6,16 @@ model:
     parameters:
         tools: ${file:chat_query_rewrite_tools.json}
 sample:
-    user_query: Does it include hearing?
+    user_query: What should I do for a fuel spill?
     past_messages:
         - role: user
-          content: "What is included in my Northwind Health Plus plan that is not in standard?"
+          content: "What should I do if the event of a fuel spill in the refinery?"
         - role: assistant
-          content: "The Northwind Health Plus plan includes coverage for emergency services, mental health and substance abuse coverage, and out-of-network services, which are not included in the Northwind Standard plan. [Benefit_Options.pdf#page=3]"
+          content: "In the event of a fuel spill in the refinery, first evacuate the area and then contact the safety supervisor at 888-555-1234 [RefineryEmergencyPlans.pdf#page=3]"
 ---
 system:
 Below is a history of the conversation so far, and a new question asked by the user that needs to be answered by searching in a knowledge base.
-You have access to Azure AI Search index with 100's of documents.
+You have access to Azure AI Search index loaded with safety and emergency response plan documents.
 Generate a search query based on the conversation and the new question.
 Do not include cited source filenames and document names e.g. info.txt or doc.pdf in the search query terms.
 Do not include any text inside [] or <<>> in the search query terms.
@@ -24,16 +24,16 @@ If the question is not in English, translate the question to English before gene
 If you cannot generate a search query, return just the number 0.
 
 user:
-How did crypto do last year?
+When was the refinery emergency response plan last updated?
 
 assistant:
-Summarize Cryptocurrency Market Dynamics from last year
+Provide the last update date and last update author from the refiner emergency response plan
 
 user:
-What are my health plans?
+What do I do for a fuel spill?
 
 assistant:
-Show available health plans
+Show steps for handling a fuel spill in the refinery
 
 {% for message in past_messages %}
 {{ message["role"] }}:
