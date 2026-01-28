@@ -99,6 +99,12 @@ class ChatReadRetrieveReadApproach(Approach):
         self.web_source_enabled = use_web_source
         self.use_sharepoint_source = use_sharepoint_source
         self.retrieval_reasoning_effort = retrieval_reasoning_effort
+        self.persona_prompts = {
+            "firefighter": "You are a tactical assistant for firefighters. Focus on HAZMAT, structural safety, and rapid evacuation protocols.",
+            "police": "You are a tactical assistant for law enforcement. Focus on perimeter control and public safety protocols.",
+            "coordinator": "You are a Command Assistant. Focus on logistics and multi-agency coordination.",
+            "default": "You are an emergency response assistant helping users find information."
+        }
 
     def extract_followup_questions(self, content: Optional[str]):
         if content is None:
@@ -297,10 +303,14 @@ class ChatReadRetrieveReadApproach(Approach):
 
             return (extra_info, return_answer())
 
+        persona_key = overrides.get("persona", "default")
+        persona_instruction = self.persona_prompts.get(persona_key, self.persona_prompts["default"])
+
         messages = self.prompt_manager.render_prompt(
             self.answer_prompt,
             self.get_system_prompt_variables(overrides.get("prompt_template"))
             | {
+                "persona_instruction": persona_instruction,
                 "include_follow_up_questions": bool(overrides.get("suggest_followup_questions")),
                 "past_messages": messages[:-1],
                 "user_query": original_user_query,

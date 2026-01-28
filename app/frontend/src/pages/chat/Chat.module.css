@@ -143,4 +143,25 @@
         max-width: 80%;
         min-width: 31.25rem;
     }
+
+    .personaDropdownContainer {
+        display: flex;
+        align-items: center;
+        margin-right: 8px;
+    }
+
+    .personaSelect {
+        padding: 6px 12px;
+        font-size: 14px;
+        font-weight: 400;
+        color: #323130;
+        background-color: #f3f2f1;
+        border: 1px solid transparent;
+        border-radius: 2px;
+        cursor: pointer;
+    }
+
+    .personaSelect:hover {
+        background-color: #edebe9;
+    }
 }

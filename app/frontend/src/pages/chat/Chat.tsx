@@ -53,6 +53,8 @@ const Chat = () => {
     const [sendTextSources, setSendTextSources] = useState<boolean>(true);
     const [sendImageSources, setSendImageSources] = useState<boolean>(false);
 
+    const [persona, setPersona] = useState<string>("default");
+
     const lastQuestionRef = useRef<string>("");
     const chatMessageStreamEnd = useRef<HTMLDivElement | null>(null);
 
@@ -288,6 +290,7 @@ const Chat = () => {
                         send_image_sources: sendImageSources,
                         language: i18n.language,
                         use_agentic_knowledgebase: useAgenticKnowledgeBase,
+                        persona: persona,
                         use_web_source: webSourceSupported ? webSourceEnabled : false,
                         use_sharepoint_source: sharePointSourceSupported ? sharePointSourceEnabled : false,
                         ...(seed !== null ? { seed: seed } : {})
@@ -297,7 +300,7 @@ const Chat = () => {
                 session_state: answers.length ? answers[answers.length - 1][1].session_state : null
             };
 
-            const response = await chatApi(request, shouldStream, token, controller.signal);
+            const response = await chatApi(request, true, token, controller.signal);
             if (!response.body) {
                 throw Error("No response body");
             }
@@ -533,6 +536,14 @@ const Chat = () => {
                     )}
                 </div>
                 <div className={styles.commandsContainer}>
+                    <div className={styles.personaDropdownContainer}>
+                        <select className={styles.personaSelect} value={persona} onChange={e => setPersona(e.target.value)}>
+                            <option value="default">General Assistant</option>
+                            <option value="firefighter">Firefighter</option>
+                            <option value="police">Police Officer</option>
+                            <option value="coordinator">Emergency Coordinator</option>
+                        </select>
+                    </div>
                     <ClearChatButton className={styles.commandButton} onClick={clearChat} disabled={!lastQuestionRef.current || isLoading} />
                     {showUserUpload && <UploadFile className={styles.commandButton} disabled={!loggedIn} />}
                     <SettingsButton className={styles.commandButton} onClick={() => setIsConfigPanelOpen(!isConfigPanelOpen)} />

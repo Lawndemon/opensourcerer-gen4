@@ -10,6 +10,7 @@ export type ChatAppRequestOverrides = {
     semantic_captions?: boolean;
     query_rewriting?: boolean;
     reasoning_effort?: string;
+    persona?: string;
     include_category?: string;
     exclude_category?: string;
     seed?: number;
