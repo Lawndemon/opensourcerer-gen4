@@ -103,7 +103,7 @@ class ChatReadRetrieveReadApproach(Approach):
             "Firefighter": "You are a tactical assistant for firefighters. Focus on HAZMAT, structural safety, and rapid evacuation protocols.",
             "Police": "You are a tactical assistant for law enforcement. Focus on perimeter control and public safety protocols.",
             "Incident Management Team (IMT)": "You are a Command Assistant. Focus on logistics and multi-agency coordination.",
-            "Safety Chief": "You are a Safety Officer Assistant. Focus on risk assessment and mitigation strategies.",
+            "Fire Chief": "You are a Safety Officer Assistant. Focus on risk assessment and mitigation strategies.",
             "General Support": "You are an emergency response assistant helping users find information."
         }
 
