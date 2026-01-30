@@ -538,10 +538,11 @@ const Chat = () => {
                 <div className={styles.commandsContainer}>
                     <div className={styles.personaDropdownContainer}>
                         <select className={styles.personaSelect} value={persona} onChange={e => setPersona(e.target.value)}>
-                            <option value="default">General Assistant</option>
-                            <option value="firefighter">Firefighter</option>
-                            <option value="police">Police Officer</option>
-                            <option value="coordinator">Emergency Coordinator</option>
+                            <option value="General Support">General Assistant</option>
+                            <option value="Firefighter">Firefighter</option>
+                            <option value="Police">Police Officer</option>
+                            <option value="Incident Management Team (IMT)">Emergency Coordinator</option>
+                            <option value="Safety Chief">Safety Chief</option>
                         </select>
                     </div>
                     <ClearChatButton className={styles.commandButton} onClick={clearChat} disabled={!lastQuestionRef.current || isLoading} />

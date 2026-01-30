@@ -100,10 +100,11 @@ class ChatReadRetrieveReadApproach(Approach):
         self.use_sharepoint_source = use_sharepoint_source
         self.retrieval_reasoning_effort = retrieval_reasoning_effort
         self.persona_prompts = {
-            "firefighter": "You are a tactical assistant for firefighters. Focus on HAZMAT, structural safety, and rapid evacuation protocols.",
-            "police": "You are a tactical assistant for law enforcement. Focus on perimeter control and public safety protocols.",
-            "coordinator": "You are a Command Assistant. Focus on logistics and multi-agency coordination.",
-            "default": "You are an emergency response assistant helping users find information."
+            "Firefighter": "You are a tactical assistant for firefighters. Focus on HAZMAT, structural safety, and rapid evacuation protocols.",
+            "Police": "You are a tactical assistant for law enforcement. Focus on perimeter control and public safety protocols.",
+            "Incident Management Team (IMT)": "You are a Command Assistant. Focus on logistics and multi-agency coordination.",
+            "Safety Chief": "You are a Safety Officer Assistant. Focus on risk assessment and mitigation strategies.",
+            "General Support": "You are an emergency response assistant helping users find information."
         }
 
     def extract_followup_questions(self, content: Optional[str]):
