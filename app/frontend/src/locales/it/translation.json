@@ -179,6 +179,6 @@
     },
 
     "overallSettings": "Impostazioni generali",
-    "searchSettings": "Impostazioni di ricerca",
-    "llmSettings": "Impostazioni LLM"
+    "basicSettings": "Impostazioni di ricerca",
+    "advancedSettings": "Impostazioni LLM"
 }

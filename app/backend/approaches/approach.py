@@ -283,13 +283,20 @@ class Approach(ABC):
         self.user_blob_manager = user_blob_manager
 
     def build_filter(self, overrides: dict[str, Any]) -> Optional[str]:
+        # .get(key) returns None instead of crashing if the key is missing.
         include_category = overrides.get("include_category")
         exclude_category = overrides.get("exclude_category")
         filters = []
+
         if include_category:
-            filters.append("category eq '{}'".format(include_category.replace("'", "''")))
+            # Handle the comma-separated string from the UI
+            categories = [c.strip().replace("'", "''") for c in include_category.split(",") if c.strip()]
+            if categories:
+                filters.append("search.in(category, '{}', ',')".format(",".join(categories)))
+
         if exclude_category:
             filters.append("category ne '{}'".format(exclude_category.replace("'", "''")))
+
         return None if not filters else " and ".join(filters)
 
     async def search(

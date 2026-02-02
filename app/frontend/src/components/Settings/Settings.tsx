@@ -13,6 +13,7 @@ export interface SettingsProps {
     promptTemplate: string;
     temperature: number;
     retrieveCount: number;
+    persona: string;
     agenticReasoningEffort: string;
     seed: number | null;
     minimumSearchScore: number;
@@ -57,6 +58,7 @@ export const Settings = ({
     temperature,
     retrieveCount,
     agenticReasoningEffort,
+    persona,
     seed,
     minimumSearchScore,
     minimumRerankerScore,
@@ -146,35 +148,53 @@ export const Settings = ({
 
     return (
         <div className={className}>
-            {streamingEnabled && (
-                <>
-                    <Checkbox
-                        id={shouldStreamFieldId}
-                        className={styles.settingsSeparator}
-                        checked={webSourceDisablesStreamingAndFollowup ? false : shouldStream}
-                        label={t("labels.shouldStream")}
-                        onChange={(_ev, checked) => onChange("shouldStream", !!checked)}
-                        aria-labelledby={shouldStreamId}
-                        disabled={webSourceDisablesStreamingAndFollowup}
-                        onRenderLabel={props => renderLabel(props, shouldStreamId, shouldStreamFieldId, t("helpTexts.streamChat"))}
-                    />
+            <h3 className={styles.sectionHeader}>{t("basicSettings")}</h3>
 
-                    <Checkbox
-                        id={suggestFollowupQuestionsFieldId}
-                        className={styles.settingsSeparator}
-                        checked={webSourceDisablesStreamingAndFollowup ? false : useSuggestFollowupQuestions}
-                        label={t("labels.useSuggestFollowupQuestions")}
-                        onChange={(_ev, checked) => onChange("useSuggestFollowupQuestions", !!checked)}
-                        aria-labelledby={suggestFollowupQuestionsId}
-                        disabled={webSourceDisablesStreamingAndFollowup}
-                        onRenderLabel={props =>
-                            renderLabel(props, suggestFollowupQuestionsId, suggestFollowupQuestionsFieldId, t("helpTexts.suggestFollowupQuestions"))
-                        }
-                    />
-                </>
-            )}
+            <Dropdown
+                label="Select Role"
+                selectedKey={persona}
+                onChange={(_ev, option) => onChange("persona", option?.key)}
+                options={[
+                    { key: "default", text: "General Assistant" },
+                    { key: "Firefighter", text: "Firefighter" },
+                    { key: "Police", text: "Police Officer" },
+                    { key: "Incident Management Team (IMT)", text: "Emergency Coordinator" },
+                    { key: "Safety Chief", text: "Safety Chief" }
+                ]}
+                styles={{ dropdown: { width: "100%" } }}
+            />
 
-            <h3 className={styles.sectionHeader}>{t("searchSettings")}</h3>
+            <Dropdown
+                id={includeCategoryFieldId}
+                className={styles.settingsSeparator}
+                label={t("labels.includeCategory")}
+                selectedKeys={includeCategory ? includeCategory.split(",") : []}
+                multiSelect
+                onChange={(_ev, option) => {
+                    const currentKeys = includeCategory ? includeCategory.split(",") : [];
+                    let newKeys;
+                    if (option?.selected) {
+                        newKeys = [...currentKeys, option.key as string];
+                    } else {
+                        newKeys = currentKeys.filter(k => k !== option?.key);
+                    }
+                    onChange("includeCategory", newKeys.join(","));
+                }}
+                aria-labelledby={includeCategoryId}
+                options={[
+                    { key: "Federal", text: t("labels.includeCategoryOptions.federal") },
+                    { key: "Fire Behaviour", text: t("labels.includeCategoryOptions.fireBehaviour") },
+                    { key: "Industry", text: t("labels.includeCategoryOptions.industry") },
+                    { key: "Municipal", text: t("labels.includeCategoryOptions.municipal") },
+                    { key: "NFPA", text: t("labels.includeCategoryOptions.nfpa") },
+                    { key: "Regional", text: t("labels.includeCategoryOptions.regional") },
+                    { key: "Risk", text: t("labels.includeCategoryOptions.risk") },
+                    { key: "Staffing", text: t("labels.includeCategoryOptions.staffing") }
+                ]}
+                onRenderLabel={props => renderLabel(props, includeCategoryId, includeCategoryFieldId, t("helpTexts.includeCategory"))}
+            />
+
+            <h3 className={styles.sectionHeader}>{t("advancedSettings")}</h3>
 
             {showAgenticRetrievalOption && (
                 <Checkbox
@@ -205,6 +225,21 @@ export const Settings = ({
                     aria-labelledby={agenticReasoningEffortId}
                     options={retrievalReasoningOptions}
                     onRenderLabel={props => renderLabel(props, agenticReasoningEffortId, agenticReasoningEffortFieldId, t("helpTexts.agenticReasoningEffort"))}
+                />
+            )}
+
+            {!useAgenticKnowledgeBase && (
+                <TextField
+                    id={retrieveCountFieldId}
+                    className={styles.settingsSeparator}
+                    label={t("labels.retrieveCount")}
+                    type="number"
+                    min={1}
+                    max={20} // Cap this at 20 to protect your token usage
+                    defaultValue={retrieveCount.toString()}
+                    onChange={(_ev, val) => onChange("retrieveCount", parseInt(val || "7"))}
+                    aria-labelledby={retrieveCountId}
+                    onRenderLabel={props => renderLabel(props, retrieveCountId, retrieveCountFieldId, t("helpTexts.retrieveNumber"))}
                 />
             )}
 
@@ -249,10 +284,11 @@ export const Settings = ({
                     className={styles.settingsSeparator}
                     label={t("labels.minimumSearchScore")}
                     type="number"
-                    min={0}
-                    step={0.01}
-                    defaultValue={minimumSearchScore.toString()}
-                    onChange={(_ev, val) => onChange("minimumSearchScore", parseFloat(val || "0"))}
+                    step={0.1}
+                    // Multiply by 100 for display (0.019 -> 1.9)
+                    defaultValue={(minimumSearchScore * 100).toString()}
+                    // Divide by 100 for state (1.9 -> 0.019)
+                    onChange={(_ev, val) => onChange("minimumSearchScore", parseFloat(val || "0") / 100)}
                     aria-labelledby={searchScoreId}
                     onRenderLabel={props => renderLabel(props, searchScoreId, searchScoreFieldId, t("helpTexts.searchScore"))}
                 />
@@ -283,57 +319,12 @@ export const Settings = ({
                     min={1}
                     max={50}
                     defaultValue={retrieveCount.toString()}
-                    onChange={(_ev, val) => onChange("retrieveCount", parseInt(val || "3"))}
+                    onChange={(_ev, val) => onChange("retrieveCount", parseInt(val || "10"))}
                     aria-labelledby={retrieveCountId}
                     onRenderLabel={props => renderLabel(props, retrieveCountId, retrieveCountFieldId, t("helpTexts.retrieveNumber"))}
                 />
             )}
-            <Dropdown
-                id={includeCategoryFieldId}
-                className={styles.settingsSeparator}
-                label={t("labels.includeCategory")}
-                selectedKey={includeCategory}
-                onChange={(_ev?: React.FormEvent<HTMLElement | HTMLInputElement>, option?: IDropdownOption) => onChange("includeCategory", option?.key || "")}
-                aria-labelledby={includeCategoryId}
-                options={[
-                    { key: "", text: t("labels.includeCategoryOptions.all") }
-                    // { key: "example", text: "Example Category" } // Add more categories as needed
-                ]}
-                onRenderLabel={props => renderLabel(props, includeCategoryId, includeCategoryFieldId, t("helpTexts.includeCategory"))}
-            />
-            <TextField
-                id={excludeCategoryFieldId}
-                className={styles.settingsSeparator}
-                label={t("labels.excludeCategory")}
-                defaultValue={excludeCategory}
-                onChange={(_ev, val) => onChange("excludeCategory", val || "")}
-                aria-labelledby={excludeCategoryId}
-                onRenderLabel={props => renderLabel(props, excludeCategoryId, excludeCategoryFieldId, t("helpTexts.excludeCategory"))}
-            />
-            {showSemanticRankerOption && !useAgenticKnowledgeBase && (
-                <>
-                    <Checkbox
-                        id={semanticRankerFieldId}
-                        className={styles.settingsSeparator}
-                        checked={useSemanticRanker}
-                        label={t("labels.useSemanticRanker")}
-                        onChange={(_ev, checked) => onChange("useSemanticRanker", !!checked)}
-                        aria-labelledby={semanticRankerId}
-                        onRenderLabel={props => renderLabel(props, semanticRankerId, semanticRankerFieldId, t("helpTexts.useSemanticReranker"))}
-                    />
 
-                    <Checkbox
-                        id={semanticCaptionsFieldId}
-                        className={styles.settingsSeparator}
-                        checked={useSemanticCaptions}
-                        label={t("labels.useSemanticCaptions")}
-                        onChange={(_ev, checked) => onChange("useSemanticCaptions", !!checked)}
-                        disabled={!useSemanticRanker}
-                        aria-labelledby={semanticCaptionsId}
-                        onRenderLabel={props => renderLabel(props, semanticCaptionsId, semanticCaptionsFieldId, t("helpTexts.useSemanticCaptions"))}
-                    />
-                </>
-            )}
             {showQueryRewritingOption && !useAgenticKnowledgeBase && (
                 <>
                     <Checkbox
@@ -366,34 +357,9 @@ export const Settings = ({
                     onRenderLabel={props => renderLabel(props, queryRewritingFieldId, queryRewritingFieldId, t("helpTexts.reasoningEffort"))}
                 />
             )}
-            {showVectorOption && !useAgenticKnowledgeBase && (
-                <>
-                    <VectorSettings
-                        defaultRetrievalMode={retrievalMode}
-                        defaultSearchTextEmbeddings={searchTextEmbeddings}
-                        defaultSearchImageEmbeddings={searchImageEmbeddings}
-                        showImageOptions={showMultimodalOptions}
-                        updateRetrievalMode={val => onChange("retrievalMode", val)}
-                        updateSearchTextEmbeddings={val => onChange("searchTextEmbeddings", val)}
-                        updateSearchImageEmbeddings={val => onChange("searchImageEmbeddings", val)}
-                    />
-                </>
-            )}
 
             {!useWebSource && (
                 <>
-                    <h3 className={styles.sectionHeader}>{t("llmSettings")}</h3>
-                    <TextField
-                        id={promptTemplateFieldId}
-                        className={styles.settingsSeparator}
-                        defaultValue={promptTemplate}
-                        label={t("labels.promptTemplate")}
-                        multiline
-                        autoAdjustHeight
-                        onChange={(_ev, val) => onChange("promptTemplate", val || "")}
-                        aria-labelledby={promptTemplateId}
-                        onRenderLabel={props => renderLabel(props, promptTemplateId, promptTemplateFieldId, t("helpTexts.promptTemplate"))}
-                    />
                     <TextField
                         id={temperatureFieldId}
                         className={styles.settingsSeparator}
@@ -406,16 +372,6 @@ export const Settings = ({
                         onChange={(_ev, val) => onChange("temperature", parseFloat(val || "0"))}
                         aria-labelledby={temperatureId}
                         onRenderLabel={props => renderLabel(props, temperatureId, temperatureFieldId, t("helpTexts.temperature"))}
-                    />
-                    <TextField
-                        id={seedFieldId}
-                        className={styles.settingsSeparator}
-                        label={t("labels.seed")}
-                        type="text"
-                        defaultValue={seed?.toString() || ""}
-                        onChange={(_ev, val) => onChange("seed", val ? parseInt(val) : null)}
-                        aria-labelledby={seedId}
-                        onRenderLabel={props => renderLabel(props, seedId, seedFieldId, t("helpTexts.seed"))}
                     />
 
                     {showMultimodalOptions && !useAgenticKnowledgeBase && (

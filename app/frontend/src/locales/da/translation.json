@@ -158,6 +158,6 @@
         "useSharePointSource": "Udvid hentning med SharePoint-indhold sammen med dit indekserede datasæt."
     },
     "overallSettings": "Overordnede indstillinger",
-    "searchSettings": "Søgeindstillinger",
-    "llmSettings": "LLM-indstillinger"
+    "basicSettings": "Søgeindstillinger",
+    "advancedSettings": "LLM-indstillinger"
 }

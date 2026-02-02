@@ -178,6 +178,6 @@
     },
 
     "overallSettings": "Algemene instellingen",
-    "searchSettings": "Zoekinstellingen",
-    "llmSettings": "LLM-instellingen"
+    "basicSettings": "Zoekinstellingen",
+    "advancedSettings": "LLM-instellingen"
 }

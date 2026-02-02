@@ -175,6 +175,6 @@
         "useSharePointSource": "インデックス化されたデータセットと並行してSharePointコンテンツで検索を拡張します。"
     },
     "overallSettings": "全体設定",
-    "searchSettings": "検索設定",
-    "llmSettings": "LLM設定"
+    "basicSettings": "検索設定",
+    "advancedSettings": "LLM設定"
 }

@@ -178,6 +178,6 @@
     },
 
     "overallSettings": "Genel ayarlar",
-    "searchSettings": "Arama ayarları",
-    "llmSettings": "LLM ayarları"
+    "basicSettings": "Arama ayarları",
+    "advancedSettings": "LLM ayarları"
 }

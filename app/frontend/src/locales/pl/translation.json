@@ -178,6 +178,6 @@
     },
 
     "overallSettings": "Overall settings",
-    "searchSettings": "Search settings",
-    "llmSettings": "LLM settings"
+    "basicSettings": "Search settings",
+    "advancedSettings": "LLM settings"
 }

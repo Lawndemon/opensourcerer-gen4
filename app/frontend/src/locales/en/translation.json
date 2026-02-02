@@ -31,7 +31,7 @@
         "errorDeleting": "Error deleting.",
         "fileDeleted": "File deleted"
     },
-    "developerSettings": "Developer settings",
+    "developerSettings": "Settings",
 
     "chatEmptyStateTitle": "Chat with the Emergency Response Plan AI",
     "chatEmptyStateSubtitle": "Ask anything or try an example",
@@ -78,7 +78,7 @@
         "headerText": "Configure answer generation",
         "closeButton": "Close",
         "promptTemplate": "Override prompt template",
-        "temperature": "Temperature",
+        "temperature": "Temperature (Creativity)",
         "seed": "Seed",
         "minimumSearchScore": "Minimum search score",
         "minimumRerankerScore": "Minimum reranker score",
@@ -89,9 +89,18 @@
             "low": "Low",
             "medium": "Medium"
         },
-        "includeCategory": "Include category",
+        "persona": "Select Role",
+        "includeCategory": "Included Sources",
         "includeCategoryOptions": {
-            "all": "All"
+            "all": "All",
+            "federal": "Federal",
+            "fireBehaviour": "Fire Behaviour",
+            "industry": "Industry",
+            "municipal": "Municipal",
+            "nfpa": "NFPA",
+            "regional": "Regional",
+            "risk": "Risk",
+            "staffing": "Staffing"
         },
         "excludeCategory": "Exclude category",
         "useSemanticRanker": "Use semantic ranker for retrieval",
@@ -176,6 +185,6 @@
     },
 
     "overallSettings": "Overall settings",
-    "searchSettings": "Search settings",
-    "llmSettings": "LLM settings"
+    "basicSettings": "Basic Settings",
+    "advancedSettings": "Advanced settings"
 }

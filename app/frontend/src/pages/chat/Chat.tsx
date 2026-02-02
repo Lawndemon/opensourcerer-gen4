@@ -30,11 +30,11 @@ const Chat = () => {
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
     const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
     const [promptTemplate, setPromptTemplate] = useState<string>("");
-    const [temperature, setTemperature] = useState<number>(0.3);
+    const [temperature, setTemperature] = useState<number>(0.7);
     const [seed, setSeed] = useState<number | null>(null);
     const [minimumRerankerScore, setMinimumRerankerScore] = useState<number>(1.9);
-    const [minimumSearchScore, setMinimumSearchScore] = useState<number>(0);
-    const [retrieveCount, setRetrieveCount] = useState<number>(3);
+    const [minimumSearchScore, setMinimumSearchScore] = useState<number>(0.019);
+    const [retrieveCount, setRetrieveCount] = useState<number>(7);
     const [agenticReasoningEffort, setRetrievalReasoningEffort] = useState<string>("minimal");
     const [retrievalMode, setRetrievalMode] = useState<RetrievalMode>(RetrievalMode.Hybrid);
     const [useSemanticRanker, setUseSemanticRanker] = useState<boolean>(true);
@@ -44,16 +44,16 @@ const Chat = () => {
     const [shouldStream, setShouldStream] = useState<boolean>(true);
     const previousShouldStreamRef = useRef<boolean>(true);
     const forcedStreamingRef = useRef<boolean>(false);
-    const [useSemanticCaptions, setUseSemanticCaptions] = useState<boolean>(false);
-    const [includeCategory, setIncludeCategory] = useState<string>("");
+    const [useSemanticCaptions, setUseSemanticCaptions] = useState<boolean>(true);
+    const [includeCategory, setIncludeCategory] = useState<string>("Federal,Fire Behaviour,Industry,Municipal,NFPA,Regional,Risk,Staffing");
     const [excludeCategory, setExcludeCategory] = useState<string>("");
-    const [useSuggestFollowupQuestions, setUseSuggestFollowupQuestions] = useState<boolean>(false);
+    const [useSuggestFollowupQuestions, setUseSuggestFollowupQuestions] = useState<boolean>(true);
     const [searchTextEmbeddings, setSearchTextEmbeddings] = useState<boolean>(true);
     const [searchImageEmbeddings, setSearchImageEmbeddings] = useState<boolean>(false);
     const [sendTextSources, setSendTextSources] = useState<boolean>(true);
     const [sendImageSources, setSendImageSources] = useState<boolean>(false);
 
-    const [persona, setPersona] = useState<string>("default");
+    const [persona, setPersona] = useState<string>("General Support");
 
     const lastQuestionRef = useRef<string>("");
     const chatMessageStreamEnd = useRef<HTMLDivElement | null>(null);
@@ -271,10 +271,9 @@ const Chat = () => {
                 context: {
                     overrides: {
                         prompt_template: promptTemplate.length === 0 ? undefined : promptTemplate,
-                        include_category: includeCategory.length === 0 ? undefined : includeCategory,
+                        include_category: includeCategory, // Correctly pass the state string
                         exclude_category: excludeCategory.length === 0 ? undefined : excludeCategory,
                         top: retrieveCount,
-                        ...(useAgenticKnowledgeBase ? { retrieval_reasoning_effort: agenticReasoningEffort } : {}),
                         temperature: temperature,
                         minimum_reranker_score: minimumRerankerScore,
                         minimum_search_score: minimumSearchScore,
@@ -536,14 +535,6 @@ const Chat = () => {
                     )}
                 </div>
                 <div className={styles.commandsContainer}>
-                    <div className={styles.personaDropdownContainer}>
-                        <select className={styles.personaSelect} value={persona} onChange={e => setPersona(e.target.value)}>
-                            <option value="default">General Assistant</option>
-                            <option value="firefighter">Firefighter</option>
-                            <option value="police">Police Officer</option>
-                            <option value="coordinator">Emergency Coordinator</option>
-                        </select>
-                    </div>
                     <ClearChatButton className={styles.commandButton} onClick={clearChat} disabled={!lastQuestionRef.current || isLoading} />
                     {showUserUpload && <UploadFile className={styles.commandButton} disabled={!loggedIn} />}
                     <SettingsButton className={styles.commandButton} onClick={() => setIsConfigPanelOpen(!isConfigPanelOpen)} />
@@ -684,6 +675,7 @@ const Chat = () => {
                         temperature={temperature}
                         retrieveCount={retrieveCount}
                         agenticReasoningEffort={agenticReasoningEffort}
+                        persona={persona}
                         seed={seed}
                         minimumSearchScore={minimumSearchScore}
                         minimumRerankerScore={minimumRerankerScore}

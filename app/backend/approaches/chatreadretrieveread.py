@@ -352,9 +352,9 @@ class ChatReadRetrieveReadApproach(Approach):
         use_semantic_ranker = True if overrides.get("semantic_ranker") else False
         use_semantic_captions = True if overrides.get("semantic_captions") else False
         use_query_rewriting = True if overrides.get("query_rewriting") else False
-        top = overrides.get("top", 3)
-        minimum_search_score = overrides.get("minimum_search_score", 0.0)
-        minimum_reranker_score = overrides.get("minimum_reranker_score", 0.0)
+        top = overrides.get("top", 7)
+        minimum_search_score = overrides.get("minimum_search_score", 0.019)
+        minimum_reranker_score = overrides.get("minimum_reranker_score", 1.9)
         search_index_filter = self.build_filter(overrides)
         access_token = auth_claims.get("access_token")
         send_text_sources = overrides.get("send_text_sources", True)

@@ -178,6 +178,6 @@
     },
 
     "overallSettings": "Configurações gerais",
-    "searchSettings": "Configurações de pesquisa",
-    "llmSettings": "Configurações LLM"
+    "basicSettings": "Configurações de pesquisa",
+    "advancedSettings": "Configurações LLM"
 }
