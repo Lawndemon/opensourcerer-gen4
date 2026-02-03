@@ -53,7 +53,7 @@ const Chat = () => {
     const [sendTextSources, setSendTextSources] = useState<boolean>(true);
     const [sendImageSources, setSendImageSources] = useState<boolean>(false);
 
-    const [persona, setPersona] = useState<string>("General Support");
+    const [persona, setPersona] = useState<string>("default");
 
     const lastQuestionRef = useRef<string>("");
     const chatMessageStreamEnd = useRef<HTMLDivElement | null>(null);
@@ -283,13 +283,13 @@ const Chat = () => {
                         query_rewriting: useQueryRewriting,
                         reasoning_effort: reasoningEffort,
                         suggest_followup_questions: useSuggestFollowupQuestions,
+                        persona: persona,
                         search_text_embeddings: searchTextEmbeddings,
                         search_image_embeddings: searchImageEmbeddings,
                         send_text_sources: sendTextSources,
                         send_image_sources: sendImageSources,
                         language: i18n.language,
                         use_agentic_knowledgebase: useAgenticKnowledgeBase,
-                        persona: persona,
                         use_web_source: webSourceSupported ? webSourceEnabled : false,
                         use_sharepoint_source: sharePointSourceSupported ? sharePointSourceEnabled : false,
                         ...(seed !== null ? { seed: seed } : {})
@@ -374,6 +374,9 @@ const Chat = () => {
         switch (field) {
             case "promptTemplate":
                 setPromptTemplate(value);
+                break;
+            case "persona": // FIX: Added handler for persona state update
+                setPersona(value);
                 break;
             case "temperature":
                 setTemperature(value);
@@ -529,6 +532,11 @@ const Chat = () => {
                 <title>{t("pageTitle")}</title>
             </Helmet>
             <div className={styles.commandsSplitContainer}>
+                <div className={styles.commandsContainer}>
+                    {((useLogin && showChatHistoryCosmos) || showChatHistoryBrowser) && (
+                        <HistoryButton className={styles.commandButton} onClick={() => setIsHistoryPanelOpen(!isHistoryPanelOpen)} />
+                    )}
+                </div>
                 <div className={styles.commandsContainer}>
                     <ClearChatButton className={styles.commandButton} onClick={clearChat} disabled={!lastQuestionRef.current || isLoading} />
                     {showUserUpload && <UploadFile className={styles.commandButton} disabled={!loggedIn} />}

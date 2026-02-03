@@ -154,16 +154,16 @@ export const Settings = ({
                 selectedKey={persona}
                 onChange={(_ev, option) => onChange("persona", option?.key)}
                 options={[
-                    { key: "default", text: "General Assistant" },
-                    { key: "Firefighter", text: "Firefighter" },
-                    { key: "Police", text: "Police Officer" },
-                    { key: "IMT", text: "Incident Management Team (IMT)" },
-                    { key: "Safety Chief", text: "Safety Chief" }
+                    { key: "default", text: "General Support" },
+                    { key: "firefighter", text: "Firefighter" },
+                    { key: "police", text: "Police Officer" },
+                    { key: "coordinator", text: "Incident Management Team (IMT)" },
+                    { key: "fire_chief", text: "Fire Chief" }
                 ]}
                 styles={{ dropdown: { width: "100%" } }}
             />
 
-            <Dropdown
+            {/* <Dropdown
                 id={includeCategoryFieldId}
                 className={styles.settingsSeparator}
                 label={t("labels.includeCategory")}
@@ -192,6 +192,7 @@ export const Settings = ({
                 ]}
                 onRenderLabel={props => renderLabel(props, includeCategoryId, includeCategoryFieldId, t("helpTexts.includeCategory"))}
             />
+            */}
 
             <h3 className={styles.sectionHeader}>{t("advancedSettings")}</h3>
 
