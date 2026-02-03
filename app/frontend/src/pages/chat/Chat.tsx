@@ -271,8 +271,8 @@ const Chat = () => {
                 context: {
                     overrides: {
                         prompt_template: promptTemplate.length === 0 ? undefined : promptTemplate,
-                        include_category: includeCategory, // Correctly pass the state string
-                        exclude_category: excludeCategory.length === 0 ? undefined : excludeCategory,
+                        //include_category: includeCategory, // Correctly pass the state string
+                        //exclude_category: excludeCategory.length === 0 ? undefined : excludeCategory,
                         top: retrieveCount,
                         temperature: temperature,
                         minimum_reranker_score: minimumRerankerScore,
@@ -529,11 +529,6 @@ const Chat = () => {
                 <title>{t("pageTitle")}</title>
             </Helmet>
             <div className={styles.commandsSplitContainer}>
-                <div className={styles.commandsContainer}>
-                    {((useLogin && showChatHistoryCosmos) || showChatHistoryBrowser) && (
-                        <HistoryButton className={styles.commandButton} onClick={() => setIsHistoryPanelOpen(!isHistoryPanelOpen)} />
-                    )}
-                </div>
                 <div className={styles.commandsContainer}>
                     <ClearChatButton className={styles.commandButton} onClick={clearChat} disabled={!lastQuestionRef.current || isLoading} />
                     {showUserUpload && <UploadFile className={styles.commandButton} disabled={!loggedIn} />}

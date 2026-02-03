@@ -100,11 +100,11 @@ class ChatReadRetrieveReadApproach(Approach):
         self.use_sharepoint_source = use_sharepoint_source
         self.retrieval_reasoning_effort = retrieval_reasoning_effort
         self.persona_prompts = {
-            "Firefighter": "You are a tactical assistant for firefighters. Focus on HAZMAT, structural safety, and rapid evacuation protocols.",
-            "Police": "You are a tactical assistant for law enforcement. Focus on perimeter control and public safety protocols.",
-            "Incident Management Team (IMT)": "You are a Command Assistant. Focus on logistics and multi-agency coordination.",
-            "Fire Chief": "You are a Safety Officer Assistant. Focus on risk assessment and mitigation strategies.",
-            "General Support": "You are an emergency response assistant helping users find information."
+            "firefighter": "You are a tactical assistant for firefighters. Focus on HAZMAT, structural safety, and rapid evacuation protocols.",
+            "police": "You are a tactical assistant for law enforcement. Focus on perimeter control and public safety protocols.",
+            "coordinator": "You are a Command Assistant. Focus on logistics and multi-agency coordination.",
+            "fire_chief": "You are a Safety Officer Assistant. Focus on risk assessment and mitigation strategies.",
+            "default": "You are an emergency response assistant helping users find information."
         }
 
     def extract_followup_questions(self, content: Optional[str]):
@@ -282,6 +282,9 @@ class ChatReadRetrieveReadApproach(Approach):
         else:
             extra_info = await self.run_search_approach(messages, overrides, auth_claims)
 
+        persona_key = overrides.get("persona", "default")
+        persona_instruction = self.persona_prompts.get(persona_key, self.persona_prompts["default"])
+
         if extra_info.answer:
             # If agentic retrieval already provided an answer, skip final call to LLM
             async def return_answer() -> ChatCompletion:
@@ -303,9 +306,6 @@ class ChatReadRetrieveReadApproach(Approach):
                 )
 
             return (extra_info, return_answer())
-
-        persona_key = overrides.get("persona", "default")
-        persona_instruction = self.persona_prompts.get(persona_key, self.persona_prompts["default"])
 
         messages = self.prompt_manager.render_prompt(
             self.answer_prompt,

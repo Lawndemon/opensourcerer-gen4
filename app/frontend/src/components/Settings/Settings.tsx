@@ -149,7 +149,6 @@ export const Settings = ({
     return (
         <div className={className}>
             <h3 className={styles.sectionHeader}>{t("basicSettings")}</h3>
-
             <Dropdown
                 label="Select Role"
                 selectedKey={persona}
@@ -158,7 +157,7 @@ export const Settings = ({
                     { key: "default", text: "General Assistant" },
                     { key: "Firefighter", text: "Firefighter" },
                     { key: "Police", text: "Police Officer" },
-                    { key: "Incident Management Team (IMT)", text: "Emergency Coordinator" },
+                    { key: "IMT", text: "Incident Management Team (IMT)" },
                     { key: "Safety Chief", text: "Safety Chief" }
                 ]}
                 styles={{ dropdown: { width: "100%" } }}
