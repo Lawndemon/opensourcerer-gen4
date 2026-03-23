@@ -51,7 +51,7 @@
       "value": "${AZURE_DOCUMENTINTELLIGENCE_SKU=S0}"
     },
     "documentIntelligenceResourceGroupLocation": {
-      "value": "${AZURE_DOCUMENTINTELLIGENCE_LOCATION}"
+      "value": "${AZURE_DOCUMENTINTELLIGENCE_LOCATION=canadacentral}"
     },
     "searchIndexName": {
       "value": "${AZURE_SEARCH_INDEX=gptkbindex}"
@@ -63,7 +63,7 @@
       "value": "${AZURE_SEARCH_SERVICE_RESOURCE_GROUP}"
     },
     "searchServiceLocation": {
-      "value": "${AZURE_SEARCH_SERVICE_LOCATION}"
+      "value": "${AZURE_SEARCH_SERVICE_LOCATION=canadacentral}"
     },
     "searchServiceSkuName": {
       "value": "${AZURE_SEARCH_SERVICE_SKU=basic}"
@@ -123,22 +123,22 @@
       "value": "${AZURE_OPENAI_CHATGPT_DEPLOYMENT_CAPACITY}"
     },
     "embeddingModelName": {
-      "value": "${AZURE_OPENAI_EMB_MODEL_NAME}"
+      "value": "${AZURE_OPENAI_EMB_MODEL_NAME=text-embedding-3-large}"
     },
     "embeddingDeploymentName": {
-      "value": "${AZURE_OPENAI_EMB_DEPLOYMENT}"
+      "value": "${AZURE_OPENAI_EMB_DEPLOYMENT=embedding}"
     },
     "embeddingDeploymentVersion": {
-      "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_VERSION}"
+      "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_VERSION=1}"
     },
     "embeddingDeploymentSkuName": {
-      "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_SKU}"
+      "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_SKU=Standard}"
     },
     "embeddingDeploymentCapacity": {
-      "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_CAPACITY}"
+      "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_CAPACITY=10}"
     },
     "embeddingDimensions": {
-      "value": "${AZURE_OPENAI_EMB_DIMENSIONS}"
+      "value": "${AZURE_OPENAI_EMB_DIMENSIONS=3072}"
     },
     "evalModelName": {
       "value": "${AZURE_OPENAI_EVAL_MODEL}"
@@ -357,7 +357,7 @@
       "value": "${RAG_SEARCH_TEXT_EMBEDDINGS=true}"
     },
     "ragSearchImageEmbeddings": {
-      "value": "${RAG_SEARCH_IMAGE_EMBEDDINGS=true}"
+      "value": "${RAG_SEARCH_IMAGE_EMBEDDINGS=false}"
     },
     "ragSendTextSources": {
       "value": "${RAG_SEND_TEXT_SOURCES=true}"
