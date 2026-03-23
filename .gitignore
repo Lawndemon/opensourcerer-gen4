@@ -155,5 +155,6 @@ app/functions/*/prepdocslib/
 app/functions/*/requirements.txt
 
 data/**/*.md5
+data/
 
 .DS_Store
