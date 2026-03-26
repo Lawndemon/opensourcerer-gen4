@@ -34,16 +34,20 @@ import { TokenClaimsDisplay } from "../../components/TokenClaimsDisplay";
 import { LoginContext } from "../../loginContext";
 import { LanguagePicker } from "../../i18n/LanguagePicker";
 import { Settings } from "../../components/Settings/Settings";
+import { RoleSelection } from "../../components/RoleSelection/RoleSelection";
+import { getRoleById, EmergencyRole } from "../../components/RoleSelection/roles";
 
 const Chat = () => {
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
     const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
+    const [selectedRole, setSelectedRole] = useState<string | null>(null);
+    const [activeRoleData, setActiveRoleData] = useState<EmergencyRole | null>(null);
     const [promptTemplate, setPromptTemplate] = useState<string>("");
     const [temperature, setTemperature] = useState<number>(0.3);
     const [seed, setSeed] = useState<number | null>(null);
     const [minimumRerankerScore, setMinimumRerankerScore] = useState<number>(1.9);
-    const [minimumSearchScore, setMinimumSearchScore] = useState<number>(0);
-    const [retrieveCount, setRetrieveCount] = useState<number>(3);
+    const [minimumSearchScore, setMinimumSearchScore] = useState<number>(0.19);
+    const [retrieveCount, setRetrieveCount] = useState<number>(10);
     const [agenticReasoningEffort, setRetrievalReasoningEffort] = useState<string>("minimal");
     const [retrievalMode, setRetrievalMode] = useState<RetrievalMode>(RetrievalMode.Hybrid);
     const [useSemanticRanker, setUseSemanticRanker] = useState<boolean>(true);
@@ -56,7 +60,7 @@ const Chat = () => {
     const [useSemanticCaptions, setUseSemanticCaptions] = useState<boolean>(false);
     const [includeCategory, setIncludeCategory] = useState<string>("");
     const [excludeCategory, setExcludeCategory] = useState<string>("");
-    const [useSuggestFollowupQuestions, setUseSuggestFollowupQuestions] = useState<boolean>(false);
+    const [useSuggestFollowupQuestions, setUseSuggestFollowupQuestions] = useState<boolean>(true);
     const [searchTextEmbeddings, setSearchTextEmbeddings] = useState<boolean>(true);
     const [searchImageEmbeddings, setSearchImageEmbeddings] = useState<boolean>(false);
     const [sendTextSources, setSendTextSources] = useState<boolean>(true);
@@ -366,6 +370,25 @@ const Chat = () => {
         setRestoredQuestion("");
     };
 
+    const handleRoleSelect = (roleId: string) => {
+        const role = getRoleById(roleId);
+        if (!role) return;
+        setSelectedRole(roleId);
+        setActiveRoleData(role);
+        setPromptTemplate(role.prompt);
+        // Clear any existing conversation so the new role context applies cleanly
+        lastQuestionRef.current = "";
+        error && setError(undefined);
+        setActiveCitation(undefined);
+        setActiveAnalysisPanelTab(undefined);
+        setAnswers([]);
+        setSpeechUrls([]);
+        setStreamedAnswers([]);
+        setIsLoading(false);
+        setIsStreaming(false);
+        setRestoredQuestion("");
+    };
+
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "smooth" }), [isLoading]);
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "auto" }), [streamedAnswers]);
     useEffect(() => {
@@ -379,6 +402,9 @@ const Chat = () => {
 
     const handleSettingsChange = (field: string, value: any) => {
         switch (field) {
+            case "selectedRole":
+                handleRoleSelect(value);
+                break;
             case "promptTemplate":
                 setPromptTemplate(value);
                 break;
@@ -531,6 +557,9 @@ const Chat = () => {
 
     return (
         <div className={styles.container}>
+            {/* Forced role selection — shown until the user picks a role for this session */}
+            {!selectedRole && <RoleSelection onRoleSelected={handleRoleSelect} />}
+
             {/* Setting the page title using react-helmet-async */}
             <Helmet>
                 <title>{t("pageTitle")}</title>
@@ -557,7 +586,11 @@ const Chat = () => {
                             <h2 className={styles.chatEmptyStateSubtitle}>{t("chatEmptyStateSubtitle")}</h2>
                             {showLanguagePicker && <LanguagePicker onLanguageChange={newLang => i18n.changeLanguage(newLang)} />}
 
-                            <ExampleList onExampleClicked={onExampleClicked} useMultimodalAnswering={showMultimodalOptions} />
+                            <ExampleList
+                                onExampleClicked={onExampleClicked}
+                                useMultimodalAnswering={showMultimodalOptions}
+                                roleExamples={activeRoleData?.examples}
+                            />
                         </div>
                     ) : (
                         <div className={styles.chatMessageStream}>
@@ -688,11 +721,13 @@ const Chat = () => {
                                 />
                             }
                         >
-                            {t("labels.headerText")}
+                            Advanced Settings
                         </DrawerHeaderTitle>
                     </DrawerHeader>
                     <DrawerBody>
                         <Settings
+                            selectedRole={selectedRole ?? undefined}
+                            onRoleChange={roleId => handleSettingsChange("selectedRole", roleId)}
                             promptTemplate={promptTemplate}
                             temperature={temperature}
                             retrieveCount={retrieveCount}

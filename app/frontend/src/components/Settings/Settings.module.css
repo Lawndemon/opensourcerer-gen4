@@ -2,6 +2,38 @@
     margin-top: 0.75rem;
 }
 
+.sectionHeader {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #94b8d8;
+    margin: 1.25rem 0 0.5rem 0;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid #1e3a52;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.settingsDropdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+}
+
+.settingsLabel {
+    font-size: 0.875rem;
+    color: #94b8d8;
+    font-weight: 400;
+}
+
+.roleHint {
+    font-size: 0.75rem;
+    color: #5a7a95;
+    margin: 0.25rem 0 0 0;
+    line-height: 1.4;
+    font-style: italic;
+}
+
 .settingsField {
     display: flex;
     flex-direction: column;

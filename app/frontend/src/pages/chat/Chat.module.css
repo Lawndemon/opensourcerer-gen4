@@ -36,9 +36,13 @@
     margin-bottom: 0.5rem;
 }
 
+.chatEmptyStateTitle {
+    color: #e8f0f8;
+}
+
 .chatEmptyStateSubtitle {
     font-weight: 400;
-    color: #616161;
+    color: #94b8d8;
     margin-bottom: 1.5rem;
 }
 
@@ -70,7 +74,7 @@
     padding: 1rem;
     width: 100%;
     max-width: 64.25rem;
-    background: #f2f2f2;
+    background: #0a1628;
 }
 
 .chatAnalysisPanel {

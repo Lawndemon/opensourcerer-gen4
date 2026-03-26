@@ -1,6 +1,6 @@
 {
-    "pageTitle": "Azure OpenAI + AI Search",
-    "headerTitle": "Azure OpenAI + AI Search",
+    "pageTitle": "Emergency Response Assistant",
+    "headerTitle": "Emergency Response Assistant",
     "chat": "Chat",
     "login": "Login",
     "logout": "Logout",
@@ -33,8 +33,8 @@
     },
     "developerSettings": "Developer settings",
 
-    "chatEmptyStateTitle": "Chat with your data",
-    "chatEmptyStateSubtitle": "Ask anything or try an example",
+    "chatEmptyStateTitle": "How can I help?",
+    "chatEmptyStateSubtitle": "Ask anything or start with a prompt below",
     "defaultExamples": {
         "1": "What is included in my Northwind Health Plus plan that is not in standard?",
         "2": "What happens in a performance review?",

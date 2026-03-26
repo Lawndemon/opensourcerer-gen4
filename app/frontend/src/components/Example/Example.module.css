@@ -14,8 +14,8 @@
 
 .example {
     word-break: break-word;
-    background: white;
-    border: 1px solid #e0e0e0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #1e3a52;
     border-radius: 0.75rem;
     display: flex;
     flex-direction: column;
@@ -28,8 +28,9 @@
 }
 
 .example:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border-color: rgba(115, 118, 225, 0.6);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    border-color: rgba(100, 160, 220, 0.6);
+    background: rgba(255, 255, 255, 0.08);
     transform: translateY(-2px);
 }
 
@@ -38,7 +39,7 @@
     font-size: 0.9375rem;
     padding: 0.875rem 1rem;
     line-height: 1.5;
-    color: #424242;
+    color: #94b8d8;
 }
 
 .examplesNavList li {

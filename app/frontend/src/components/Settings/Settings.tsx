@@ -1,13 +1,16 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Input, Textarea, Checkbox, Dropdown, Option } from "@fluentui/react-components";
+import { Input, Checkbox, Dropdown, Option } from "@fluentui/react-components";
 import type { OptionOnSelectData, SelectionEvents } from "@fluentui/react-components";
 import { HelpCallout } from "../HelpCallout";
 import { VectorSettings } from "../VectorSettings";
 import { RetrievalMode } from "../../api";
+import { EMERGENCY_ROLES } from "../RoleSelection/roles";
 import styles from "./Settings.module.css";
 
 export interface SettingsProps {
+    selectedRole?: string;
+    onRoleChange?: (roleId: string) => void;
     promptTemplate: string;
     temperature: number;
     retrieveCount: number;
@@ -51,6 +54,8 @@ export interface SettingsProps {
 }
 
 export const Settings = ({
+    selectedRole,
+    onRoleChange,
     promptTemplate,
     temperature,
     retrieveCount,
@@ -95,12 +100,8 @@ export const Settings = ({
     const { t } = useTranslation();
 
     // Form field IDs
-    const promptTemplateId = useId();
-    const promptTemplateFieldId = useId();
     const temperatureId = useId();
     const temperatureFieldId = useId();
-    const seedId = useId();
-    const seedFieldId = useId();
     const agenticRetrievalId = useId();
     const agenticRetrievalFieldId = useId();
     const webSourceId = useId();
@@ -119,19 +120,12 @@ export const Settings = ({
     const includeCategoryFieldId = useId();
     const excludeCategoryId = useId();
     const excludeCategoryFieldId = useId();
-    const semanticRankerId = useId();
-    const semanticRankerFieldId = useId();
     const queryRewritingId = useId();
     const queryRewritingFieldId = useId();
     const reasoningEffortId = useId();
     const reasoningEffortFieldId = useId();
     const semanticCaptionsId = useId();
     const semanticCaptionsFieldId = useId();
-    const shouldStreamId = useId();
-    const shouldStreamFieldId = useId();
-    const suggestFollowupQuestionsId = useId();
-    const suggestFollowupQuestionsFieldId = useId();
-
     const webSourceDisablesStreamingAndFollowup = !!useWebSource;
 
     const retrievalReasoningOptions: { key: string; text: string }[] = [
@@ -140,43 +134,40 @@ export const Settings = ({
         { key: "medium", text: t("labels.agenticReasoningEffortOptions.medium") }
     ];
 
+    const roleId = useId();
+    const roleFieldId = useId();
+
     return (
         <div className={className}>
-            {streamingEnabled && (
-                <>
-                    <div className={styles.settingsCheckbox}>
-                        <Checkbox
-                            id={shouldStreamFieldId}
-                            checked={webSourceDisablesStreamingAndFollowup ? false : shouldStream}
-                            onChange={(_ev, data) => onChange("shouldStream", !!data.checked)}
-                            aria-labelledby={shouldStreamId}
-                            disabled={webSourceDisablesStreamingAndFollowup}
-                        />
-                        <HelpCallout
-                            labelId={shouldStreamId}
-                            fieldId={shouldStreamFieldId}
-                            helpText={t("helpTexts.streamChat")}
-                            label={t("labels.shouldStream")}
-                        />
-                    </div>
-
-                    <div className={styles.settingsCheckbox}>
-                        <Checkbox
-                            id={suggestFollowupQuestionsFieldId}
-                            checked={webSourceDisablesStreamingAndFollowup ? false : useSuggestFollowupQuestions}
-                            onChange={(_ev, data) => onChange("useSuggestFollowupQuestions", !!data.checked)}
-                            aria-labelledby={suggestFollowupQuestionsId}
-                            disabled={webSourceDisablesStreamingAndFollowup}
-                        />
-                        <HelpCallout
-                            labelId={suggestFollowupQuestionsId}
-                            fieldId={suggestFollowupQuestionsFieldId}
-                            helpText={t("helpTexts.suggestFollowupQuestions")}
-                            label={t("labels.useSuggestFollowupQuestions")}
-                        />
-                    </div>
-                </>
-            )}
+            {/* ── Active Role ── */}
+            <h3 className={styles.sectionHeader}>Active Role</h3>
+            <div className={styles.settingsDropdown}>
+                <label id={roleId} htmlFor={roleFieldId} className={styles.settingsLabel}>
+                    ICS Role
+                </label>
+                <Dropdown
+                    id={roleFieldId}
+                    aria-labelledby={roleId}
+                    value={EMERGENCY_ROLES.find(r => r.id === selectedRole)?.label ?? "— select a role —"}
+                    selectedOptions={selectedRole ? [selectedRole] : []}
+                    onOptionSelect={(_ev: SelectionEvents, data: OptionOnSelectData) => {
+                        if (onRoleChange && data.optionValue) {
+                            onRoleChange(data.optionValue);
+                        }
+                    }}
+                >
+                    {EMERGENCY_ROLES.map(role => (
+                        <Option key={role.id} value={role.id} text={role.label}>
+                            {role.label}
+                        </Option>
+                    ))}
+                </Dropdown>
+                {selectedRole && (
+                    <p className={styles.roleHint}>
+                        {EMERGENCY_ROLES.find(r => r.id === selectedRole)?.description}
+                    </p>
+                )}
+            </div>
 
             <h3 className={styles.sectionHeader}>{t("searchSettings")}</h3>
 
@@ -287,7 +278,7 @@ export const Settings = ({
                             id={searchScoreFieldId}
                             type="number"
                             min={0}
-                            step={0.01}
+                            step={0.1}
                             defaultValue={minimumSearchScore.toString()}
                             onChange={(_ev, data) => onChange("minimumSearchScore", parseFloat(data.value || "0"))}
                             aria-labelledby={searchScoreId}
@@ -338,6 +329,24 @@ export const Settings = ({
                             aria-labelledby={retrieveCountId}
                         />
                     </div>
+                    <div className={styles.settingsField}>
+                        <HelpCallout
+                            labelId={temperatureId}
+                            fieldId={temperatureFieldId}
+                            helpText={t("helpTexts.temperature")}
+                            label={t("labels.temperature")}
+                        />
+                        <Input
+                            id={temperatureFieldId}
+                            type="number"
+                            min={0}
+                            max={1}
+                            step={0.1}
+                            defaultValue={temperature.toString()}
+                            onChange={(_ev, data) => onChange("temperature", parseFloat(data.value || "0"))}
+                            aria-labelledby={temperatureId}
+                        />
+                    </div>
                 </>
             )}
             <div className={styles.settingsField}>
@@ -375,25 +384,9 @@ export const Settings = ({
                 <>
                     <div className={styles.settingsCheckbox}>
                         <Checkbox
-                            id={semanticRankerFieldId}
-                            checked={useSemanticRanker}
-                            onChange={(_ev, data) => onChange("useSemanticRanker", !!data.checked)}
-                            aria-labelledby={semanticRankerId}
-                        />
-                        <HelpCallout
-                            labelId={semanticRankerId}
-                            fieldId={semanticRankerFieldId}
-                            helpText={t("helpTexts.useSemanticReranker")}
-                            label={t("labels.useSemanticRanker")}
-                        />
-                    </div>
-
-                    <div className={styles.settingsCheckbox}>
-                        <Checkbox
                             id={semanticCaptionsFieldId}
                             checked={useSemanticCaptions}
                             onChange={(_ev, data) => onChange("useSemanticCaptions", !!data.checked)}
-                            disabled={!useSemanticRanker}
                             aria-labelledby={semanticCaptionsId}
                         />
                         <HelpCallout
@@ -411,7 +404,6 @@ export const Settings = ({
                         <Checkbox
                             id={queryRewritingFieldId}
                             checked={useQueryRewriting}
-                            disabled={!useSemanticRanker}
                             onChange={(_ev, data) => onChange("useQueryRewriting", !!data.checked)}
                             aria-labelledby={queryRewritingId}
                         />
@@ -456,104 +448,44 @@ export const Settings = ({
                     </div>
                 </>
             )}
-            {showVectorOption && !useAgenticKnowledgeBase && (
-                <>
-                    <VectorSettings
-                        defaultRetrievalMode={retrievalMode}
-                        defaultSearchTextEmbeddings={searchTextEmbeddings}
-                        defaultSearchImageEmbeddings={searchImageEmbeddings}
-                        showImageOptions={showMultimodalOptions}
-                        updateRetrievalMode={val => onChange("retrievalMode", val)}
-                        updateSearchTextEmbeddings={val => onChange("searchTextEmbeddings", val)}
-                        updateSearchImageEmbeddings={val => onChange("searchImageEmbeddings", val)}
-                    />
-                </>
-            )}
-
-            {!useWebSource && (
+            {showMultimodalOptions && !useAgenticKnowledgeBase && !useWebSource && (
                 <>
                     <h3 className={styles.sectionHeader}>{t("llmSettings")}</h3>
-                    <div className={styles.settingsField}>
-                        <HelpCallout
-                            labelId={promptTemplateId}
-                            fieldId={promptTemplateFieldId}
-                            helpText={t("helpTexts.promptTemplate")}
-                            label={t("labels.promptTemplate")}
-                        />
-                        <Textarea
-                            id={promptTemplateFieldId}
-                            defaultValue={promptTemplate}
-                            resize="vertical"
-                            onChange={(_ev, data) => onChange("promptTemplate", data.value || "")}
-                            aria-labelledby={promptTemplateId}
-                        />
-                    </div>
-                    <div className={styles.settingsField}>
-                        <HelpCallout
-                            labelId={temperatureId}
-                            fieldId={temperatureFieldId}
-                            helpText={t("helpTexts.temperature")}
-                            label={t("labels.temperature")}
-                        />
-                        <Input
-                            id={temperatureFieldId}
-                            type="number"
-                            min={0}
-                            max={1}
-                            step={0.1}
-                            defaultValue={temperature.toString()}
-                            onChange={(_ev, data) => onChange("temperature", parseFloat(data.value || "0"))}
-                            aria-labelledby={temperatureId}
-                        />
-                    </div>
-                    <div className={styles.settingsField}>
-                        <HelpCallout labelId={seedId} fieldId={seedFieldId} helpText={t("helpTexts.seed")} label={t("labels.seed")} />
-                        <Input
-                            id={seedFieldId}
-                            type="text"
-                            defaultValue={seed?.toString() || ""}
-                            onChange={(_ev, data) => onChange("seed", data.value ? parseInt(data.value) : null)}
-                            aria-labelledby={seedId}
-                        />
-                    </div>
-
-                    {showMultimodalOptions && !useAgenticKnowledgeBase && (
-                        <fieldset className={styles.fieldset + " " + styles.settingsField}>
-                            <legend className={styles.legend}>{t("labels.llmInputs")}</legend>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                <div className={styles.settingsCheckbox} style={{ marginTop: 0 }}>
-                                    <Checkbox
-                                        id="sendTextSources"
-                                        checked={sendTextSources}
-                                        onChange={(_ev, data) => {
-                                            onChange("sendTextSources", !!data.checked);
-                                        }}
-                                    />
-                                    <HelpCallout
-                                        labelId="sendTextSourcesLabel"
-                                        fieldId="sendTextSources"
-                                        helpText={t("helpTexts.llmTextInputs")}
-                                        label={t("labels.llmInputsOptions.texts")}
-                                    />
-                                </div>
-                                <div className={styles.settingsCheckbox} style={{ marginTop: 0 }}>
-                                    <Checkbox
-                                        id="sendImageSources"
-                                        checked={sendImageSources}
-                                        onChange={(_ev, data) => {
-                                            onChange("sendImageSources", !!data.checked);
-                                        }}
-                                    />
-                                    <HelpCallout
-                                        labelId="sendImageSourcesLabel"
-                                        fieldId="sendImageSources"
-                                        helpText={t("helpTexts.llmImageInputs")}
-                                        label={t("labels.llmInputsOptions.images")}
-                                    />
-                                </div>
+                    <fieldset className={styles.fieldset + " " + styles.settingsField}>
+                        <legend className={styles.legend}>{t("labels.llmInputs")}</legend>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <div className={styles.settingsCheckbox} style={{ marginTop: 0 }}>
+                                <Checkbox
+                                    id="sendTextSources"
+                                    checked={sendTextSources}
+                                    onChange={(_ev, data) => {
+                                        onChange("sendTextSources", !!data.checked);
+                                    }}
+                                />
+                                <HelpCallout
+                                    labelId="sendTextSourcesLabel"
+                                    fieldId="sendTextSources"
+                                    helpText={t("helpTexts.llmTextInputs")}
+                                    label={t("labels.llmInputsOptions.texts")}
+                                />
                             </div>
-                        </fieldset>
-                    )}
+                            <div className={styles.settingsCheckbox} style={{ marginTop: 0 }}>
+                                <Checkbox
+                                    id="sendImageSources"
+                                    checked={sendImageSources}
+                                    onChange={(_ev, data) => {
+                                        onChange("sendImageSources", !!data.checked);
+                                    }}
+                                />
+                                <HelpCallout
+                                    labelId="sendImageSourcesLabel"
+                                    fieldId="sendImageSources"
+                                    helpText={t("helpTexts.llmImageInputs")}
+                                    label={t("labels.llmInputsOptions.images")}
+                                />
+                            </div>
+                        </div>
+                    </fieldset>
                 </>
             )}
         </div>
