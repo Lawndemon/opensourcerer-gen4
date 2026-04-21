@@ -3,6 +3,7 @@ import { FluentProvider, webDarkTheme } from "@fluentui/react-components";
 import { useMsal } from "@azure/msal-react";
 import { useLogin, checkLoggedIn } from "./authConfig";
 import { LoginContext } from "./loginContext";
+import { RoleProvider } from "./roleContext";
 import Layout from "./pages/layout/Layout";
 
 const LayoutWrapper = () => {
@@ -27,9 +28,11 @@ const LayoutWrapper = () => {
 
         return (
             <LoginContext.Provider value={{ loggedIn, setLoggedIn }}>
-                <FluentProvider theme={webDarkTheme} style={{ height: "100%", backgroundColor: "transparent" }}>
-                    <Layout />
-                </FluentProvider>
+                <RoleProvider>
+                    <FluentProvider theme={webDarkTheme} style={{ height: "100%", backgroundColor: "transparent" }}>
+                        <Layout />
+                    </FluentProvider>
+                </RoleProvider>
             </LoginContext.Provider>
         );
     } else {
@@ -40,9 +43,11 @@ const LayoutWrapper = () => {
                     setLoggedIn
                 }}
             >
-                <FluentProvider theme={webDarkTheme} style={{ height: "100%", backgroundColor: "transparent" }}>
-                    <Layout />
-                </FluentProvider>
+                <RoleProvider>
+                    <FluentProvider theme={webDarkTheme} style={{ height: "100%", backgroundColor: "transparent" }}>
+                        <Layout />
+                    </FluentProvider>
+                </RoleProvider>
             </LoginContext.Provider>
         );
     }

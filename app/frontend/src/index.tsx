@@ -8,7 +8,7 @@ import { AuthenticationResult, EventType, PublicClientApplication } from "@azure
 
 import "./index.css";
 
-import Chat from "./pages/chat/Chat";
+import IndexRouter from "./pages/IndexRouter";
 import LayoutWrapper from "./layoutWrapper";
 import i18next from "./i18n/config";
 import { msalConfig, useLogin } from "./authConfig";
@@ -20,7 +20,7 @@ const router = createHashRouter([
         children: [
             {
                 index: true,
-                element: <Chat />
+                element: <IndexRouter />
             },
             {
                 path: "*",

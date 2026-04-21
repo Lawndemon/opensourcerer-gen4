@@ -1,0 +1,30 @@
+.container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.welcome {
+    opacity: 0.85;
+}
+
+.futureSection {
+    margin-top: 24px;
+    padding: 16px 20px;
+    border-left: 3px solid var(--colorBrandStroke1, #0078d4);
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 0 4px 4px 0;
+}
+
+.plannedList {
+    margin: 8px 0 0 20px;
+    padding: 0;
+    opacity: 0.85;
+}
+
+.plannedList li {
+    margin: 6px 0;
+}
