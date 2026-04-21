@@ -36,6 +36,7 @@ import { LanguagePicker } from "../../i18n/LanguagePicker";
 import { Settings } from "../../components/Settings/Settings";
 import { RoleSelection } from "../../components/RoleSelection/RoleSelection";
 import { getRoleById, EmergencyRole } from "../../components/RoleSelection/roles";
+import { useRole } from "../../roleContext";
 
 const Chat = () => {
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
@@ -389,6 +390,19 @@ const Chat = () => {
         setRestoredQuestion("");
     };
 
+    // Bridge to the new RoleContext system: if the post-login landing page has
+    // already committed an acting role, auto-apply it here so users don't see
+    // the legacy in-chat RoleSelection fallback a second time. The fallback
+    // still renders below for no-auth dev mode, where RoleContext.actingRole
+    // will stay null.
+    const { actingRole } = useRole();
+    useEffect(() => {
+        if (actingRole && actingRole !== selectedRole) {
+            handleRoleSelect(actingRole);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [actingRole]);
+
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "smooth" }), [isLoading]);
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "auto" }), [streamedAnswers]);
     useEffect(() => {
@@ -557,8 +571,11 @@ const Chat = () => {
 
     return (
         <div className={styles.container}>
-            {/* Forced role selection — shown until the user picks a role for this session */}
-            {!selectedRole && <RoleSelection onRoleSelected={handleRoleSelect} />}
+            {/* Legacy in-chat role picker. Only shown when there is no acting role coming
+                from the post-login RoleContext (e.g., no-auth dev mode). In the normal
+                auth flow, RoleContext.actingRole is set by IndexRouter/RoleProvider before
+                Chat mounts, and the useEffect above applies it, so this never renders. */}
+            {!selectedRole && !actingRole && <RoleSelection onRoleSelected={handleRoleSelect} />}
 
             {/* Setting the page title using react-helmet-async */}
             <Helmet>
@@ -582,7 +599,14 @@ const Chat = () => {
                         <div className={styles.chatEmptyState}>
                             <img src={appLogo} alt="App logo" width="120" height="120" />
 
-                            <h1 className={styles.chatEmptyStateTitle}>{t("chatEmptyStateTitle")}</h1>
+                            <h1 className={styles.chatEmptyStateTitle}>
+                                {activeRoleData
+                                    ? t("chatEmptyStateTitleWithRole", {
+                                          role: activeRoleData.label,
+                                          defaultValue: `You are serving as ${activeRoleData.label}. How can I support you?`
+                                      })
+                                    : t("chatEmptyStateTitle")}
+                            </h1>
                             <h2 className={styles.chatEmptyStateSubtitle}>{t("chatEmptyStateSubtitle")}</h2>
                             {showLanguagePicker && <LanguagePicker onLanguageChange={newLang => i18n.changeLanguage(newLang)} />}
 

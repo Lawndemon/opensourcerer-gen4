@@ -48,7 +48,7 @@ export const EMERGENCY_ROLES: EmergencyRole[] = [
             "Use ICS/NIMS terminology throughout. Provide concise, decision-quality answers."
     },
     {
-        id: "ops-section-chief",
+        id: "section-chief-operations",
         label: "Section Chief – Operations",
         description: "Tactical operations, resource deployment, and crew assignments",
         examples: [
@@ -65,7 +65,7 @@ export const EMERGENCY_ROLES: EmergencyRole[] = [
             "Use clear ICS terminology and structure answers around tactical decision-making."
     },
     {
-        id: "planning-section-chief",
+        id: "section-chief-planning",
         label: "Section Chief – Planning",
         description: "Situation analysis, IAP development, documentation, and forecasting",
         examples: [
@@ -82,7 +82,25 @@ export const EMERGENCY_ROLES: EmergencyRole[] = [
             "Emphasize data accuracy, source traceability, and thorough documentation practices."
     },
     {
-        id: "finance-section-chief",
+        id: "section-chief-logistics",
+        label: "Section Chief – Logistics",
+        description: "Facilities, services, supplies, ground support, and communications",
+        examples: [
+            "What facilities must be established to support a Type 2 incident and what are their typical staffing requirements?",
+            "How should the Logistics Section coordinate supply requisitions through the Planning Section?",
+            "What communications infrastructure is required to support unified command across multiple operational periods?"
+        ],
+        prompt:
+            ">>>You are assisting a Section Chief for Logistics. " +
+            "Focus on facilities, services, supplies, ground support, communications, medical support, and food services required to sustain the incident response. " +
+            "Responses should address resource ordering and tracking, base camp and staging area setup, equipment maintenance, and fuel and water provisioning. " +
+            "Coordinate with the Planning Section for anticipated resource needs over the next operational periods and with Finance/Admin for procurement approvals. " +
+            "Reference the Emergency Management Strategy and Alberta Emergency Plan for resource mobilization frameworks and inter-agency supply coordination. " +
+            "Use ICS logistics unit terminology (Service Branch, Support Branch, Supply Unit, Facilities Unit, Ground Support Unit, Communications Unit, Medical Unit, Food Unit). " +
+            "Emphasize timing — logistics runs one operational period ahead of Operations to avoid supply gaps."
+    },
+    {
+        id: "section-chief-finance",
         label: "Section Chief – Finance/Admin",
         description: "Cost tracking, procurement, compensation, and financial documentation",
         examples: [

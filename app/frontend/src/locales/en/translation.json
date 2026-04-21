@@ -34,6 +34,7 @@
     "developerSettings": "Developer settings",
 
     "chatEmptyStateTitle": "How can I help?",
+    "chatEmptyStateTitleWithRole": "You are serving as {{role}}. How can I support you?",
     "chatEmptyStateSubtitle": "Ask anything or start with a prompt below",
     "defaultExamples": {
         "1": "What is included in my Northwind Health Plus plan that is not in standard?",
