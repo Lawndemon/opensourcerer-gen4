@@ -878,7 +878,7 @@ module speech 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useSpee
     location: !empty(speechServiceLocation) ? speechServiceLocation : location
     tags: tags
     sku: speechServiceSkuName
-    restore: true
+    restore: false
   }
 }
 module searchService 'core/search/search-services.bicep' = {
