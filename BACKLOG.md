@@ -40,14 +40,17 @@ The defining feature of the emergency-response variant — takes the template's 
 - **Event metadata IS editable** (description, location, scenario, enrichment) with an append-only change log. UI must distinguish "event details" (mutable) from "event log" (immutable transcript) so users never confuse them.
 - **Generated reports are derived artifacts**, not source of truth. Reports must include or link to raw transcript so any summary claim can be traced to message + timestamp.
 - **No event deletion.** Spurious/false-alarm events get closed with a corrective changelog note, not purged.
-- **Role is a single dimension** (not two orthogonal dimensions — decision reversed 2026-04-21 after Dave anchored the taxonomy in ICS). Role values are drawn from the ICS command structure plus a handful of non-ICS roles:
-  - **Generic:** `generic-user` (for client deployments without role-based plumbing)
-  - **ICS Command:** `incident-commander`
-  - **ICS Command Staff:** `safety-officer`, `liaison-officer`, `information-officer`
-  - **ICS General Staff (Section Chiefs):** `section-chief-operations`, `section-chief-planning`, `section-chief-logistics`, `section-chief-finance`
-  - **Field:** `firefighter` (additional field roles like `police-officer`, `paramedic` can be added as the deployment needs)
-  - **App-level admin:** `site-administrator` — gates aggregate views, event closure, report generation, taxonomy management. Anyone picking this role gets admin powers for that session.
-- **Trade-off of the unified model:** a real person who is both a firefighter AND the shift's site administrator must choose one role per session — they can't have retrieval biased toward firefighting while simultaneously holding admin powers. Accepted for lab MVP; if real-world deployment reveals users who meaningfully wear both hats, migrate to an orthogonal admin flag (functional role + boolean).
+- **Two-axis model (refined 2026-04-21 after SME consult):**
+  - **Account type** (how you sign in): `firefighter`, `incident_management_team`, `site_administrator`, `generic_user`. Determines the login flow and which acting-role choices the user is offered.
+  - **Acting role** (the persona that drives RAG retrieval/tone and audit logging): one of 10 values — `firefighter`, `incident-commander`, `safety-officer`, `liaison-officer`, `information-officer`, `section-chief-operations`, `section-chief-planning`, `section-chief-logistics`, `section-chief-finance`, `site-administrator`.
+- **Account-to-role flow:**
+  - `firefighter@...` → acting role is Firefighter, no picker, straight to chat.
+  - `incident_management_team@...` → shows an ICS sub-picker with the 8 ICS roles (Incident Commander, Safety Officer, Liaison Officer, Information Officer, the 4 Section Chiefs); picked role becomes acting role for the session.
+  - `site_administrator@...` → skips all pickers, goes to admin landing (stub initially; full aggregate/closure/report tooling comes later).
+  - `generic_user@...` → demo/fallback. Initial picker offers three options: Firefighter, Incident Management Team, Site Administrator. Selecting one routes to that account type's flow. Lets one credential exercise all three flows for client demos.
+- **Detection of account type for MVP:** parse the UPN prefix (`firefighter@` → Firefighter type, etc.). Lab-specific hack; real deployments would look this up from an Entra group membership or a Cosmos user record. Tracked as future work under Task #9 follow-on.
+- **Existing single-role test accounts remain in Entra** for advanced-client demo scenarios where a client genuinely wants per-role Entra accounts (direct account-to-acting-role mapping with no picker). Not used by the default two-account-type flow but kept for flexibility.
+- **Admin powers** (cross-event aggregate, event closure, report generation, taxonomy management) are granted by having acting role `site-administrator`. A firefighter who is also a shift supervisor signs in to a different account (or in demo, picks Site Administrator from the generic flow) when they need admin powers. Accepted trade-off for lab MVP; revisit if users genuinely wear both hats in one session.
 
 **Architecture:**
 
@@ -61,14 +64,16 @@ The defining feature of the emergency-response variant — takes the template's 
 - Participants array (auto-populated on first chat by a user; captures user + role-at-join).
 - ChangeLog array embedded on record (append-only, metadata only, never chat): `{ when, who, role, field, oldValue, newValue, action: add|change }`.
 
-**Landing-page workflow:**
+**Landing-page workflow (refined 2026-04-21):**
 
-1. Post-login: single unified role page, state varies by whether a default role is known.
-   - **Default role known** (from Entra group or Cosmos record): dropdown pre-populated, header reads "You're signed in as <Role>. Confirm or change your role:", single Continue button.
-   - **No default role known** (generic user / fresh deploy / no role assignments yet): same page, empty dropdown, header reads "Select your role for this session:", Continue disabled until selection made.
-   - Same component, same code path, conditional rendering — not two separate pages.
-   - "Always use this role for me" checkbox on the page. If checked, subsequent logins skip the chooser entirely and go straight to event list. Users can always change via a "switch role" link in the app header.
-   - Selected role is session-scoped and logged on every action.
+Post-login behavior is driven by account type, not by default-role lookup. UPN prefix determines account type for MVP.
+
+- **Firefighter account** → no picker; acting role set to Firefighter; proceed to chat.
+- **IMT account** → ICS role sub-picker (8 options); selection becomes acting role; proceed to chat.
+- **Site Administrator account** → no picker; skip chat; go to Site Administrator landing (stub today, real admin tooling later).
+- **Generic account** → intermediate picker with 3 options (Firefighter / IMT / Site Admin); selection routes to the corresponding account-type flow as if they'd logged in as that account.
+
+Selected acting role is session-scoped (sessionStorage), logged on every event/chat action. No "always use this role" persistence in MVP — that lands when Cosmos user records are built. No mid-session role switching (matches immutability design); user signs out and back in to change.
 2. Event list, three layered groups: "Your recent events" (active, user-participated, most-recent-activity first) → "Other active events" (most-recent-activity first) → "Closed events" (expandable, most-recent-close first).
 3. User selects existing or creates new. Empty-state "No active events. [Create new event]" CTA.
 

@@ -58,6 +58,9 @@ USERS=(
     # Field
     "firefighter|Test - Firefighter"
 
+    # Incident Management Team — one account, user picks ICS role at login
+    "incident_management_team|Test - Incident Management Team"
+
     # App-level admin (not an ICS role; gates collation/report/close powers)
     "site_administrator|Test - Site Administrator"
 )

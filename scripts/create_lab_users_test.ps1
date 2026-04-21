@@ -58,6 +58,9 @@ $users = @(
     # Field
     @{ principal = "firefighter";                display = "Test - Firefighter" }
 
+    # Incident Management Team — one account, user picks ICS role at login
+    @{ principal = "incident_management_team";   display = "Test - Incident Management Team" }
+
     # App-level admin (not an ICS role; gates collation/report/close powers)
     @{ principal = "site_administrator";         display = "Test - Site Administrator" }
 )
