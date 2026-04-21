@@ -273,7 +273,7 @@
       "value": "${AZURE_SPEECH_SERVICE_VOICE}"
     },
     "useAuthentication": {
-      "value": "${AZURE_USE_AUTHENTICATION=false}"
+      "value": "${AZURE_USE_AUTHENTICATION=true}"
     },
     "enforceAccessControl": {
       "value": "${AZURE_ENFORCE_ACCESS_CONTROL=false}"
@@ -288,7 +288,7 @@
       "value": "${AZURE_ENABLE_UNAUTHENTICATED_ACCESS=false}"
     },
     "authTenantId": {
-      "value": "${AZURE_AUTH_TENANT_ID}"
+      "value": "${AZURE_AUTH_TENANT_ID=dc701977-419d-4e3d-87c0-d53cf7ef56a0}"
     },
     "serverAppId": {
       "value": "${AZURE_SERVER_APP_ID}"
