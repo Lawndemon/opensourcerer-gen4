@@ -97,17 +97,93 @@ Selected acting role is session-scoped (sessionStorage), logged on every event/c
 - Mid-conversation event switching
 - Per-event role override (session-scoped only for MVP)
 
-### Role-based document retrieval filtering
+### Role-based document retrieval filtering (with core-document foundation)
 
-Different functional roles should see different retrieval results — e.g. sensitive tactical playbooks for firefighters/police but not for media liaisons or volunteers. Approach:
+Different functional roles should see different retrieval results — e.g. sensitive tactical playbooks for firefighters/ops but not for media liaisons. On top of role-specific partitioning, a universal "core" foundation of standards, legal/jurisdictional docs, and templates is visible to every role regardless of acting role (refined 2026-04-23 at Dave's request).
 
-- Tag each indexed document with a list of allowed roles (or role categories)
-- Retriever filters results by current user's acting role
-- Likely simpler to implement at application layer than via `AZURE_ENFORCE_ACCESS_CONTROL` (which is built around Entra group membership — since we're not using Entra groups for functional role, round-tripping role names through synthetic group GUIDs adds complexity for no benefit)
+**Data model:**
 
-Concrete work: decide field name on search index (e.g. `allowed_roles` multi-valued string), update prepdocs / ingestion to write it (per-doc frontmatter? per-folder default?), update retriever `$filter` clause, re-index existing docs. Start with everyone-sees-everything and tag restrictions onto sensitive docs as they're added.
+Single multi-valued field on the search index: `allowed_roles: string[]`. Values are either literal ICS role IDs (`firefighter`, `incident-commander`, `safety-officer`, etc.) OR the special sentinel `"core"` meaning "universal — every role sees this." A doc can carry multiple role tags (`["firefighter", "section-chief-operations"]`) to show up for specific multiple roles without being universal.
 
-Peer to the event workflow above, not a blocker.
+**Retriever logic:**
+
+For every query, the effective allowed-roles filter is `[userActingRole, "core"]`. Azure Search `$filter`:
+
+```
+allowed_roles/any(r: r eq 'firefighter' or r eq 'core')
+```
+
+This is hard access control (not just biasing) — documents without a matching tag won't be retrieved, period. No wildcards, no hierarchy, just literal string match.
+
+**Ingestion — folder convention with manifest override:**
+
+```
+data/
+  core/                              # default allowed_roles = ["core"]
+  firefighter/                       # default allowed_roles = ["firefighter"]
+  incident-commander/                # default allowed_roles = ["incident-commander"]
+  ...                                # one folder per role as content grows
+  roles-manifest.json                # per-file overrides for multi-role / edge-case docs
+```
+
+Folder name sets the default tag. `roles-manifest.json` (filename → `{ allowed_roles: [...] }`) overrides for documents that don't fit cleanly into one folder. Prepdocs reads folder first, then applies manifest override if present.
+
+**Concrete work:**
+
+1. Add `allowed_roles` multi-valued string field to the search index schema (Bicep + index definition in `app/backend/prepdocs.py` or schema module).
+2. Reorganize `data/` into role folders. Current corpus: 3 core (Emergency Management Framework, Alberta Emergency Plan, Emergency Management Strategy), 1 multi-role (Rules of Engagement for Firefighter Survival — primary folder `firefighter/` with manifest granting access also to `section-chief-operations`, `safety-officer`, `incident-commander`).
+3. Update `prepdocs.py` / ingestion to read folder + manifest and write `allowed_roles`.
+4. Update retriever in `app/backend/approaches/*.py` to add the `$filter` clause based on the user's acting role.
+5. Frontend: send `actingRole` from RoleContext with each chat request. Small touch in `src/api/api.ts`.
+6. Backend: accept and use the `actingRole` field in the request. Small touch in `app/backend/app.py`.
+7. Re-index existing docs after schema change.
+
+Peer to the event workflow above, not a blocker. Once shipped, role selection actually *does* something (filters retrieval), not just tunes prompt tone.
+
+### Trigger search re-index from admin portal after blob changes
+
+After granting admin users (e.g. jhughes) the ability to add/remove documents in the `content` blob container, the RAG won't see those changes until the search index is rebuilt. Need a way to trigger this without `azd up` or running prepdocs locally.
+
+**Three approaches worth evaluating:**
+
+1. **Azure AI Search indexer + blob trigger (cloud-native)** — configure the search service to pull from the blob container automatically on a schedule or via Event Grid notifications. Most elegant; zero manual triggering. Limitation: the template's `prepdocs.py` does richer chunking/embedding than the built-in indexer; quality may drop.
+2. **Event Grid → Azure Function → run prepdocs** — when blobs change in the container, Event Grid fires; a Function picks it up and re-runs the prepdocs ingestion logic. Preserves chunking quality. Adds Function App infra.
+3. **Backend endpoint with admin auth, exposed in admin landing UI** — admin clicks "Re-index now" button, backend kicks off prepdocs as a background task and returns a status URL. Long-running; needs status polling. Simplest UX but explicit-action.
+
+**Decision points:**
+- Quality of cloud-indexer vs. prepdocs (test before committing)
+- Auto-trigger vs. explicit admin action
+- Re-index everything vs. only changed blobs (incremental)
+
+Practical implication: this should land before real document curation begins. Today admins can upload but docs are invisible to RAG until someone re-indexes manually.
+
+### Swap RAG LLM from Azure OpenAI to Anthropic Claude
+
+Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azure OpenAI, GPT-4.1-mini) with Anthropic's API. Embeddings stay on OpenAI since Anthropic does not offer an embeddings model — or alternately swap to Voyage AI / Cohere embeddings, which is a separate decision with its own re-indexing cost.
+
+**What this actually touches:**
+
+- Every approach class: `chatreadretrieveread.py`, `retrievethenread.py`, `chatapproach.py`, etc. All use the OpenAI SDK calling Azure OpenAI endpoints.
+- System prompts — Claude is more steerable but has different best practices than GPT-4.1. The role prompts we wrote (Firefighter, ICS roles, etc.) may need tuning to get equivalent output quality.
+- Streaming format — the SSE chunk shape differs between OpenAI's `chat.completions` and Anthropic's `messages` stream.
+- Tool/function-calling — different schema; affects anything using the agentic-retrieval features.
+- Secrets management — Anthropic API key into Key Vault, referenced from the Container App. Different from the Azure-native managed-identity flow we use for AOAI today.
+- Content filtering — Azure OpenAI has integrated safety filters that Anthropic handles differently. Align on what the policy is.
+
+**Options for the backend:**
+
+1. **Anthropic API direct** — simplest code path, but introduces a cross-cloud dependency (egress from Azure to Anthropic's endpoints). Billing is separate from Azure.
+2. **Claude via AWS Bedrock or Google Vertex** — also cross-cloud, also separate billing.
+3. **Azure AI Foundry Anthropic models** — if available in the region. As of the last check (May 2025) Anthropic models were not in Azure OpenAI Service; check the Azure portal for current state. This would be the cleanest Azure-native option if it exists.
+
+**Decision points to resolve before coding:**
+
+- Which hosting path (Anthropic direct / Bedrock / Vertex / Azure Foundry)
+- Whether to also swap embeddings (defer initially — unnecessary blast radius)
+- Which Claude model tier (Haiku / Sonnet / Opus — trade cost vs. quality for the RAG use case)
+- Prompt re-tuning scope — start with a direct swap and only re-tune where output quality regresses
+
+**Not a one-line config swap.** Plan multi-session. First session is probably: decide hosting path, add Anthropic SDK dependency, stub a single approach class with Claude, validate end-to-end for one role before touching the rest.
 
 ---
 

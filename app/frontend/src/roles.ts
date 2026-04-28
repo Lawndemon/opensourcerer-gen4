@@ -205,6 +205,17 @@ const LEGACY_UPN_TO_ROLE: Record<string, ActingRole> = {
 };
 
 /**
+ * UPN local-parts that should be treated as Site Administrator accounts.
+ * Add additional admin users here. This is a stopgap until role assignment
+ * moves to Entra group membership or a Cosmos user record (see BACKLOG.md).
+ *
+ * Includes the literal `site_administrator` test account plus any real users
+ * who should have admin powers (cross-event aggregate views, event closure,
+ * report generation, taxonomy management).
+ */
+const ADMIN_UPN_PREFIXES = new Set<string>(["site_administrator", "jhughes"]);
+
+/**
  * Result of deriving account context from the signed-in user's UPN.
  */
 export interface AccountContext {
@@ -231,14 +242,14 @@ export interface AccountContext {
 export function deriveAccountContext(upn: string): AccountContext {
     const localPart = upn.toLowerCase().split("@")[0];
 
+    if (ADMIN_UPN_PREFIXES.has(localPart)) {
+        return { accountType: "site_administrator", directActingRole: "site-administrator" };
+    }
     if (localPart === "firefighter") {
         return { accountType: "firefighter", directActingRole: "firefighter" };
     }
     if (localPart === "incident_management_team") {
         return { accountType: "incident_management_team" };
-    }
-    if (localPart === "site_administrator") {
-        return { accountType: "site_administrator", directActingRole: "site-administrator" };
     }
     if (localPart === "generic_user") {
         return { accountType: "generic_user" };

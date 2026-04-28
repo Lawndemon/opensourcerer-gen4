@@ -157,4 +157,7 @@ app/functions/*/requirements.txt
 data/**/*.md5
 data/
 
+ReferenceDocs/**/
+ReferenceDocs/
+
 .DS_Store
