@@ -56,7 +56,7 @@ $users = @(
     @{ principal = "section_chief_finance";      display = "Test - Section Chief, Finance/Admin" }
 
     # Field
-    @{ principal = "firefighter";                display = "Test - Firefighter" }
+    @{ principal = "fireofficer";                display = "Test - Fire Officer" }
 
     # Incident Management Team — one account, user picks ICS role at login
     @{ principal = "incident_management_team";   display = "Test - Incident Management Team" }

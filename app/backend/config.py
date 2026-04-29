@@ -1,6 +1,7 @@
 CONFIG_OPENAI_TOKEN = "openai_token"
 CONFIG_CREDENTIAL = "azure_credential"
 CONFIG_CHAT_APPROACH = "chat_approach"
+CONFIG_VALIDATE_IAP_APPROACH = "validate_iap_approach"
 CONFIG_GLOBAL_BLOB_MANAGER = "global_blob_manager"
 CONFIG_USER_BLOB_MANAGER = "user_blob_manager"
 CONFIG_USER_UPLOAD_ENABLED = "user_upload_enabled"

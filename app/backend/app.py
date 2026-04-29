@@ -47,11 +47,15 @@ from quart_cors import cors
 from approaches.approach import Approach, DataPoints
 from approaches.chatreadretrieveread import ChatReadRetrieveReadApproach
 from approaches.promptmanager import PromptManager
+from approaches.validate_iap import ValidateIAPApproach
+from models.incidents import ValidateIAPRequest
+from pydantic import ValidationError
 from chat_history.cosmosdb import chat_history_cosmosdb_bp
 from config import (
     CONFIG_AGENTIC_KNOWLEDGEBASE_ENABLED,
     CONFIG_AUTH_CLIENT,
     CONFIG_CHAT_APPROACH,
+    CONFIG_VALIDATE_IAP_APPROACH,
     CONFIG_CHAT_HISTORY_BROWSER_ENABLED,
     CONFIG_CHAT_HISTORY_COSMOS_ENABLED,
     CONFIG_CREDENTIAL,
@@ -262,6 +266,44 @@ async def chat_stream(auth_claims: dict[str, Any]):
         return response
     except Exception as error:
         return error_response(error, "/chat")
+
+
+# Fire Officer kiosk: Validate IAP. Takes the accumulated transcript, returns structured
+# Scene Summary + Scene Conditions and Actions + per-role forms. Session 1 prototype: pure
+# LLM extraction, no Cosmos persistence yet. See docs/prototype_plan.md.
+@bp.route("/api/incidents/<incident_id>/validate-iap", methods=["POST"])
+@authenticated
+async def validate_iap(auth_claims: dict[str, Any], incident_id: str):
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+
+    request_json = await request.get_json()
+
+    # The path-param incident_id is authoritative; require the body's incidentId to match (or be
+    # absent — frontend may omit if the URL is the source of truth).
+    body_incident_id = request_json.get("incidentId") or request_json.get("incident_id")
+    if body_incident_id and body_incident_id != incident_id:
+        return jsonify({
+            "error": "incidentId in request body does not match URL path",
+            "url_incident_id": incident_id,
+            "body_incident_id": body_incident_id,
+        }), 400
+    request_json["incidentId"] = incident_id
+
+    try:
+        validate_request = ValidateIAPRequest.model_validate(request_json)
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match the ValidateIAPRequest contract", "details": ve.errors()}), 400
+
+    try:
+        approach: ValidateIAPApproach = cast(
+            ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
+        )
+        result = await approach.run(validate_request)
+        # Serialize with by_alias so JSON uses camelCase per the contract.
+        return jsonify(result.model_dump(by_alias=True))
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/validate-iap")
 
 
 # Send MSAL.js settings to the client UI
@@ -701,6 +743,14 @@ async def setup_clients():
     current_app.config[CONFIG_SHAREPOINT_SOURCE_ENABLED] = USE_SHAREPOINT_SOURCE
 
     prompt_manager = PromptManager()
+
+    # ValidateIAPApproach is used by /api/incidents/{id}/validate-iap for the Fire Officer
+    # kiosk's structured extraction. Pure LLM extraction in v1; KB retrieval added later.
+    current_app.config[CONFIG_VALIDATE_IAP_APPROACH] = ValidateIAPApproach(
+        openai_client=openai_client,
+        chatgpt_model=OPENAI_CHATGPT_MODEL,
+        chatgpt_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,
+    )
 
     # ChatReadRetrieveReadApproach is used by /chat for multi-turn conversation
     current_app.config[CONFIG_CHAT_APPROACH] = ChatReadRetrieveReadApproach(

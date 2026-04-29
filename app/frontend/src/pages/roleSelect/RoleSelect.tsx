@@ -2,11 +2,11 @@
  * RoleSelect — the post-login role picker for accounts that need one.
  *
  * Only rendered for account types that require interactive selection:
- *  - generic_user: shows initial picker (Firefighter / IMT / Site Admin),
+ *  - generic_user: shows initial picker (Fire Officer / IMT / Site Admin),
  *    then (if user picks IMT) shows the ICS sub-picker.
  *  - incident_management_team: shows the ICS sub-picker directly.
  *
- * Account types with a direct acting role (firefighter, site_administrator,
+ * Account types with a direct acting role (fire-officer, site_administrator,
  * direct_role) auto-commit in RoleProvider and never reach this component.
  */
 
@@ -37,8 +37,8 @@ const RoleSelect = () => {
     if (!accountContext) return null;
 
     const handleGenericChoice = (choice: GenericPickerChoice) => {
-        if (choice === "firefighter") {
-            setActingRole("firefighter");
+        if (choice === "fire-officer") {
+            setActingRole("fire-officer");
             return;
         }
         if (choice === "site_administrator") {
@@ -62,7 +62,7 @@ const RoleSelect = () => {
                 <div className={styles.header}>
                     <Title2>How would you like to proceed?</Title2>
                     <Body1 className={styles.subtitle}>
-                        You're signed in as a generic demo user. Pick the account type you'd like to simulate for this session.
+                        Your account is not tied to a specific role. Choose the role you will be operating as for this session.
                     </Body1>
                 </div>
                 <div className={styles.cardGrid}>

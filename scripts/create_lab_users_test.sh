@@ -61,7 +61,7 @@ USERS=(
     "section_chief_finance|Test - Section Chief, Finance/Admin"
 
     # Field
-    "firefighter|Test - Firefighter"
+    "fireofficer|Test - Fire Officer"
 
     # Incident Management Team — one account, user picks ICS role at login
     "incident_management_team|Test - Incident Management Team"

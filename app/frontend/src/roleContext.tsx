@@ -76,7 +76,7 @@ export const RoleProvider = ({ children }: RoleProviderProps) => {
     }, [upn]);
 
     // If the account has a direct acting role and the user hasn't picked one yet,
-    // auto-commit the direct role. This is what makes firefighter/site_administrator/
+    // auto-commit the direct role. This is what makes fire-officer/site_administrator/
     // direct_role accounts skip the picker.
     useEffect(() => {
         if (!accountContext) return;

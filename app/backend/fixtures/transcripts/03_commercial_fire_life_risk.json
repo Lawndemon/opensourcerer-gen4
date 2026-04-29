@@ -1,0 +1,22 @@
+{
+  "name": "commercial_fire_life_risk",
+  "description": "Commercial structure fire with heavy fire showing. IC orders interior attack without Rapid Intervention Team in place and continues offensive operations after crew reports deteriorating conditions. Multiple deviating_unsafe (red X) items expected. Crew escapes a flashover without injury — the near-miss is the proof of life-risk. Tests the red path of the prompt.",
+  "scenario": {
+    "incident_type": "structure_fire",
+    "occupancy": "commercial",
+    "expected_phase": "response",
+    "expected_items_minimum": 6
+  },
+  "expected_outcomes": {
+    "conforming_examples": [
+      "Engine 1 size-up communicated on arrival",
+      "Truck 1 vertical ventilation initiated"
+    ],
+    "deviating_safe_examples": [],
+    "deviating_unsafe_examples": [
+      "Interior offensive attack ordered without Rapid Intervention Team in position. RIT was two minutes out at the time of order; SOG-O 06 requires RIT in service before interior crew advances on a working fire. Life-risk: high — interior crew had no established rescue capability if conditions deteriorated.",
+      "Continued offensive attack after interior crew reported deteriorating conditions (heat banking down, smoke turbulent, moving fast) and recommended transitional attack. Decision to push the line conflicts with SOG-O 04 fire ground safety guidance on dynamic risk assessment. Life-risk: high — crew was at the door when fire flashed over the kitchen counter; only the crew's own decision to pull back prevented injury."
+    ]
+  },
+  "transcript": "22:08:42 — Engine 1: Engine 1 on scene, commercial occupancy, two-story, fully involved Bravo side, heavy smoke Charlie and Delta. Smoke is dark and turbulent.\n22:08:55 — Captain Walsh: Engine 1 Walsh Command. Two-story commercial. Heavy fire Bravo side, smoke heavy on three sides, color dark and turbulent.\n22:09:20 — Captain Walsh: Engine 1, advance attack line, interior Alpha side. Knock down the fire, push into Bravo.\n22:09:35 — Engine 1: Roger, advancing attack line. Crew of two, full PPE, SCBA in service.\n22:09:55 — Captain Walsh: Truck 1 on scene. Begin vertical ventilation Charlie side.\n22:10:20 — Engine 1: Inside Alpha. Heat banking down, smoke turbulent, moving fast.\n22:10:40 — Engine 2 inbound: Engine 2 inbound, ETA two minutes, designated RIT on arrival.\n22:10:55 — Captain Walsh: Engine 1, push the line, knock down the fire.\n22:11:10 — Engine 1: Captain, conditions are deteriorating. Smoke is rolling. Recommend transitional attack from exterior.\n22:11:25 — Captain Walsh: Negative, push the line. Knock down the fire.\n22:11:45 — Engine 1: Captain, no RIT in place yet. Engine 2 still two out.\n22:11:55 — Captain Walsh: Continue the attack. Engine 2 will set up on arrival.\n22:12:30 — Engine 1: Heat increasing rapidly. We are pulling back to the door.\n22:12:55 — Engine 1: At the door, fire flashed over the kitchen counter. Crew accountable, no injuries. We are out.\n22:13:15 — Captain Walsh: All units, withdraw. Going defensive. Engine 1 reset on the Alpha side, exterior knock down.\n22:13:45 — Engine 2: Engine 2 on scene, RIT staged Alpha side, in service.\n22:14:00 — Captain Walsh: Truck 1 continue ventilation. Engine 1 exterior attack, Bravo flank. Defensive operations only.\n22:18:30 — Captain Walsh: Knockdown achieved exterior. Holding defensive posture, no interior operations until structure assessed."
+}

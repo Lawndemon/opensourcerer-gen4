@@ -21,7 +21,7 @@ import AdminLanding from "./adminLanding/AdminLanding";
 const IndexRouter = () => {
     const { actingRole, accountContext } = useRole();
 
-    // If login is disabled (demo/dev mode with no auth), skip role plumbing
+    // If login is disabled (no-auth dev mode), skip role plumbing
     // entirely and render the chat — role system is meaningless without a
     // signed-in user to attribute it to.
     if (!useLogin) {

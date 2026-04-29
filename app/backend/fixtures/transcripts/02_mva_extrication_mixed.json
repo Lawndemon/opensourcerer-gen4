@@ -1,0 +1,24 @@
+{
+  "name": "mva_extrication_mixed",
+  "description": "Single-vehicle MVA with mild entrapment. Most actions conforming, but one procedural deviation (vehicle not chocked) where the deviation does NOT put life at risk because the vehicle is on its side and clearly stable. Tests the yellow path: deviating_safe.",
+  "scenario": {
+    "incident_type": "mva_extrication",
+    "occupancy": "roadway",
+    "expected_phase": "response",
+    "expected_items_minimum": 5
+  },
+  "expected_outcomes": {
+    "conforming_examples": [
+      "Scene size-up conducted on arrival",
+      "Battery disconnect — primary post",
+      "Patient assessment with conscious occupants",
+      "Hurst tool deployment for windshield/door access",
+      "Patient handoff to medical transport"
+    ],
+    "deviating_safe_examples": [
+      "Vehicle not chocked prior to extrication. SOG-O standard practice is chocking; deviation acknowledged on radio. Life-risk: low — vehicle is on its side, stable, will not move. Worth flagging for post-incident review."
+    ],
+    "deviating_unsafe_examples": []
+  },
+  "transcript": "09:14:22 — Engine 1: Engine 1 on scene, single-vehicle MVA, Range Road 245 mile fourteen. One vehicle on its side, in the ditch.\n09:14:35 — Captain Lin: Engine 1 Lin Command. One vehicle on driver's side, partially in ditch. Two occupants, both conscious and conversing. Mild entrapment, lower extremities pinned.\n09:15:00 — Captain Lin: Engine 1, scene size-up complete. Vehicle stable on driver's side, will not roll. No fire, fuel leak negligible. No pedestrian hazards. Roadway flagged, traffic control in place.\n09:15:30 — Engine 1: Initiating extrication, Hurst tool deploying for windshield removal.\n09:15:50 — Captain Lin: Medic 4 on scene, prepare to receive patients.\n09:16:00 — Engine 1: Battery disconnect, primary post complete. Vehicle electrical isolated.\n09:16:25 — Engine 1: Note for the IC: we did not chock. Vehicle is on its side, no movement risk, proceeding with extrication.\n09:16:35 — Captain Lin: Acknowledged. Continue.\n09:17:00 — Engine 1: Windshield removed, accessing patient one. C-spine precautions in place.\n09:18:15 — Engine 1: Patient one extricated, no acute distress, transferred to Medic 4 with collar.\n09:19:30 — Engine 1: Patient two extricated, ambulatory, minor laceration left forearm. Transferred to Medic 4.\n09:21:00 — Captain Lin: All patients transferred. Wreckage stabilized. Awaiting tow services. Range Road open to single-lane alternating traffic."
+}

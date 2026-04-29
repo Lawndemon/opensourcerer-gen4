@@ -1,0 +1,22 @@
+{
+  "name": "residential_structure_fire_conforming",
+  "description": "Two-story single-family residential structure fire. By-the-book response. Most extracted items should be conforming (green check). Tests the green path of the prompt.",
+  "scenario": {
+    "incident_type": "structure_fire",
+    "occupancy": "single_family_residential",
+    "expected_phase": "response",
+    "expected_items_minimum": 5
+  },
+  "expected_outcomes": {
+    "conforming_examples": [
+      "360 walkaround conducted before interior attack",
+      "Rapid Intervention Team (RIT) established before crew interior",
+      "LACES protocol verified (Lookouts, Awareness, Communications, Escape Routes, Safety Zones)",
+      "Command formally declared with name + location",
+      "Vertical ventilation coordinated with interior attack"
+    ],
+    "deviating_safe_examples": [],
+    "deviating_unsafe_examples": []
+  },
+  "transcript": "14:32:15 — Engine 1: Engine 1 on scene, two-story single-family residential, working fire showing Charlie side, smoke from Bravo. Civilians out front, all accounted for per neighbour.\n14:32:30 — Captain Reyes: Engine 1 establishing Maple Street Command. 360 walkaround in progress.\n14:33:05 — Captain Reyes: 360 complete. Heavy smoke from Bravo and Charlie sides, no visible victims, parked vehicles cleared. Wind out of the southwest at five. Structure intact, no obvious collapse indicators. Offensive attack approved.\n14:33:40 — Captain Reyes: Engine 1, advance attack line, primary entry Alpha side. Truck 1, vertical ventilation over Charlie side coordinated with interior knockdown.\n14:34:10 — Engine 1: Attack line charged. Crew of two on the line, full PPE, SCBA in service. Advancing.\n14:34:25 — Captain Reyes: Engine 2 on scene, designated Rapid Intervention Team. Stage Alpha side, full PPE, RIT bag ready, in service before interior crew advances.\n14:34:40 — Engine 2: Engine 2 RIT in position, accountability complete.\n14:35:00 — Captain Reyes: All units, LACES check. Lookouts posted Alpha and Charlie. Escape route via point of entry. Safety Zone at the engine.\n14:35:30 — Truck 1: Vertical opened, vent established Charlie side.\n14:36:15 — Engine 1: Fire knockdown second floor, primary search underway.\n14:37:00 — Engine 1: Primary search complete, no victims. Beginning overhaul.\n14:38:45 — Captain Reyes: Fire under control. RIT remaining in service until secondary search complete.\n14:42:00 — Engine 1: Secondary all clear, fire fully extinguished, scene secured.\n14:42:30 — Captain Reyes: Maple Street Command terminated. Engine 2 RIT released. Engine 1 remaining for overhaul and investigation."
+}
