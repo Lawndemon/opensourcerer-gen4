@@ -270,5 +270,3 @@ export function deriveAccountContext(upn: string): AccountContext {
  * close (matches session-scoped semantics we agreed to).
  */
 export const ACTING_ROLE_STORAGE_KEY = "opensourcerer.actingRole";
- */
-export const ACTING_ROLE_STORAGE_KEY = "opensourcerer.actingRole";

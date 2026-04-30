@@ -66,8 +66,12 @@ class ValidateIAPApproach:
         """
         Extract a structured ValidateIAPResponse from the transcript.
 
-        Uses OpenAI's structured-output mode (response_format with a Pydantic model) so the LLM is
-        constrained to produce JSON matching the contract.
+        Uses OpenAI's JSON-mode (`response_format={"type": "json_object"}`) — the LLM produces
+        valid JSON, and we parse it into the Pydantic contract on our side. We do NOT use
+        `chat.completions.parse()` with a Pydantic model directly, because OpenAI's strict
+        structured-output mode rejects schemas with `oneOf` + `discriminator` patterns (our
+        FormContent discriminated union) and `default` keywords. Pydantic-side parsing gives
+        us schema validation without the LLM-side schema constraints.
         """
         logger.info(
             "ValidateIAP for incident %s, transcript length %d chars, acting role %s",
@@ -81,26 +85,37 @@ class ValidateIAPApproach:
             {"role": "user", "content": self._format_user_message(request)},
         ]
 
-        # OpenAI Python SDK 2.6.1: chat.completions.parse() accepts a Pydantic model as
-        # response_format and returns a typed result with .choices[0].message.parsed.
-        completion = await self.openai_client.chat.completions.parse(
+        completion = await self.openai_client.chat.completions.create(
             model=self.chatgpt_deployment or self.chatgpt_model,
             messages=messages,
-            response_format=ValidateIAPResponse,
+            response_format={"type": "json_object"},
             temperature=self.temperature,
         )
 
-        result = completion.choices[0].message.parsed
-        if result is None:
+        raw_content = completion.choices[0].message.content
+        if not raw_content:
             refusal = completion.choices[0].message.refusal
             logger.error(
-                "LLM did not produce a parseable ValidateIAPResponse for incident %s. Refusal: %s",
+                "LLM returned empty content for incident %s. Refusal: %s",
                 request.incident_id,
                 refusal,
             )
             raise RuntimeError(
-                f"LLM did not produce a parseable ValidateIAPResponse. Refusal: {refusal}"
+                f"LLM returned empty content. Refusal: {refusal}"
             )
+
+        try:
+            result = ValidateIAPResponse.model_validate_json(raw_content)
+        except Exception as e:
+            logger.error(
+                "Failed to parse LLM output as ValidateIAPResponse for incident %s. Error: %s. Raw: %s",
+                request.incident_id,
+                e,
+                raw_content[:1000],
+            )
+            raise RuntimeError(
+                f"LLM output did not match ValidateIAPResponse schema: {e}"
+            ) from e
 
         # Override fields the LLM should not decide. The contract gives the LLM autonomy over the
         # extracted content, but identity (incident_id) and lifecycle phase come from the request

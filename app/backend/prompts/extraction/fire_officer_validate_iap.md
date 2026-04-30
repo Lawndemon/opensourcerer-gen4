@@ -65,4 +65,88 @@ For each form, set `role` to `"fire-officer"`, `status` to `"active"`, `last_upd
 
 ## Output
 
-Produce JSON exactly matching the response schema. Do not include explanatory text, markdown wrappers, or any content outside the JSON object.
+Produce JSON exactly matching the response schema below. Do not include explanatory text, markdown wrappers, or any content outside the JSON object. Use camelCase for all field names. Use ISO 8601 timestamps. Populate every field — emit `null` for optional fields you have no value for, and `[]` for empty arrays.
+
+### JSON shape
+
+```json
+{
+  "incidentId": "<will be overridden by server; you may write any string>",
+  "phase": "response",
+  "sceneSummary": {
+    "text": "<concise scene description, max 3 lines>",
+    "lastUpdated": "<ISO 8601 timestamp>"
+  },
+  "sceneConditionsAndActions": [
+    {
+      "id": "c-1",
+      "type": "action",
+      "text": "<single sentence describing the condition or action>",
+      "status": "conforming",
+      "publishedPlanContext": "<what published standards say, or null>",
+      "clientPlanContext": null,
+      "delta": null,
+      "citations": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "refinements": [],
+      "firstDetectedAt": "<ISO 8601>",
+      "lastConfirmedAt": "<ISO 8601>"
+    }
+  ],
+  "supportContributions": [],
+  "forms": [
+    {
+      "formId": "f-1",
+      "title": "Incident Briefing",
+      "role": "fire-officer",
+      "status": "active",
+      "content": {
+        "kind": "ics_201",
+        "formType": "ICS-201",
+        "incidentName": "<derived from transcript>",
+        "dateTimeInitiated": "<ISO 8601>",
+        "situationSummary": "<paragraph derived from transcript>",
+        "currentObjectives": "<what the IC is trying to accomplish>",
+        "currentActions": "<what crews are doing>",
+        "resourceSummary": "<units on scene>",
+        "preparedBy": "<Fire Officer name from transcript>"
+      },
+      "lastUpdated": "<ISO 8601>"
+    },
+    {
+      "formId": "f-2",
+      "title": "AIPform1",
+      "role": "fire-officer",
+      "status": "active",
+      "content": {
+        "kind": "placeholder",
+        "formType": "AIPform1",
+        "title": "AIPform1",
+        "sections": [
+          { "heading": "<heading>", "body": "<body text>" }
+        ]
+      },
+      "lastUpdated": "<ISO 8601>"
+    },
+    {
+      "formId": "f-3",
+      "title": "AIPform2",
+      "role": "fire-officer",
+      "status": "active",
+      "content": {
+        "kind": "placeholder",
+        "formType": "AIPform2",
+        "title": "AIPform2",
+        "sections": [
+          { "heading": "<heading>", "body": "<body text>" }
+        ]
+      },
+      "lastUpdated": "<ISO 8601>"
+    }
+  ]
+}
+```
+
+`status` must be exactly one of: `"conforming"`, `"deviating_safe"`, `"deviating_unsafe"`. `type` must be exactly one of: `"condition"`, `"action"`. `phase` is always `"response"` for these calls. The `content.kind` discriminator must be `"ics_201"` for ICS 201 specifically and `"placeholder"` for the other forms.
