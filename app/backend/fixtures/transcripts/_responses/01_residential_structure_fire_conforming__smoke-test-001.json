@@ -1,0 +1,275 @@
+{
+  "forms": [
+    {
+      "content": {
+        "currentActions": "Offensive attack with charged attack line advancing, vertical ventilation coordinated, RIT established and in service, LACES safety protocol implemented, primary and secondary searches conducted, overhaul in progress.",
+        "currentObjectives": "Control and extinguish the fire, ensure firefighter and civilian safety, conduct thorough search and overhaul, secure the scene.",
+        "dateTimeInitiated": "2024-06-01T14:32:15Z",
+        "formType": "ICS-201",
+        "incidentName": "Maple Street Working Fire",
+        "kind": "ics_201",
+        "preparedBy": "Captain Reyes",
+        "resourceSummary": "Engine 1, Engine 2 (RIT), Truck 1, Command established as Maple Street Command.",
+        "situationSummary": "Two-story single-family residence with heavy smoke on Bravo and Charlie sides. Civilians accounted for outside. Offensive attack underway with vertical ventilation and RIT in place. Fire knocked down, primary and secondary searches completed, fire under control."
+      },
+      "formId": "f-1",
+      "lastUpdated": "2024-06-01T14:42:30Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "Incident Briefing"
+    },
+    {
+      "content": {
+        "formType": "AIPform1",
+        "kind": "placeholder",
+        "sections": [
+          {
+            "body": "Two-story single-family residence with heavy smoke showing from Bravo and Charlie sides. Civilians accounted for outside.",
+            "heading": "Initial Size-Up"
+          }
+        ],
+        "title": "AIPform1"
+      },
+      "formId": "f-2",
+      "lastUpdated": "2024-06-01T14:42:30Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "AIPform1"
+    },
+    {
+      "content": {
+        "formType": "AIPform2",
+        "kind": "placeholder",
+        "sections": [
+          {
+            "body": "Offensive attack with vertical ventilation and RIT in place. Fire knocked down, searches complete, overhaul underway.",
+            "heading": "Operations Summary"
+          }
+        ],
+        "title": "AIPform2"
+      },
+      "formId": "f-3",
+      "lastUpdated": "2024-06-01T14:42:30Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "AIPform2"
+    }
+  ],
+  "incidentId": "smoke-test-001",
+  "phase": "response",
+  "sceneConditionsAndActions": [
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:32:15Z",
+      "id": "c-1",
+      "lastConfirmedAt": "2024-06-01T14:33:05Z",
+      "publishedPlanContext": "NFPA 1500 and IFSTA guidelines require accurate size-up including structure type and smoke conditions to inform tactical decisions.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Two-story single-family residential structure with heavy smoke showing from Bravo and Charlie sides.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:32:15Z",
+      "id": "c-2",
+      "lastConfirmedAt": "2024-06-01T14:32:15Z",
+      "publishedPlanContext": "NFPA 1561 requires confirmation of occupant status during initial size-up to prioritize rescue and safety.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Civilians accounted for outside the structure per neighbor report.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:32:30Z",
+      "id": "c-3",
+      "lastConfirmedAt": "2024-06-01T14:33:05Z",
+      "publishedPlanContext": "ICS and NFPA 1561 require establishment of command and a 360-degree size-up to assess hazards and conditions.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Maple Street Command established with 360-degree size-up completed.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:33:40Z",
+      "id": "c-4",
+      "lastConfirmedAt": "2024-06-01T14:33:40Z",
+      "publishedPlanContext": "NFPA 1410 and IFSTA recommend coordinated offensive attack and ventilation to improve fire control and crew safety.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Offensive attack approved with primary entry on Alpha side and vertical ventilation coordinated on Charlie side.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:34:10Z",
+      "id": "c-5",
+      "lastConfirmedAt": "2024-06-01T14:34:10Z",
+      "publishedPlanContext": "NFPA 1500 and NFPA 1981 require full PPE and SCBA use for interior attack crews to ensure safety.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Attack line charged and crew of two advancing in full PPE with SCBA.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:34:25Z",
+      "id": "c-6",
+      "lastConfirmedAt": "2024-06-01T14:34:40Z",
+      "publishedPlanContext": "NFPA 1500 and NFPA 1561 require RIT to be established and in place before interior operations begin to ensure firefighter rescue capability.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Engine 2 designated as Rapid Intervention Team, staged on Alpha side, fully equipped and in service before interior crew advances.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:35:00Z",
+      "id": "c-7",
+      "lastConfirmedAt": "2024-06-01T14:35:00Z",
+      "publishedPlanContext": "NFPA 1500 and IFSTA emphasize LACES (Lookouts, Awareness, Communications, Escape routes, Safety zones) for firefighter safety during interior operations.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "LACES safety protocol implemented with lookouts posted, escape routes identified, and safety zone established at the engine.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:35:30Z",
+      "id": "c-8",
+      "lastConfirmedAt": "2024-06-01T14:35:30Z",
+      "publishedPlanContext": "NFPA 1410 recommends vertical ventilation coordinated with interior attack to improve fire conditions and crew safety.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Vertical ventilation opened and established on Charlie side.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:36:15Z",
+      "id": "c-9",
+      "lastConfirmedAt": "2024-06-01T14:36:15Z",
+      "publishedPlanContext": "NFPA 1561 and NFPA 1410 require fire control before search operations to ensure firefighter and victim safety.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Fire knocked down on second floor; primary search underway.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:37:00Z",
+      "id": "c-10",
+      "lastConfirmedAt": "2024-06-01T14:37:00Z",
+      "publishedPlanContext": "NFPA 1561 requires thorough search and overhaul after fire knockdown to ensure no victims remain and to prevent rekindle.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Primary search complete with no victims found; overhaul beginning.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:38:45Z",
+      "id": "c-11",
+      "lastConfirmedAt": "2024-06-01T14:38:45Z",
+      "publishedPlanContext": "NFPA 1561 and NFPA 1500 recommend maintaining RIT until all interior operations are complete for firefighter safety.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Fire under control; RIT remains in service until secondary search complete.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:42:00Z",
+      "id": "c-12",
+      "lastConfirmedAt": "2024-06-01T14:42:00Z",
+      "publishedPlanContext": "NFPA 1561 requires secondary search and scene security after fire extinguishment to ensure safety and accountability.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Secondary search all clear; fire fully extinguished and scene secured.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T14:42:30Z",
+      "id": "c-13",
+      "lastConfirmedAt": "2024-06-01T14:42:30Z",
+      "publishedPlanContext": "ICS and NFPA 1561 require formal termination of command and release of resources when no longer needed.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Maple Street Command terminated; Engine 2 RIT released; Engine 1 remaining for overhaul and investigation.",
+      "type": "action"
+    }
+  ],
+  "sceneSummary": {
+    "lastUpdated": "2024-06-01T14:42:30Z",
+    "text": "Working fire in two-story single-family residence with heavy smoke on Bravo and Charlie sides. Offensive attack underway with coordinated ventilation and RIT in place. Fire knocked down, primary and secondary searches complete, fire under control."
+  },
+  "supportContributions": []
+}

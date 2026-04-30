@@ -313,9 +313,17 @@ The SME's view: there should never be a scenario where the KB has nothing applic
 
 All seven decisions resolved across two SME working sessions. See "Decisions" section above.
 
-### Session 1 — Validate IAP contract + backend prototype
+### Session 1 — Validate IAP contract + backend prototype ✓ (2026-04-29)
 
-End state: `curl POST /api/incidents/test/validate-iap` with a transcript body returns a `ValidateIAPResponse` with `sceneConditionsAndActions` populated, traffic-light statuses encoding life-risk severity, and a stub ICS 201 in `forms`.
+**End state achieved.** All three fixtures POST'd successfully against the deployed Container App; the LLM produced clean structured output:
+
+- Fixture 1 (conforming): 13/13 green, zero false positives — RIT, LACES, 360 size-up, etc. all correctly flagged.
+- Fixture 2 (mixed): 9 green + 1 yellow — "vehicle not chocked" surfaced as the deviating-safe item.
+- Fixture 3 (life-risk): 12 green + 1 red — "ordered interior attack despite deteriorating conditions and no RIT" flagged. The LLM consolidated two related deviations into one; SME may want fine-grained vs consolidated.
+
+**Notes for prompt-tuning later:** ICS 201 `dateTimeInitiated` got an arbitrary year (2024) because transcripts don't carry one — likely fixable with a server-injected request-time date. Some condition vs action classifications are nitpickable (e.g., "Engine 2 arrived and established RIT" labelled as condition). Both small.
+
+**Switched from `chat.completions.parse()` to `chat.completions.create()` with `json_object` mode** during the session: OpenAI strict structured outputs rejected our schema (Pydantic discriminated union → `oneOf` + `discriminator`, and `default` keywords). Pydantic post-parsing on our side validates the output against the contract. JSON skeleton appended to the extraction prompt to give the LLM the shape.
 
 - Implement Pydantic models in `app/backend/models/incidents.py` matching the D1 contract exactly.
 - Wire the `/api/incidents/{id}/validate-iap` endpoint.

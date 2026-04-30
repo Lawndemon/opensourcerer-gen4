@@ -1,0 +1,227 @@
+{
+  "forms": [
+    {
+      "content": {
+        "currentActions": "Extrication initiated using Hurst tool, battery disconnected, C-spine precautions in place, patients transferred to Medic 4, and traffic control maintained.",
+        "currentObjectives": "Safely extricate and transfer patients, maintain scene safety and traffic control, stabilize wreckage, and prepare for tow services.",
+        "dateTimeInitiated": "2024-06-01T09:14:22Z",
+        "formType": "ICS-201",
+        "incidentName": "Single-Vehicle MVA on Range Road 245",
+        "kind": "ics_201",
+        "preparedBy": "Captain Lin",
+        "resourceSummary": "Engine 1 and Medic 4 on scene.",
+        "situationSummary": "A single-vehicle rollover motor vehicle accident occurred on Range Road 245 at mile fourteen. The vehicle is on its driver's side partially in a ditch with two conscious occupants mildly entrapped by lower extremities. The vehicle is stable with no fire or significant fuel leak. Traffic control is established with single-lane alternating traffic. Extrication operations are underway with patients safely transferred to EMS."
+      },
+      "formId": "f-1",
+      "lastUpdated": "2024-06-01T09:21:00Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "Incident Briefing"
+    },
+    {
+      "content": {
+        "formType": "AIPform1",
+        "kind": "placeholder",
+        "sections": [
+          {
+            "body": "Extrication was performed on two patients with mild entrapment. Vehicle was stable on its side and battery was disconnected prior to patient removal.",
+            "heading": "Extrication Summary"
+          }
+        ],
+        "title": "AIPform1"
+      },
+      "formId": "f-2",
+      "lastUpdated": "2024-06-01T09:21:00Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "AIPform1"
+    },
+    {
+      "content": {
+        "formType": "AIPform2",
+        "kind": "placeholder",
+        "sections": [
+          {
+            "body": "Traffic control was established with roadway flagged and Range Road open to single-lane alternating traffic. No fire or fuel hazards were present.",
+            "heading": "Scene Safety and Traffic Control"
+          }
+        ],
+        "title": "AIPform2"
+      },
+      "formId": "f-3",
+      "lastUpdated": "2024-06-01T09:21:00Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "AIPform2"
+    }
+  ],
+  "incidentId": "smoke-test-002",
+  "phase": "response",
+  "sceneConditionsAndActions": [
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:14:22Z",
+      "id": "c-1",
+      "lastConfirmedAt": "2024-06-01T09:14:35Z",
+      "publishedPlanContext": "NFPA 1500 and IFSTA guidelines require accurate scene size-up including vehicle position and stability for safe operations.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Single-vehicle motor vehicle accident with vehicle on driver's side partially in ditch.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:14:35Z",
+      "id": "c-2",
+      "lastConfirmedAt": "2024-06-01T09:14:35Z",
+      "publishedPlanContext": "NFPA 1006 and IFSTA recommend assessing victim condition and entrapment severity to guide extrication tactics.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Two occupants conscious and conversing with mild entrapment of lower extremities.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:15:00Z",
+      "id": "c-3",
+      "lastConfirmedAt": "2024-06-01T09:15:00Z",
+      "publishedPlanContext": "NFPA 1500 requires vehicle stabilization and hazard assessment prior to extrication.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Vehicle stable on driver's side with no risk of rolling, no fire or significant fuel leak, and no pedestrian hazards.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:15:00Z",
+      "id": "c-4",
+      "lastConfirmedAt": "2024-06-01T09:21:00Z",
+      "publishedPlanContext": "NFPA 1500 and local SOGs require traffic control to protect responders and victims at roadway incidents.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Traffic control established with roadway flagged and Range Road open to single-lane alternating traffic.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:15:30Z",
+      "id": "c-5",
+      "lastConfirmedAt": "2024-06-01T09:17:00Z",
+      "publishedPlanContext": "NFPA 1006 and IFSTA recommend use of proper extrication tools and spinal precautions during patient access.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Extrication initiated using Hurst tool for windshield removal with C-spine precautions in place.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:16:00Z",
+      "id": "c-6",
+      "lastConfirmedAt": "2024-06-01T09:16:00Z",
+      "publishedPlanContext": "NFPA 1500 and extrication standards require electrical isolation to reduce risk of fire or electrical shock.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Battery disconnected and vehicle electrical system isolated as primary post complete.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:16:25Z",
+      "id": "c-7",
+      "lastConfirmedAt": "2024-06-01T09:16:25Z",
+      "publishedPlanContext": "NFPA 1500 and IFSTA recommend vehicle chocking for stabilization; however, if vehicle is stable and no movement risk exists, omission is acceptable with command acknowledgment.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "deviating_safe",
+      "text": "Decision made not to chock vehicle due to stability and no movement risk, proceeding with extrication.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:18:15Z",
+      "id": "c-8",
+      "lastConfirmedAt": "2024-06-01T09:18:15Z",
+      "publishedPlanContext": "NFPA 1006 and EMS protocols require safe extrication and transfer with spinal precautions.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Patient one extricated without acute distress and transferred to Medic 4 with cervical collar.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:19:30Z",
+      "id": "c-9",
+      "lastConfirmedAt": "2024-06-01T09:19:30Z",
+      "publishedPlanContext": "NFPA 1006 and EMS protocols require patient assessment and safe transfer after extrication.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Patient two extricated ambulatory with minor left forearm laceration and transferred to Medic 4.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T09:21:00Z",
+      "id": "c-10",
+      "lastConfirmedAt": "2024-06-01T09:21:00Z",
+      "publishedPlanContext": "NFPA 1500 and local SOGs require stabilization of wreckage and coordination with towing after patient removal.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "All patients transferred to EMS; wreckage stabilized and awaiting tow services.",
+      "type": "action"
+    }
+  ],
+  "sceneSummary": {
+    "lastUpdated": "2024-06-01T09:21:00Z",
+    "text": "Single-vehicle rollover MVA with two conscious, mildly entrapped occupants. Vehicle stable on driver's side, no fire or fuel leak. Extrication underway with patients transferred to EMS; traffic control in place."
+  },
+  "supportContributions": []
+}

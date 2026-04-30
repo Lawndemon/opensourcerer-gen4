@@ -4,11 +4,13 @@
  * Decides what the user sees after sign-in based on their account context
  * and whether they've picked an acting role yet. Renders one of:
  *
- *  - <RoleSelect /> — the user needs to pick (or confirm) their acting role
- *  - <AdminLanding /> — the user's acting role is Site Administrator
- *  - <Chat />         — the user's acting role is set; normal app UI
+ *  - <RoleSelect />     — the user needs to pick (or confirm) their acting role
+ *  - <AdminLanding />   — the user's acting role is Site Administrator
+ *  - <IncidentKiosk />  — the user's acting role is Fire Officer (kiosk paradigm)
+ *  - <Chat />           — every other acting role (chat UI for now; will switch to
+ *                         the active-incidents dashboard in a later session)
  *
- * See BACKLOG.md → "Event-level workflow" for the design rationale.
+ * See BACKLOG.md → "Incident-centric architecture" for the routing rationale.
  */
 
 import { useRole } from "../roleContext";
@@ -17,6 +19,7 @@ import { useLogin } from "../authConfig";
 import Chat from "./chat/Chat";
 import RoleSelect from "./roleSelect/RoleSelect";
 import AdminLanding from "./adminLanding/AdminLanding";
+import IncidentKiosk from "./incidentKiosk/IncidentKiosk";
 
 const IndexRouter = () => {
     const { actingRole, accountContext } = useRole();
@@ -40,13 +43,20 @@ const IndexRouter = () => {
         return <RoleSelect />;
     }
 
+    // Fire Officer is the kiosk paradigm — voice + single-button-press, never keyboard.
+    // This is the prototype's primary surface.
+    if (actingRole === "fire-officer") {
+        return <IncidentKiosk />;
+    }
+
     // Site Administrator takes its own landing page (stub today; real admin
     // tooling lands in later sessions).
     if (actingRole === "site-administrator") {
         return <AdminLanding />;
     }
 
-    // Everyone else proceeds to the main chat UI.
+    // Every other ICS role still lands on chat for now. Later sessions switch them
+    // to the active-incidents dashboard described in BACKLOG.md.
     return <Chat />;
 };
 

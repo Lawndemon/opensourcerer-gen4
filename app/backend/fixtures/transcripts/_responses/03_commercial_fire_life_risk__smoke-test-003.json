@@ -1,0 +1,275 @@
+{
+  "forms": [
+    {
+      "content": {
+        "currentActions": "Engine 1 conducting exterior knockdown on Bravo flank; Truck 1 continuing vertical ventilation; RIT established and staged on Alpha side.",
+        "currentObjectives": "Control and extinguish the fire while ensuring firefighter safety; maintain defensive posture until structure assessment is complete.",
+        "dateTimeInitiated": "2024-06-01T22:08:42Z",
+        "formType": "ICS-201",
+        "incidentName": "Commercial Occupancy Fire",
+        "kind": "ics_201",
+        "preparedBy": "Captain Walsh",
+        "resourceSummary": "Engine 1, Engine 2 (RIT), Truck 1 on scene.",
+        "situationSummary": "A two-story commercial occupancy experienced heavy fire fully involved on the Bravo side with heavy dark turbulent smoke on three sides. Initial interior attack was attempted but conditions deteriorated rapidly with no RIT in place. The crew withdrew safely and the incident transitioned to defensive operations with ventilation ongoing and RIT established on scene."
+      },
+      "formId": "f-1",
+      "lastUpdated": "2024-06-01T22:18:30Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "Incident Briefing"
+    },
+    {
+      "content": {
+        "formType": "AIPform1",
+        "kind": "placeholder",
+        "sections": [
+          {
+            "body": "Truck 1 initiated and continued vertical ventilation on the Charlie side to improve interior conditions and support fire control.",
+            "heading": "Ventilation Operations"
+          }
+        ],
+        "title": "AIPform1"
+      },
+      "formId": "f-2",
+      "lastUpdated": "2024-06-01T22:18:30Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "AIPform1"
+    },
+    {
+      "content": {
+        "formType": "AIPform2",
+        "kind": "placeholder",
+        "sections": [
+          {
+            "body": "Engine 1 initially advanced an interior attack line but withdrew due to deteriorating conditions and lack of RIT. Defensive operations were established to maintain firefighter safety.",
+            "heading": "Crew Safety and Tactical Decisions"
+          }
+        ],
+        "title": "AIPform2"
+      },
+      "formId": "f-3",
+      "lastUpdated": "2024-06-01T22:18:30Z",
+      "role": "fire-officer",
+      "status": "active",
+      "title": "AIPform2"
+    }
+  ],
+  "incidentId": "smoke-test-003",
+  "phase": "response",
+  "sceneConditionsAndActions": [
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:08:42Z",
+      "id": "c-1",
+      "lastConfirmedAt": "2024-06-01T22:08:55Z",
+      "publishedPlanContext": "NFPA 1500 and IFSTA guidelines require accurate size-up including fire location and smoke conditions to inform tactical decisions.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Two-story commercial occupancy with heavy fire fully involved on the Bravo side and heavy dark turbulent smoke on Charlie and Delta sides.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:09:20Z",
+      "id": "c-2",
+      "lastConfirmedAt": "2024-06-01T22:09:35Z",
+      "publishedPlanContext": "NFPA 1410 and IFSTA recommend initial interior attack lines to control fire spread when conditions allow and crew safety is ensured.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Engine 1 advanced an interior attack line on the Alpha side to knock down the fire and push into the Bravo side.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:09:55Z",
+      "id": "c-3",
+      "lastConfirmedAt": "2024-06-01T22:09:55Z",
+      "publishedPlanContext": "Vertical ventilation is a standard tactic to improve interior conditions and fire control as per NFPA 1410 and IFSTA.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Truck 1 initiated vertical ventilation on the Charlie side.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:10:20Z",
+      "id": "c-4",
+      "lastConfirmedAt": "2024-06-01T22:10:20Z",
+      "publishedPlanContext": "Recognition of deteriorating interior conditions is critical for firefighter safety and aligns with NFPA 1500 situational awareness requirements.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Inside Alpha side, heat was banking down with fast-moving turbulent smoke indicating deteriorating interior conditions.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:10:40Z",
+      "id": "c-5",
+      "lastConfirmedAt": "2024-06-01T22:10:40Z",
+      "publishedPlanContext": "NFPA 1500 and NFPA 1561 require a RIT to be established promptly to ensure firefighter rescue capability.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Engine 2 was inbound with an ETA of two minutes, designated as the Rapid Intervention Team (RIT) on arrival.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:11:10Z",
+      "id": "c-6",
+      "lastConfirmedAt": "2024-06-01T22:11:10Z",
+      "publishedPlanContext": "NFPA 1500 and IFSTA emphasize crew input and situational awareness to adjust tactics for safety and effectiveness.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Engine 1 crew reported deteriorating conditions with rolling smoke and recommended transitioning to a defensive attack from the exterior.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:11:25Z",
+      "id": "c-7",
+      "lastConfirmedAt": "2024-06-01T22:11:55Z",
+      "publishedPlanContext": "NFPA 1500 and NFPA 1561 require a RIT to be in place before interior attack; ignoring crew safety concerns and continuing interior attack without RIT is unsafe.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "deviating_unsafe",
+      "text": "Captain Walsh ordered Engine 1 to continue the interior attack despite deteriorating conditions and no RIT in place.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:12:30Z",
+      "id": "c-8",
+      "lastConfirmedAt": "2024-06-01T22:12:30Z",
+      "publishedPlanContext": "NFPA 1500 requires crews to withdraw when conditions become untenable to preserve firefighter safety.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Engine 1 crew experienced rapidly increasing heat and pulled back to the door for safety.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:12:55Z",
+      "id": "c-9",
+      "lastConfirmedAt": "2024-06-01T22:12:55Z",
+      "publishedPlanContext": "Accountability and crew status checks are required by NFPA 1500 and NFPA 1561 to ensure firefighter safety.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Fire flashed over the kitchen counter as Engine 1 exited; crew accounted for with no injuries.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:13:15Z",
+      "id": "c-10",
+      "lastConfirmedAt": "2024-06-01T22:13:15Z",
+      "publishedPlanContext": "Transitioning to defensive operations when interior conditions are unsafe aligns with NFPA 1500 and IFSTA best practices.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Captain Walsh ordered all units to withdraw and transition to defensive operations with Engine 1 resetting on the Alpha side for exterior knockdown.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:13:45Z",
+      "id": "c-11",
+      "lastConfirmedAt": "2024-06-01T22:13:45Z",
+      "publishedPlanContext": "RIT must be established and staged promptly as per NFPA 1500 and NFPA 1561 to ensure firefighter rescue capability.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Engine 2 arrived and established RIT staged on the Alpha side, now in service.",
+      "type": "condition"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:14:00Z",
+      "id": "c-12",
+      "lastConfirmedAt": "2024-06-01T22:14:00Z",
+      "publishedPlanContext": "Continued ventilation and exterior attack during defensive operations is consistent with NFPA 1410 and IFSTA guidelines.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Truck 1 continued ventilation while Engine 1 conducted exterior attack on the Bravo flank under defensive posture.",
+      "type": "action"
+    },
+    {
+      "citations": [],
+      "clientPlanContext": null,
+      "delta": null,
+      "firstDetectedAt": "2024-06-01T22:18:30Z",
+      "id": "c-13",
+      "lastConfirmedAt": "2024-06-01T22:18:30Z",
+      "publishedPlanContext": "Holding defensive posture until structure assessment is consistent with NFPA 1500 and IFSTA safety protocols.",
+      "refinements": [],
+      "removed": false,
+      "removedAt": null,
+      "removedBy": null,
+      "status": "conforming",
+      "text": "Knockdown was achieved from exterior operations and defensive posture was maintained with no interior operations until structure assessment.",
+      "type": "condition"
+    }
+  ],
+  "sceneSummary": {
+    "lastUpdated": "2024-06-01T22:18:30Z",
+    "text": "Two-story commercial structure with heavy fire on Bravo side and heavy smoke on three sides. Initial interior attack pushed back due to deteriorating conditions and no RIT in place. Defensive operations established with ventilation ongoing and RIT staged."
+  },
+  "supportContributions": []
+}
