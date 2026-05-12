@@ -34,6 +34,11 @@ CONFIG_AGENTIC_KNOWLEDGEBASE_ENABLED = "agentic_knowledgebase_enabled"
 CONFIG_COSMOS_HISTORY_CLIENT = "cosmos_history_client"
 CONFIG_COSMOS_HISTORY_CONTAINER = "cosmos_history_container"
 CONFIG_COSMOS_HISTORY_VERSION = "cosmos_history_version"
+# Incidents persistence (Session 3) — rides on the same Cosmos account as chat history,
+# gated by USE_CHAT_HISTORY_COSMOS. The incidents container is separate from chat_history;
+# both live under the same database for cost/ops simplicity.
+CONFIG_INCIDENTS_COSMOS_ENABLED = "incidents_cosmos_enabled"
+CONFIG_COSMOS_INCIDENTS_CONTAINER = "cosmos_incidents_container"
 CONFIG_MULTIMODAL_ENABLED = "multimodal_enabled"
 CONFIG_RAG_SEARCH_TEXT_EMBEDDINGS = "rag_search_text_embeddings"
 CONFIG_RAG_SEARCH_IMAGE_EMBEDDINGS = "rag_search_image_embeddings"

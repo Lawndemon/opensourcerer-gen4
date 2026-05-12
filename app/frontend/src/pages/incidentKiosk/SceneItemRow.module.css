@@ -2,7 +2,7 @@
 
 .row {
     display: grid;
-    grid-template-columns: auto auto 1fr auto;
+    grid-template-columns: auto auto 1fr auto auto;
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
@@ -64,3 +64,14 @@
 .refineButton {
     flex-shrink: 0;
 }
+
+.removeButton {
+    flex-shrink: 0;
+    color: rgba(248, 113, 113, 0.85);
+}
+
+.removeButton:hover {
+    color: #f87171;
+    background-color: rgba(248, 113, 113, 0.12);
+}
+

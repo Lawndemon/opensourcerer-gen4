@@ -48,9 +48,18 @@ from approaches.approach import Approach, DataPoints
 from approaches.chatreadretrieveread import ChatReadRetrieveReadApproach
 from approaches.promptmanager import PromptManager
 from approaches.validate_iap import ValidateIAPApproach
-from models.incidents import ValidateIAPRequest
+from models.incidents import (
+    Actor,
+    CreateIncidentRequest,
+    IncidentDocument,
+    LossStopRequest,
+    RemoveConditionRequest,
+    SceneSummary,
+    ValidateIAPRequest,
+)
 from pydantic import ValidationError
 from chat_history.cosmosdb import chat_history_cosmosdb_bp
+from incidents import cosmosdb as incidents_cosmos
 from config import (
     CONFIG_AGENTIC_KNOWLEDGEBASE_ENABLED,
     CONFIG_AUTH_CLIENT,
@@ -58,6 +67,7 @@ from config import (
     CONFIG_VALIDATE_IAP_APPROACH,
     CONFIG_CHAT_HISTORY_BROWSER_ENABLED,
     CONFIG_CHAT_HISTORY_COSMOS_ENABLED,
+    CONFIG_INCIDENTS_COSMOS_ENABLED,
     CONFIG_CREDENTIAL,
     CONFIG_DEFAULT_REASONING_EFFORT,
     CONFIG_DEFAULT_RETRIEVAL_REASONING_EFFORT,
@@ -268,9 +278,53 @@ async def chat_stream(auth_claims: dict[str, Any]):
         return error_response(error, "/chat")
 
 
-# Fire Officer kiosk: Validate IAP. Takes the accumulated transcript, returns structured
-# Scene Summary + Scene Conditions and Actions + per-role forms. Session 1 prototype: pure
-# LLM extraction, no Cosmos persistence yet. See docs/prototype_plan.md.
+# --- Helpers for incident endpoints --------------------------------------------
+#
+# Every incident-mutating endpoint records an audit event with WHO did it (acting role +
+# user id). These helpers centralize the extraction so callsites stay readable.
+
+
+def _actor_from(auth_claims: dict[str, Any], acting_role: str, user_id_override: str | None = None) -> Actor:
+    """Build an Actor from auth claims plus the request's acting_role.
+
+    `user_id` falls back to the Entra OID. The optional override exists for the case where
+    the frontend explicitly passes its idea of user_id — useful when local-dev mode has no
+    auth_claims available.
+    """
+    user_id = user_id_override or auth_claims.get("oid") or "unknown"
+    return Actor(role=acting_role, user_id=user_id)
+
+
+def _tenant_id_from(auth_claims: dict[str, Any], override: str | None = None) -> str:
+    """Tenant id used for Cosmos partitioning.
+
+    For v1 we prefer an explicit override (when one is supplied) → the auth `tid` claim →
+    `"default"`. When multi-tenant deployment becomes the only mode, the override path
+    should be removed so the `tid` claim is the only source of truth.
+    """
+    return override or auth_claims.get("tid") or "default"
+
+
+def _incidents_enabled_or_503():
+    """Returns a Quart response if Cosmos persistence is off; otherwise None."""
+    if not current_app.config.get(CONFIG_INCIDENTS_COSMOS_ENABLED):
+        return (
+            jsonify({"error": "Incidents persistence is not enabled on this deployment."}),
+            503,
+        )
+    return None
+
+
+# --- Fire Officer kiosk: Validate IAP -------------------------------------------
+#
+# Takes the accumulated transcript, returns structured Scene Summary + Scene Conditions and
+# Actions + per-role forms. When Cosmos persistence is enabled AND an incident record exists
+# for the given id, the result is reconciled with the persisted state (sticky-by-default
+# for previously-removed conditions) and an audit event is appended.
+#
+# When persistence is disabled, or the incident doesn't exist in Cosmos yet, the endpoint
+# falls back to its Session 1 behavior: pure LLM extraction, no state preserved between
+# calls. This keeps the legacy fixture-driven demo flow working without a Cosmos account.
 @bp.route("/api/incidents/<incident_id>/validate-iap", methods=["POST"])
 @authenticated
 async def validate_iap(auth_claims: dict[str, Any], incident_id: str):
@@ -300,10 +354,192 @@ async def validate_iap(auth_claims: dict[str, Any], incident_id: str):
             ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
         )
         result = await approach.run(validate_request)
-        # Serialize with by_alias so JSON uses camelCase per the contract.
+
+        # Persist reconciliation if Cosmos is enabled and an incident record exists.
+        # We intentionally only attempt reconciliation when the incident is already
+        # persisted — first-call Validate IAP for an unpersisted incident still works
+        # without Cosmos (Session 1 compatibility for the deployed demo path).
+        if current_app.config.get(CONFIG_INCIDENTS_COSMOS_ENABLED):
+            tenant_id = _tenant_id_from(auth_claims)
+            existing = await incidents_cosmos.get_incident(tenant_id, incident_id)
+            if existing is not None:
+                persisted = await incidents_cosmos.apply_validate_iap_result(
+                    tenant_id=tenant_id,
+                    incident_id=incident_id,
+                    new_scene_summary=result.scene_summary,
+                    new_conditions=result.scene_conditions_and_actions,
+                    new_forms=result.forms,
+                )
+                # Return the reconciled result (removed-flag stickiness already applied).
+                return jsonify({
+                    "incidentId": persisted.id,
+                    "phase": persisted.phase,
+                    "sceneSummary": persisted.scene_summary.model_dump(by_alias=True),
+                    "sceneConditionsAndActions": [
+                        c.model_dump(by_alias=True) for c in persisted.scene_conditions_and_actions
+                    ],
+                    "supportContributions": [
+                        s.model_dump(by_alias=True) for s in persisted.support_contributions
+                    ],
+                    "forms": [f.model_dump(by_alias=True) for f in persisted.forms],
+                })
+
+        # Fall-through: Session-1 behavior, no persistence.
         return jsonify(result.model_dump(by_alias=True))
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/validate-iap")
+
+
+# --- Incident lifecycle endpoints (Session 3) -----------------------------------
+#
+# All three require Cosmos persistence to be enabled. Each one writes both the state change
+# AND an audit event in a single document replace — see incidents/cosmosdb.py for the
+# enforced pattern.
+
+
+@bp.route("/api/incidents", methods=["POST"])
+@authenticated
+async def create_incident(auth_claims: dict[str, Any]):
+    """Create a new incident.
+
+    Body: `CreateIncidentRequest` (actingRole, optional transcript, optional tenantId).
+    Returns the full persisted incident. If `transcript` is supplied, Validate IAP runs
+    against it inline so the kiosk can render the dashboard without a second round-trip.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = CreateIncidentRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match CreateIncidentRequest", "details": ve.errors()}), 400
+
+    actor = _actor_from(auth_claims, body.acting_role)
+    tenant_id = _tenant_id_from(auth_claims, body.tenant_id)
+    incident_id = f"incident-{int(time.time() * 1000)}-{os.urandom(2).hex()}"
+    now = incidents_cosmos._now_iso()
+
+    # Initial document — empty scene state, single phase_transitioned audit event recording
+    # the incident's creation. If the kiosk supplied an opening transcript, Validate IAP
+    # runs below and populates scene state.
+    initial_doc = IncidentDocument(
+        id=incident_id,
+        tenant_id=tenant_id,
+        phase="response",
+        created_by=actor,
+        created_at=now,
+        scene_summary=SceneSummary(text="", last_updated=now),
+        event_log=[
+            incidents_cosmos.make_audit_event(
+                incident_id=incident_id,
+                event_type="phase_transitioned",
+                actor=actor,
+                payload={"from": None, "to": "response", "trigger": "create_incident"},
+            )
+        ],
+    )
+    try:
+        created = await incidents_cosmos.create_incident(initial_doc)
+
+        # Optional inline Validate IAP if a transcript was supplied.
+        if body.transcript:
+            approach: ValidateIAPApproach = cast(
+                ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
+            )
+            iap_result = await approach.run(
+                ValidateIAPRequest(
+                    incident_id=incident_id,
+                    transcript=body.transcript,
+                    acting_role=body.acting_role,
+                )
+            )
+            created = await incidents_cosmos.apply_validate_iap_result(
+                tenant_id=tenant_id,
+                incident_id=incident_id,
+                new_scene_summary=iap_result.scene_summary,
+                new_conditions=iap_result.scene_conditions_and_actions,
+                new_forms=iap_result.forms,
+            )
+        return jsonify({"incident": created.model_dump(by_alias=True)}), 201
+    except Exception as error:
+        return error_response(error, "/api/incidents")
+
+
+@bp.route("/api/incidents/<incident_id>", methods=["GET"])
+@authenticated
+async def get_incident(auth_claims: dict[str, Any], incident_id: str):
+    """Read a single incident. Used to rehydrate kiosk state on refresh."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    try:
+        tenant_id = _tenant_id_from(auth_claims, request.args.get("tenantId"))
+        doc = await incidents_cosmos.get_incident(tenant_id, incident_id)
+        if doc is None:
+            return jsonify({"error": f"Incident not found: {incident_id}"}), 404
+        return jsonify({"incident": doc.model_dump(by_alias=True)})
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}")
+
+
+@bp.route("/api/incidents/<incident_id>/loss-stop", methods=["POST"])
+@authenticated
+async def loss_stop(auth_claims: dict[str, Any], incident_id: str):
+    """Loss Stop: Response → Transition to Recovery. Locks active forms. Audit-logged."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = LossStopRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match LossStopRequest", "details": ve.errors()}), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.transition_to_loss_stopped(
+            tenant_id=tenant_id, incident_id=incident_id, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/loss-stop")
+
+
+@bp.route("/api/incidents/<incident_id>/conditions/<condition_id>", methods=["DELETE"])
+@authenticated
+async def remove_condition(auth_claims: dict[str, Any], incident_id: str, condition_id: str):
+    """Mark a Scene Condition or Action as removed by the Fire Officer.
+
+    Per immutability principle this is a flag flip, not a hard delete. Sticky-by-default;
+    new transcript evidence on a subsequent Validate IAP may resurface it via the
+    extraction prompt minting a fresh id.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = RemoveConditionRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match RemoveConditionRequest", "details": ve.errors()}), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.remove_condition(
+            tenant_id=tenant_id,
+            incident_id=incident_id,
+            condition_id=condition_id,
+            actor=actor,
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/conditions/{condition_id}")
 
 
 # Send MSAL.js settings to the client UI
@@ -731,6 +967,9 @@ async def setup_clients():
     current_app.config[CONFIG_SPEECH_OUTPUT_AZURE_ENABLED] = USE_SPEECH_OUTPUT_AZURE
     current_app.config[CONFIG_CHAT_HISTORY_BROWSER_ENABLED] = USE_CHAT_HISTORY_BROWSER
     current_app.config[CONFIG_CHAT_HISTORY_COSMOS_ENABLED] = USE_CHAT_HISTORY_COSMOS
+    # Incidents persistence (Session 3) rides on the same Cosmos account; defaults to off when
+    # USE_CHAT_HISTORY_COSMOS is false. The setup helper installs the container proxy.
+    await incidents_cosmos.setup_incidents_cosmos()
     current_app.config[CONFIG_AGENTIC_KNOWLEDGEBASE_ENABLED] = USE_AGENTIC_KNOWLEDGEBASE
     current_app.config[CONFIG_MULTIMODAL_ENABLED] = USE_MULTIMODAL
     current_app.config[CONFIG_RAG_SEARCH_TEXT_EMBEDDINGS] = RAG_SEARCH_TEXT_EMBEDDINGS
@@ -832,3 +1071,4 @@ def create_app():
             cors(app, allow_origin=allowed_origins, allow_methods=["GET", "POST"])
 
     return app
+

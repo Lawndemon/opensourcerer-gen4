@@ -155,3 +155,91 @@ export interface ValidateIAPResponse {
     supportContributions: SupportContribution[];
     forms: FormSummary[];
 }
+
+// ============================================================================
+// PERSISTENCE — INCIDENT DOCUMENT + AUDIT LOG (Session 3)
+// ============================================================================
+
+/**
+ * Audit-log event types emitted by the backend. Mirrors `AuditEventType` in
+ * `app/backend/models/incidents.py`.
+ */
+export type AuditEventType =
+    | "condition_extracted"
+    | "condition_status_changed"
+    | "condition_removed"
+    | "condition_resurfaced"
+    | "condition_refined"
+    | "support_contribution_added"
+    | "support_recommendation_dismissed"
+    | "form_generated"
+    | "form_locked"
+    | "phase_transitioned";
+
+export interface AuditEvent {
+    id: string;
+    incidentId: string;
+    type: AuditEventType;
+    timestamp: string;
+    /** Actor or the literal string "system" for LLM/automated events. */
+    actor: Actor | "system";
+    payload: Record<string, unknown>;
+}
+
+export interface TranscriptChunk {
+    chunkId: string;
+    timestamp: string;
+    text: string;
+    deNoised: string | null;
+}
+
+/**
+ * Full persisted incident document. Returned by `POST /api/incidents`,
+ * `GET /api/incidents/{id}`, `POST /api/incidents/{id}/loss-stop`,
+ * `DELETE /api/incidents/{id}/conditions/{conditionId}`.
+ *
+ * Append-only fields per immutability principle: `eventLog`, `transcript`. The current-state
+ * fields (`sceneSummary`, `sceneConditionsAndActions`, etc.) are derived from the event log
+ * but materialized on the document for read efficiency.
+ */
+export interface IncidentDocument {
+    id: string;
+    tenantId: string;
+    phase: IncidentPhase;
+    createdBy: Actor;
+    createdAt: string;
+    lossStoppedAt: string | null;
+    closedAt: string | null;
+    transcript: TranscriptChunk[];
+    sceneSummary: SceneSummary;
+    sceneConditionsAndActions: SceneConditionAndAction[];
+    supportContributions: SupportContribution[];
+    forms: FormSummary[];
+    eventLog: AuditEvent[];
+}
+
+// ============================================================================
+// REQUEST / RESPONSE — INCIDENT CRUD (Session 3)
+// ============================================================================
+
+export interface CreateIncidentRequest {
+    actingRole: ActingRole | string;
+    /** Optional fixture transcript — kiosk supplies one in the prototype; gone post-STT. */
+    transcript?: string;
+    /** Override for the tenant id (falls back to "default" or the auth `tid` claim server-side). */
+    tenantId?: string;
+}
+
+export interface IncidentEnvelope {
+    incident: IncidentDocument;
+}
+
+export interface LossStopRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface RemoveConditionRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}

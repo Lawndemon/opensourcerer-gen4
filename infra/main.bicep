@@ -148,6 +148,10 @@ param cosmosDbThroughput int = 400
 param chatHistoryDatabaseName string = 'chat-database'
 param chatHistoryContainerName string = 'chat-history-v2'
 param chatHistoryVersion string = 'cosmosdb-v2'
+// Incidents container (Session 3) — same Cosmos account + database as chat history; gated by
+// the same useChatHistoryCosmos flag. Hierarchical partition key [/tenantId, /id] for
+// future multi-tenant isolation per BACKLOG.md → "Multi-tenant Entra architecture".
+param incidentsContainerName string = 'incidents'
 
 // https://learn.microsoft.com/azure/ai-services/openai/concepts/models?tabs=global-standard%2Cstandard-chat-completions#models-by-deployment-type
 @description('Location for the OpenAI resource group')
@@ -519,6 +523,8 @@ var appEnvVariables = {
   AZURE_CHAT_HISTORY_DATABASE: chatHistoryDatabaseName
   AZURE_CHAT_HISTORY_CONTAINER: chatHistoryContainerName
   AZURE_CHAT_HISTORY_VERSION: chatHistoryVersion
+  // Incidents container rides on the same Cosmos account/database as chat history.
+  AZURE_INCIDENTS_CONTAINER: incidentsContainerName
   // Shared by all OpenAI deployments
   OPENAI_HOST: openAiHost
   AZURE_OPENAI_EMB_MODEL_NAME: embedding.modelName
@@ -1065,6 +1071,54 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (use
                 }
               ]
               excludedPaths: [
+                {
+                  path: '/*'
+                }
+              ]
+            }
+          }
+          // Incidents container — Fire Officer kiosk persistence.
+          // Hierarchical partition [/tenantId, /id] per BACKLOG.md multi-tenant goal.
+          // Indexing only the fields we'll actually query on: phase (for incident-list
+          // grouping), createdAt (chronological ordering), tenantId (tenant filter).
+          // event_log is a large appended array — explicitly excluded from indexing.
+          {
+            name: incidentsContainerName
+            kind: 'MultiHash'
+            paths: [
+              '/tenantId'
+              '/id'
+            ]
+            indexingPolicy: {
+              indexingMode: 'consistent'
+              automatic: true
+              includedPaths: [
+                {
+                  path: '/tenantId/?'
+                }
+                {
+                  path: '/phase/?'
+                }
+                {
+                  path: '/createdAt/?'
+                }
+                {
+                  path: '/lossStoppedAt/?'
+                }
+              ]
+              excludedPaths: [
+                {
+                  path: '/eventLog/*'
+                }
+                {
+                  path: '/transcript/*'
+                }
+                {
+                  path: '/sceneConditionsAndActions/*'
+                }
+                {
+                  path: '/forms/*'
+                }
                 {
                   path: '/*'
                 }

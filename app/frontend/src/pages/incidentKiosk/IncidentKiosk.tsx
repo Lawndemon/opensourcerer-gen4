@@ -13,13 +13,16 @@
  *    Plus an ICS form tab strip at the bottom, a floating Re-Validate IAP button bottom-right,
  *    and a Loss Stop button in the header.
  *
- * Session 2 iteration 2 scope (this commit):
- *  - All UI elements are real (traffic-light rows, AnalyzePopup, form tabs, Re-Validate, Loss Stop).
- *  - Re-Validate IAP re-calls the backend with the same fixture transcript end-to-end. Output is
- *    identical until streaming STT lands and the transcript can grow.
- *  - Loss Stop transitions the kiosk to a local "locked" view (read-only, no Re-Validate, forms
- *    show locked badge). Real persistence + audit log are Session 3.
- *  - Refine Condition button is a placeholder (disabled with tooltip). Wired up in Session 4.
+ * Session 3 scope (this commit):
+ *  - Start Incident calls `POST /api/incidents` (Cosmos persistence). On 503 (Cosmos disabled
+ *    in this deployment) the kiosk gracefully falls back to the Session-1 ephemeral flow.
+ *  - Loss Stop calls `POST /api/incidents/{id}/loss-stop` and persists the phase transition
+ *    + audit event. UI lock is optimistic — server confirmation rolls forward, failure rolls
+ *    back via the error view.
+ *  - Remove condition calls `DELETE /api/incidents/{id}/conditions/{conditionId}` with the
+ *    actor info. Optimistic local update; server returns the authoritative document.
+ *  - Re-Validate IAP still uses the existing endpoint; persistence happens server-side when
+ *    the incident exists in Cosmos (sticky-removal reconciliation included).
  *
  * See:
  *  - docs/prototype_plan.md → Sessions
@@ -30,8 +33,15 @@ import { useCallback, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Subtitle1, Title1, Title3 } from "@fluentui/react-components";
 import { ArrowClockwise24Regular, Stop24Filled } from "@fluentui/react-icons";
 
-import type { SceneConditionAndAction, ValidateIAPResponse } from "../../api/incidentTypes";
-import { generatePrototypeIncidentId, IncidentApiError, validateIAP } from "../../api/incidents";
+import type { IncidentDocument, SceneConditionAndAction, ValidateIAPResponse } from "../../api/incidentTypes";
+import {
+    createIncident,
+    generatePrototypeIncidentId,
+    IncidentApiError,
+    lossStop as lossStopRequest,
+    removeCondition,
+    validateIAP
+} from "../../api/incidents";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "./AnalyzePopup";
@@ -49,10 +59,27 @@ type KioskState =
           scenarioId: string;
           iap: ValidateIAPResponse;
           revalidating: boolean;
-          /** Local-only flag — Loss Stop has been pressed. Session 3 will persist this server-side. */
+          /** True when Loss Stop has been pressed (locally or server-acknowledged). */
           locked: boolean;
+          /** True when the backend has a Cosmos record for this incident. False = Session-1 fallback (Cosmos disabled or 503). */
+          persisted: boolean;
       }
     | { phase: "error"; scenarioId: string; message: string };
+
+/**
+ * Map a fully-persisted IncidentDocument into the ValidateIAPResponse shape the kiosk state holds.
+ * They share all scene fields; this is a structural projection, not a transformation.
+ */
+function projectDocument(doc: IncidentDocument): ValidateIAPResponse {
+    return {
+        incidentId: doc.id,
+        phase: doc.phase,
+        sceneSummary: doc.sceneSummary,
+        sceneConditionsAndActions: doc.sceneConditionsAndActions,
+        supportContributions: doc.supportContributions,
+        forms: doc.forms
+    };
+}
 
 const IncidentKiosk = () => {
     const { actingRole } = useRole();
@@ -71,22 +98,53 @@ const IncidentKiosk = () => {
             setState({ phase: "error", scenarioId: currentScenarioId, message: `Unknown scenario: ${currentScenarioId}` });
             return;
         }
-        const incidentId = generatePrototypeIncidentId();
-        setState({ phase: "starting", scenarioId: currentScenarioId, incidentId });
+
+        // Try the persisted path first (Session 3). On 503 — meaning Cosmos isn't provisioned
+        // in this deployment — gracefully fall back to the Session-1 flow: mint a client-side
+        // id, call validateIAP, render without persistence. The kiosk works either way.
+        const provisionalIncidentId = generatePrototypeIncidentId();
+        setState({ phase: "starting", scenarioId: currentScenarioId, incidentId: provisionalIncidentId });
 
         try {
+            try {
+                const doc = await createIncident({
+                    actingRole: actingRole ?? "fire-officer",
+                    transcript: scenario.transcript
+                });
+                setState({
+                    phase: "in_incident",
+                    incidentId: doc.id,
+                    scenarioId: currentScenarioId,
+                    iap: projectDocument(doc),
+                    revalidating: false,
+                    locked: doc.phase !== "response",
+                    persisted: true
+                });
+                return;
+            } catch (createErr) {
+                if (createErr instanceof IncidentApiError && createErr.status === 503) {
+                    // Cosmos persistence disabled — fall through to the ephemeral path.
+                    // eslint-disable-next-line no-console
+                    console.info("Incidents Cosmos disabled (503); using ephemeral kiosk flow.");
+                } else {
+                    throw createErr;
+                }
+            }
+
+            // Ephemeral / Session-1 fallback path.
             const iap = await validateIAP({
-                incidentId,
+                incidentId: provisionalIncidentId,
                 transcript: scenario.transcript,
                 actingRole: actingRole ?? "fire-officer"
             });
             setState({
                 phase: "in_incident",
-                incidentId,
+                incidentId: provisionalIncidentId,
                 scenarioId: currentScenarioId,
                 iap,
                 revalidating: false,
-                locked: false
+                locked: false,
+                persisted: false
             });
         } catch (err) {
             setState({
@@ -121,13 +179,68 @@ const IncidentKiosk = () => {
         }
     }, [state, actingRole]);
 
-    const handleLossStop = useCallback(() => {
+    const handleLossStop = useCallback(async () => {
         if (state.phase !== "in_incident" || state.locked) return;
-        // Session 3 will hit POST /api/incidents/{id}/loss-stop and persist the phase
-        // transition. For the prototype we lock the local state so the UI demonstrates the
-        // intended behavior end-to-end.
-        setState({ ...state, locked: true });
-    }, [state]);
+        const previous = state;
+
+        // Optimistic lock — instantaneous UI feedback. If the server call fails, we'll roll back.
+        setState({ ...previous, locked: true });
+
+        if (!previous.persisted) {
+            // Ephemeral flow: nothing to persist. UI is already locked.
+            return;
+        }
+        try {
+            await lossStopRequest(previous.incidentId, {
+                actingRole: actingRole ?? "fire-officer",
+                userId: "kiosk" // backend falls back to auth_claims.oid when available.
+            });
+        } catch (err) {
+            setState({
+                phase: "error",
+                scenarioId: previous.scenarioId,
+                message: `Loss Stop failed: ${formatError(err)}`
+            });
+        }
+    }, [state, actingRole]);
+
+    const handleRemoveCondition = useCallback(
+        async (item: SceneConditionAndAction) => {
+            if (state.phase !== "in_incident" || state.locked) return;
+            const previous = state;
+
+            // Optimistic: mark the item as removed locally before the server confirms.
+            const optimisticItems = previous.iap.sceneConditionsAndActions.map(c =>
+                c.id === item.id ? { ...c, removed: true } : c
+            );
+            setState({
+                ...previous,
+                iap: { ...previous.iap, sceneConditionsAndActions: optimisticItems }
+            });
+
+            if (!previous.persisted) {
+                // Ephemeral flow — local-only removal is all there is.
+                return;
+            }
+            try {
+                const doc = await removeCondition(previous.incidentId, item.id, {
+                    actingRole: actingRole ?? "fire-officer",
+                    userId: "kiosk"
+                });
+                // Authoritative state from the server (in case of any reconciliation drift).
+                setState({ ...previous, iap: projectDocument(doc) });
+            } catch (err) {
+                // Roll back the optimistic update and surface the error.
+                setState({
+                    ...previous,
+                    iap: { ...previous.iap, sceneConditionsAndActions: previous.iap.sceneConditionsAndActions }
+                });
+                // eslint-disable-next-line no-console
+                console.error("Remove condition failed:", formatError(err));
+            }
+        },
+        [state, actingRole]
+    );
 
     const handleReset = useCallback(() => {
         const currentScenarioId = "scenarioId" in state ? state.scenarioId : DEFAULT_SCENARIO_ID;
@@ -213,6 +326,7 @@ const IncidentKiosk = () => {
                                             key={item.id}
                                             item={item}
                                             onAnalyze={setAnalyzeItem}
+                                            onRemove={locked ? undefined : handleRemoveCondition}
                                         />
                                     ))}
                                 </div>

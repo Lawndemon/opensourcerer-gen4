@@ -7,8 +7,9 @@
  *  - "Condition" or "Action" badge.
  *  - The item's `text`.
  *  - Refine Condition placeholder button (full popup + endpoints land in Session 4).
+ *  - Remove button (Fire Officer only; flag flip, not hard delete).
  *
- * Tapping anywhere on the row (other than the Refine button) opens the AnalyzePopup,
+ * Tapping anywhere on the row (other than the buttons) opens the AnalyzePopup,
  * which shows the published plan context, client plan context, and delta. Citations are
  * hidden in the Fire Officer kiosk per the SME's simplicity-under-chaos directive.
  *
@@ -21,7 +22,7 @@
  */
 
 import { Badge, Body1, Button, Tooltip } from "@fluentui/react-components";
-import { CheckmarkCircle24Filled, DismissCircle24Filled, Warning24Filled } from "@fluentui/react-icons";
+import { CheckmarkCircle24Filled, Delete24Regular, DismissCircle24Filled, Warning24Filled } from "@fluentui/react-icons";
 
 import type { ConditionStatus, SceneConditionAndAction } from "../../api/incidentTypes";
 
@@ -31,6 +32,11 @@ interface SceneItemRowProps {
     item: SceneConditionAndAction;
     onAnalyze: (item: SceneConditionAndAction) => void;
     onRefineClick?: (item: SceneConditionAndAction) => void;
+    /**
+     * Fire Officer removal handler. When undefined, the row's remove affordance is hidden —
+     * used by the read-only support-role view (Session 5) and by the kiosk after Loss Stop.
+     */
+    onRemove?: (item: SceneConditionAndAction) => void;
 }
 
 const STATUS_LABELS: Record<ConditionStatus, string> = {
@@ -62,7 +68,7 @@ const StatusIcon = ({ status }: { status: ConditionStatus }) => {
     );
 };
 
-const SceneItemRow = ({ item, onAnalyze, onRefineClick }: SceneItemRowProps) => {
+const SceneItemRow = ({ item, onAnalyze, onRefineClick, onRemove }: SceneItemRowProps) => {
     const isRemoved = item.removed;
     const handleRowActivate = () => {
         if (isRemoved) return;
@@ -116,6 +122,21 @@ const SceneItemRow = ({ item, onAnalyze, onRefineClick }: SceneItemRowProps) => 
                     Refine
                 </Button>
             </Tooltip>
+            {onRemove && !isRemoved && (
+                <Tooltip content="Remove from scene" relationship="label">
+                    <Button
+                        appearance="subtle"
+                        size="small"
+                        icon={<Delete24Regular />}
+                        className={styles.removeButton}
+                        aria-label={`Remove: ${item.text}`}
+                        onClick={e => {
+                            e.stopPropagation();
+                            onRemove(item);
+                        }}
+                    />
+                </Tooltip>
+            )}
         </div>
     );
 };

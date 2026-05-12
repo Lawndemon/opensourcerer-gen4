@@ -342,12 +342,21 @@ class IncidentDocument(_IncidentBase):
     """
     Persistence shape for an incident record in Cosmos.
 
-    Combines current-state fields with the append-only event log. Session 1 doesn't yet
-    persist; this model lives here so Session 3's Cosmos integration matches the contract.
+    Combines current-state fields with the append-only event log. Single source of truth
+    per incident — point-read by (tenant_id, id) returns full state including the audit log.
+
+    **Partition key:** hierarchical `[/tenantId, /id]`. Strong tenant isolation at the
+    storage layer per BACKLOG.md → "Multi-tenant Entra architecture". `tenant_id` defaults
+    to `"default"` until real tenants are wired through the `tid` claim.
+
+    **Immutability contract:** `event_log` is append-only forever. `transcript` is
+    append-only forever (radio chatter is audit-of-record per BACKLOG.md). The current-state
+    fields (`scene_*`, `forms`, etc.) are *derived* but persisted for read efficiency — every
+    state change must produce both a state-field update and an `event_log` entry recording it.
     """
 
-    id: str  # = incident_id; Cosmos partition key.
-    tenant_id: str = "default"  # placeholder until multi-tenant is wired.
+    id: str  # = incident_id; second level of the hierarchical partition key.
+    tenant_id: str = "default"  # first level of the hierarchical partition key.
     phase: IncidentPhase
     created_by: Actor
     created_at: str
@@ -359,3 +368,64 @@ class IncidentDocument(_IncidentBase):
     support_contributions: list[SupportContribution] = Field(default_factory=list)
     forms: list[FormSummary] = Field(default_factory=list)
     event_log: list[AuditEvent] = Field(default_factory=list)
+
+
+# === INCIDENT CRUD REQUEST / RESPONSE (Session 3) ===
+
+
+class CreateIncidentRequest(_IncidentBase):
+    """
+    Request body for `POST /api/incidents`.
+
+    Optional `transcript` lets the kiosk pre-seed an incident with fixture text in the
+    prototype. Once streaming STT lands, incidents will be created empty and the transcript
+    appended chunk-by-chunk from the mic.
+    """
+
+    acting_role: str
+    transcript: str | None = None
+    tenant_id: str | None = None  # overridable for testing; falls back to "default" or auth tid.
+
+
+class CreateIncidentResponse(_IncidentBase):
+    """
+    Response body for `POST /api/incidents`.
+
+    Returns the full incident document so the kiosk can immediately render the dashboard
+    without a follow-up GET. If `transcript` was supplied, Validate IAP has already run
+    against it and the scene state is populated.
+    """
+
+    incident: IncidentDocument
+
+
+class GetIncidentResponse(_IncidentBase):
+    """Response body for `GET /api/incidents/{id}`. Returns the full persisted incident."""
+
+    incident: IncidentDocument
+
+
+class LossStopRequest(_IncidentBase):
+    """
+    Request body for `POST /api/incidents/{id}/loss-stop`.
+
+    `acting_role` and `user_id` are recorded on the resulting `phase_transitioned` audit
+    event. Only Fire Officer (or admin) is authorized to press Loss Stop in v1; enforcement
+    will tighten as the role system matures.
+    """
+
+    acting_role: str
+    user_id: str
+
+
+class RemoveConditionRequest(_IncidentBase):
+    """
+    Request body for `DELETE /api/incidents/{id}/conditions/{conditionId}`.
+
+    Per immutability principle, removal is a *flag* (`removed=True`), never a delete.
+    Sticky-with-resurfacing: a removed condition can re-surface on a later Validate IAP if
+    new transcript evidence supports it (audit event type `condition_resurfaced`).
+    """
+
+    acting_role: str
+    user_id: str

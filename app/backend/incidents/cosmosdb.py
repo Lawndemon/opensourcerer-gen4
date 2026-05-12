@@ -1,0 +1,414 @@
+"""
+Cosmos persistence layer for the Fire Officer kiosk's incident records.
+
+Mirrors the shape of `chat_history/cosmosdb.py` — a Quart Blueprint that owns its own
+CosmosClient lifecycle (set up in `@before_app_serving`, torn down in `@after_app_serving`)
+and exposes a small async CRUD surface used by the route handlers in `app.py`.
+
+The container itself is provisioned by Bicep alongside the chat-history container under the
+same Cosmos account. See `infra/main.bicep` → the `cosmosDb` module's `containers` list.
+
+Partition key: hierarchical `[/tenantId, /id]` per BACKLOG.md → "Multi-tenant Entra
+architecture". Tenant isolation is enforced at the storage layer in addition to query
+filters; `tenant_id` defaults to `"default"` until the `tid` claim wiring lands.
+
+Immutability contract — see BACKLOG.md → "Chat and transcript immutability":
+- `event_log` entries are append-only forever; no delete operation is exposed here.
+- `transcript` chunks are append-only forever.
+- Removing a Scene Condition or Action is a *flag flip* (`removed=True`), never a delete.
+- Closed incidents are read-only; we do not expose a delete-incident operation anywhere.
+"""
+
+from __future__ import annotations
+
+import os
+import uuid
+from datetime import datetime, timezone
+from typing import Any
+
+from azure.cosmos.aio import ContainerProxy, CosmosClient
+from azure.identity.aio import AzureDeveloperCliCredential, ManagedIdentityCredential
+from quart import current_app
+
+from config import (
+    CONFIG_COSMOS_HISTORY_CLIENT,
+    CONFIG_COSMOS_INCIDENTS_CONTAINER,
+    CONFIG_CREDENTIAL,
+    CONFIG_INCIDENTS_COSMOS_ENABLED,
+)
+from models.incidents import (
+    Actor,
+    AuditEvent,
+    AuditEventType,
+    IncidentDocument,
+    SceneConditionAndAction,
+)
+
+
+# === Module constants ===========================================================
+
+# The env var that flips chat-history Cosmos on also flips incidents persistence on. One
+# flag, one Cosmos account, two containers. Keep this in sync with chat_history/cosmosdb.py.
+_USE_CHAT_HISTORY_COSMOS_ENV = "USE_CHAT_HISTORY_COSMOS"
+
+# Bicep provisions this container under the chat-history database. Override via env if you
+# need a per-deploy container (e.g., `incidents-v2` for a schema migration).
+_DEFAULT_INCIDENTS_CONTAINER_NAME = "incidents"
+
+
+# === Time helpers ===============================================================
+
+
+def _now_iso() -> str:
+    """ISO-8601 UTC timestamp with `Z` suffix — matches the rest of the audit log format."""
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+# === Audit event factory ========================================================
+
+
+def make_audit_event(
+    *,
+    incident_id: str,
+    event_type: AuditEventType,
+    actor: Actor | str,
+    payload: dict[str, Any] | None = None,
+) -> AuditEvent:
+    """Build an AuditEvent with a fresh id and current timestamp.
+
+    `actor` accepts either an Actor (a real human acting through the system) or the literal
+    string `"system"` (LLM extraction, automatic phase transition, etc.) per the AuditEvent
+    contract.
+    """
+    return AuditEvent(
+        id=str(uuid.uuid4()),
+        incident_id=incident_id,
+        type=event_type,
+        timestamp=_now_iso(),
+        actor=actor,  # type: ignore[arg-type]  # validated by Pydantic to match the union.
+        payload=payload or {},
+    )
+
+
+# === Container accessors ========================================================
+
+
+def _container() -> ContainerProxy | None:
+    """Return the configured incidents container, or None if persistence is disabled.
+
+    Routes should check `current_app.config[CONFIG_INCIDENTS_COSMOS_ENABLED]` first and
+    return a 503 before calling deeper into this module; this helper exists so the lower
+    helpers don't all have to repeat the None-check pattern.
+    """
+    return current_app.config.get(CONFIG_COSMOS_INCIDENTS_CONTAINER)
+
+
+def _partition_key(tenant_id: str, incident_id: str) -> list[str]:
+    """Build the hierarchical partition key list expected by the Cosmos SDK."""
+    return [tenant_id, incident_id]
+
+
+# === Document <-> dict helpers ==================================================
+#
+# Cosmos's Python SDK takes dicts in and returns dicts out. We round-trip through
+# Pydantic for validation: incoming dicts get parsed into IncidentDocument so contract
+# drift surfaces immediately, and outgoing documents are serialized via `model_dump`
+# with camelCase aliases so the wire format matches the frontend's contract.
+
+
+def _dump_document(doc: IncidentDocument) -> dict[str, Any]:
+    """Pydantic → dict for Cosmos. camelCase keys; preserves None for nullable fields."""
+    return doc.model_dump(by_alias=True, mode="json")
+
+
+def _parse_document(item: dict[str, Any]) -> IncidentDocument:
+    """Cosmos dict → Pydantic. Strips internal Cosmos fields (`_rid`, `_etag`, etc.).
+
+    Cosmos adds a handful of underscore-prefixed system fields to every item it returns.
+    Pydantic with `extra='forbid'` would reject them, so we drop them before validating.
+    """
+    cleaned = {k: v for k, v in item.items() if not k.startswith("_")}
+    return IncidentDocument.model_validate(cleaned)
+
+
+# === CRUD operations ============================================================
+
+
+async def create_incident(doc: IncidentDocument) -> IncidentDocument:
+    """Insert a brand-new incident document.
+
+    Caller is responsible for populating `created_at`, `created_by`, an initial `event_log`
+    entry (`phase_transitioned` → `response`), and an initial `scene_summary`. We don't
+    invent any of that here because the audit trail must reflect *who* created the incident.
+    """
+    container = _container()
+    if container is None:
+        raise RuntimeError("Incidents Cosmos container not configured")
+    response = await container.create_item(body=_dump_document(doc))
+    return _parse_document(response)
+
+
+async def get_incident(tenant_id: str, incident_id: str) -> IncidentDocument | None:
+    """Point-read a single incident. Returns None if it doesn't exist.
+
+    Hierarchical partition keys require both values for a point-read; we never want to
+    cross-tenant scan, so this signature is deliberate.
+    """
+    container = _container()
+    if container is None:
+        raise RuntimeError("Incidents Cosmos container not configured")
+    try:
+        item = await container.read_item(item=incident_id, partition_key=_partition_key(tenant_id, incident_id))
+    except Exception as e:  # azure.cosmos.exceptions.CosmosResourceNotFoundError is the typical case
+        if getattr(e, "status_code", None) == 404:
+            return None
+        raise
+    return _parse_document(item)
+
+
+async def replace_incident(doc: IncidentDocument) -> IncidentDocument:
+    """Replace the full incident document. Use for state updates after audit-event append.
+
+    We do not use the ETag-based optimistic concurrency pattern in v1 — the kiosk is the
+    only writer for an active incident's scene state. Support-role contributions and the
+    multi-writer concurrent edits will come in a later session and that's when ETags will
+    matter.
+    """
+    container = _container()
+    if container is None:
+        raise RuntimeError("Incidents Cosmos container not configured")
+    response = await container.replace_item(item=doc.id, body=_dump_document(doc))
+    return _parse_document(response)
+
+
+async def append_audit_event(
+    tenant_id: str,
+    incident_id: str,
+    event: AuditEvent,
+) -> IncidentDocument:
+    """Append an event to the incident's `event_log` and persist.
+
+    Reads-then-writes the whole document. Acceptable for v1 throughput (one Fire Officer
+    per incident, a handful of curation events per incident). Will move to a patch
+    operation if write contention ever becomes a problem.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    doc.event_log.append(event)
+    return await replace_incident(doc)
+
+
+# === Higher-level state-changing operations =====================================
+#
+# Each of these (a) updates the incident's state fields and (b) appends a matching
+# audit-log entry, in a single replace_item call. The pattern is intentionally explicit
+# at every callsite: state change without an audit entry is a bug, and an audit entry
+# without a state change is also a bug.
+
+
+async def apply_validate_iap_result(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    new_scene_summary,
+    new_conditions: list[SceneConditionAndAction],
+    new_forms,
+    actor: Actor | str = "system",
+) -> IncidentDocument:
+    """Persist the result of a Validate IAP pass.
+
+    Reconciles the LLM's freshly-extracted scene state with the document's existing state:
+    items the Fire Officer previously removed stay removed (sticky-by-default) unless the
+    new extraction explicitly re-surfaces them. The reconciliation is intentionally minimal
+    in v1 — match by `id` from the LLM output. The extraction prompt is responsible for
+    issuing stable ids across passes.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    # Build a map of previously-removed condition ids → their removed metadata. New
+    # conditions with the same id retain removed=True per sticky-by-default semantics.
+    previously_removed: dict[str, SceneConditionAndAction] = {
+        c.id: c for c in doc.scene_conditions_and_actions if c.removed
+    }
+
+    reconciled: list[SceneConditionAndAction] = []
+    resurfaced_ids: list[str] = []
+    for item in new_conditions:
+        if item.id in previously_removed:
+            # Sticky: even though the LLM re-emitted it, keep the removed flag. If the
+            # extraction prompt judged it materially new, it should have minted a fresh id.
+            stale = previously_removed[item.id]
+            item.removed = True
+            item.removed_at = stale.removed_at
+            item.removed_by = stale.removed_by
+        reconciled.append(item)
+
+    # Detect newly-resurfaced conditions: ids previously absent that re-appear. (For v1 we
+    # don't track this distinctly — the LLM minted a fresh id — but the audit hook is here.)
+    _ = resurfaced_ids  # placeholder; real resurface detection lands with the extraction-prompt iteration.
+
+    doc.scene_summary = new_scene_summary
+    doc.scene_conditions_and_actions = reconciled
+    doc.forms = new_forms
+
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="condition_extracted",
+            actor=actor,
+            payload={
+                "condition_count": len(reconciled),
+                "form_count": len(new_forms),
+            },
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def remove_condition(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    condition_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Mark a Scene Condition or Action as removed by the Fire Officer.
+
+    Flag flip, not delete. Sticky-by-default for subsequent Validate IAP passes (see
+    `apply_validate_iap_result`). Resurfacing on new transcript evidence is a job of the
+    extraction prompt, not this function.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    target = next((c for c in doc.scene_conditions_and_actions if c.id == condition_id), None)
+    if target is None:
+        raise ValueError(f"Condition not found on incident {incident_id}: {condition_id}")
+    if target.removed:
+        # Idempotent: removing an already-removed condition is a no-op. Don't emit a second
+        # audit event for the same removal; that would be noise.
+        return doc
+
+    target.removed = True
+    target.removed_at = _now_iso()
+    target.removed_by = actor
+
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="condition_removed",
+            actor=actor,
+            payload={"condition_id": condition_id, "condition_text": target.text},
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def transition_to_loss_stopped(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Loss Stop: Response → Transition to Recovery.
+
+    Locks Response-phase forms (ICS 201). Sets `loss_stopped_at`. Per BACKLOG.md the Fire
+    Officer's interaction with the incident ends here; supporting roles take over for
+    enrichment and recovery checklists.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    if doc.phase != "response":
+        # Idempotent on the no-op direction: re-pressing Loss Stop after it's already done
+        # shouldn't fail or duplicate audit events.
+        return doc
+
+    now = _now_iso()
+    previous_phase = doc.phase
+    doc.phase = "transition_to_recovery"
+    doc.loss_stopped_at = now
+
+    # Lock all forms that were active during Response. The per-form lifecycle from
+    # docs/prototype_plan.md says Response-phase forms (ICS 201) lock now; Transition-phase
+    # forms (when we add them) stay editable.
+    for f in doc.forms:
+        if f.status == "active":
+            f.status = "locked"
+            f.last_updated = now
+            doc.event_log.append(
+                make_audit_event(
+                    incident_id=incident_id,
+                    event_type="form_locked",
+                    actor=actor,
+                    payload={"form_id": f.form_id, "trigger": "loss_stop"},
+                )
+            )
+
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="phase_transitioned",
+            actor=actor,
+            payload={"from": previous_phase, "to": doc.phase, "trigger": "loss_stop"},
+        )
+    )
+    return await replace_incident(doc)
+
+
+# === Blueprint lifecycle hooks ==================================================
+#
+# We don't register HTTP endpoints here — the incident endpoints live in `app.py`
+# beside `validate_iap` so they share the same auth decorator and error-response style.
+# This module is imported by `app.py`'s setup_clients to install the container proxy
+# into the Quart app config.
+
+
+async def setup_incidents_cosmos() -> None:
+    """Install the incidents container proxy into Quart app config.
+
+    Called from `app.py`'s `@bp.before_app_serving` hook so we share the chat-history
+    CosmosClient. If `USE_CHAT_HISTORY_COSMOS` is false, this is a no-op and downstream
+    routes will return 503 when called.
+    """
+    use_cosmos = os.getenv(_USE_CHAT_HISTORY_COSMOS_ENV, "").lower() == "true"
+    if not use_cosmos:
+        current_app.logger.info(
+            "%s is not true; incidents Cosmos persistence disabled.", _USE_CHAT_HISTORY_COSMOS_ENV
+        )
+        current_app.config[CONFIG_INCIDENTS_COSMOS_ENABLED] = False
+        return
+
+    cosmos_client: CosmosClient | None = current_app.config.get(CONFIG_COSMOS_HISTORY_CLIENT)
+    if cosmos_client is None:
+        # Chat history's blueprint not registered or didn't run its setup yet. Build our
+        # own client so the order-of-blueprint-registration doesn't matter.
+        account = os.getenv("AZURE_COSMOSDB_ACCOUNT")
+        if not account:
+            raise ValueError(
+                "AZURE_COSMOSDB_ACCOUNT must be set when USE_CHAT_HISTORY_COSMOS is true"
+            )
+        credential: AzureDeveloperCliCredential | ManagedIdentityCredential = current_app.config[
+            CONFIG_CREDENTIAL
+        ]
+        cosmos_client = CosmosClient(
+            url=f"https://{account}.documents.azure.com:443/", credential=credential
+        )
+        current_app.config[CONFIG_COSMOS_HISTORY_CLIENT] = cosmos_client
+
+    database_name = os.getenv("AZURE_CHAT_HISTORY_DATABASE")
+    container_name = os.getenv("AZURE_INCIDENTS_CONTAINER", _DEFAULT_INCIDENTS_CONTAINER_NAME)
+    if not database_name:
+        raise ValueError("AZURE_CHAT_HISTORY_DATABASE must be set when USE_CHAT_HISTORY_COSMOS is true")
+
+    db = cosmos_client.get_database_client(database_name)
+    incidents_container = db.get_container_client(container_name)
+    current_app.config[CONFIG_COSMOS_INCIDENTS_CONTAINER] = incidents_container
+    current_app.config[CONFIG_INCIDENTS_COSMOS_ENABLED] = True
+    current_app.logger.info(
+        "Incidents Cosmos persistence enabled (database=%s container=%s)", database_name, container_name
+    )
