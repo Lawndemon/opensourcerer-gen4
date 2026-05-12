@@ -1,0 +1,66 @@
+/* SceneItemRow — single-line entry in the Scene Conditions and Actions panel. */
+
+.row {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #e6edf3;
+    cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.row:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.row:focus-visible {
+    outline: 2px solid #4ea3ff;
+    outline-offset: 2px;
+}
+
+.rowRemoved {
+    opacity: 0.4;
+    text-decoration: line-through;
+    cursor: default;
+}
+
+.rowRemoved:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+.icon {
+    flex-shrink: 0;
+}
+
+.iconGreen {
+    color: #2dd4bf;
+}
+
+.iconYellow {
+    color: #facc15;
+}
+
+.iconRed {
+    color: #f87171;
+}
+
+.typeBadge {
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.text {
+    line-height: 1.35;
+}
+
+.refineButton {
+    flex-shrink: 0;
+}

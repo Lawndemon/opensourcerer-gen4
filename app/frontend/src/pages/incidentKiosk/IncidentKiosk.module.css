@@ -3,6 +3,7 @@
    in the demo-polish session. */
 
 .container {
+    position: relative;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -61,7 +62,6 @@
 }
 
 .startButton {
-    /* Big honking primary button — the Fire Officer should be able to tap this with gloves on. */
     min-height: 96px;
     min-width: 320px;
     font-size: 24px !important;
@@ -70,14 +70,14 @@
 }
 
 /* ------------------------------------------------------------------------ */
-/* In-incident dashboard — placeholder skeleton in iteration 1              */
+/* In-incident dashboard                                                    */
 /* ------------------------------------------------------------------------ */
 
 .inIncident {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 16px 24px;
+    padding: 16px 24px 0;
     gap: 16px;
     overflow: hidden;
 }
@@ -97,22 +97,159 @@
     gap: 2px;
 }
 
+.headerLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.55;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.lossStopButton {
+    background-color: #b91c1c !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    min-height: 44px;
+    min-width: 140px;
+}
+
+.lossStopButton:hover {
+    background-color: #991b1b !important;
+}
+
+.lockedBadge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    background-color: rgba(239, 68, 68, 0.18);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #fecaca;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 600;
+}
+
 .incidentId {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 12px;
     opacity: 0.6;
 }
 
-.placeholderPanel {
-    flex: 1;
+.summaryPanel {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 14px 18px;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px dashed rgba(255, 255, 255, 0.15);
-    border-radius: 12px;
-    padding: 32px;
-    opacity: 0.7;
-    text-align: center;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.panelHeading {
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.55;
+}
+
+.summaryText {
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.twoColumn {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+}
+
+@media (max-width: 980px) {
+    .twoColumn {
+        grid-template-columns: 1fr;
+    }
+}
+
+.scenePanel,
+.supportPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.panelHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.panelSubheading {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.5;
+}
+
+.itemList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.empty {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.supportList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.supportItem {
+    padding: 10px 12px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    border-left: 3px solid rgba(78, 163, 255, 0.55);
+}
+
+.supportRole {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.6;
+    margin-bottom: 2px;
+}
+
+.revalidateButton {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    min-height: 56px;
+    padding: 0 28px !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    border-radius: 999px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    z-index: 50;
 }
 
 .errorPanel {
@@ -122,6 +259,8 @@
     border: 1px solid rgba(239, 68, 68, 0.4);
     color: #fecaca;
     font-size: 14px;
+    max-width: 720px;
+    word-break: break-word;
 }
 
 .loadingPanel {

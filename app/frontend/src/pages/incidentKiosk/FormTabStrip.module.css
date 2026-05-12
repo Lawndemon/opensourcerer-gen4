@@ -1,0 +1,126 @@
+/* FormTabStrip — bottom-of-screen form tabs and preview panel. */
+
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.emptyStrip {
+    padding: 12px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    opacity: 0.6;
+    text-align: center;
+}
+
+.tabRow {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    overflow-x: auto;
+}
+
+.tab {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.04);
+    color: #e6edf3;
+    border-radius: 8px 8px 0 0;
+    padding: 8px 14px;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+}
+
+.tab:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.tabOpen {
+    background-color: rgba(78, 163, 255, 0.18);
+    border-color: rgba(78, 163, 255, 0.6);
+}
+
+.tabTitle {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.tabStatus {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.65;
+}
+
+.tabStatusLocked {
+    color: #fca5a5;
+    opacity: 0.9;
+}
+
+.previewPanel {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background-color: rgba(0, 0, 0, 0.25);
+    max-height: 38vh;
+    overflow-y: auto;
+}
+
+.previewHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.formTypeLabel {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.6;
+}
+
+.formId {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.previewBody {
+    padding: 16px 20px;
+}
+
+.ics201 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+}
+
+.placeholderForm {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.fieldLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.55;
+}
+
+.empty {
+    font-style: italic;
+    opacity: 0.6;
+}

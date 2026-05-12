@@ -1,0 +1,93 @@
+/* AnalyzePopup — MAD "Analyze" modal. Reads on a kiosk-sized tablet. */
+
+.surface {
+    max-width: 640px;
+}
+
+.titleRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.itemText {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.section {
+    margin-bottom: 16px;
+}
+
+.section:last-child {
+    margin-bottom: 0;
+}
+
+.sectionHeading {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.6;
+    margin-bottom: 4px;
+}
+
+.sectionBody {
+    line-height: 1.5;
+}
+
+.emptyContext {
+    opacity: 0.65;
+    font-style: italic;
+}
+
+.divider {
+    margin: 16px 0;
+}
+
+.citationList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.citationItem {
+    padding: 8px 10px;
+    border-radius: 6px;
+    background-color: rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.citationTier {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: rgba(78, 163, 255, 0.15);
+    color: #4ea3ff;
+}
+
+.citationFile {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+
+.citationLocation {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.citationExcerpt {
+    width: 100%;
+    margin-top: 4px;
+    font-style: italic;
+    opacity: 0.85;
+}
