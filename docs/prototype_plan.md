@@ -1,6 +1,6 @@
 # Fire Officer Prototype — Implementation Plan
 
-**Status as of 2026-05-12:** Sessions 0–3 complete. Sessions 4–6 remain (form generation + Refine Condition, IMT incident dashboard stub, demo polish).
+**Status as of 2026-05-12:** Sessions 0–4 complete (plus a mid-session UI restructure on 2026-05-12 — see BACKLOG Done). Sessions 5–6 remain (IMT incident dashboard stub, demo polish).
 
 Vertical-slice prototype of the Fire Officer kiosk journey, end-to-end, for SME demo. Everything else (other roles' workflows, full retrieval cascade, multi-tenant data isolation, streaming STT, the rest of the ICS form set) is deferred — stubbed minimally where the prototype needs them visible, full implementation comes after SME validates the priority feature.
 
@@ -354,14 +354,22 @@ Shipped:
 
 Trade-offs accepted (documented in BACKLOG Done entry): no optimistic concurrency in v1, read-then-write audit append, `condition_resurfaced` event-type wiring deferred until extraction prompt iteration. Refresh-rehydrate of kiosk state isn't implemented this session — kiosk state still lives in React useState. Trivial to add (call `getIncident` on mount when an `incidentId` is in URL/storage), but not on the demo critical path.
 
-### Session 4 — ICS 201 tab + form generation + Refine Condition
+### Session 4 — ICS 201 tab + form generation + Refine Condition ✓ (2026-05-12)
 
-End state: ICS 201 renders as a tab beside the dashboard, populated as structured data (per D1's `ICS201Content`) from the validated conditions. Locked when Loss Stop is pressed. Refine Condition button on each scene item works end-to-end (3 narrowing statements + None option, selecting one re-evaluates the item).
+End state achieved. ICS 201 renders in the Excel-style form tab strip (restructured 2026-05-12) — tap a tab to open a near-full-screen overlay, tap anywhere to minimize. ICS 201 is populated as structured data by the existing extraction prompt; the form locks when Loss Stop is pressed. Refine Condition button works end-to-end: tap → 3 LLM-generated narrowing statements → pick one (or "None of the above") → backend re-evaluates → row updates in place.
 
-- Backend generates ICS 201 content from the transcript + conditions on each Validate IAP press.
-- `FormTab.tsx` renders ICS 201 using a layout that mimics the real form's named fields. Read-only after Loss Stop.
-- Implement `RefineConditionPopup.tsx` and the refine endpoint pair (`/refine` + `/refine/apply`).
-- Form lifecycle metadata stored in the incident record — `forms[]` array with `status: active | locked` per D1.
+Shipped:
+
+- `app/backend/approaches/refine_condition.py` (new) — two-call approach: `generate_narrowing_statements` (temp 0.45 for diversity) and `apply_refinement` (temp 0.15 for determinism).
+- `app/backend/prompts/extraction/fire_officer_refine_condition.md` + `fire_officer_apply_refinement.md` — narrowing + re-evaluation prompts.
+- `app/backend/incidents/cosmosdb.py` — `apply_refinement()` helper: updates condition fields, appends to `refinements[]`, writes `condition_refined` audit event. "None of the above" recorded as the sentinel `(none_of_the_above)` in the refinement history.
+- `app/backend/app.py` — two new endpoints: `POST /api/incidents/{id}/conditions/{condId}/refine` returns 3 statements; `POST .../refine/apply` applies a selection.
+- Frontend `RefineConditionPopup.tsx` + CSS — kiosk-friendly modal with 4 big tap targets (3 statements + None). Loading / applying / error states each render distinctly.
+- `SceneItemRow.tsx` — Refine button now enabled when `onRefineClick` supplied (only when incident is persisted and not locked).
+
+ICS 201 verification: already producing correct output (fixtures show fully populated forms with situation, objectives, actions, resources, prepared-by). One cosmetic quirk: `dateTimeInitiated` invents a 2024 year because transcripts have no year context. Fixable later by server-injecting the request-time date.
+
+Trade-offs: refine path requires Cosmos persistence (no useful ephemeral fallback — you need a persisted condition to refine). Transcript fed to the refine prompt is reconstructed from persisted `TranscriptChunk[]`, which is empty in v1 (chunks aren't yet written); the LLM falls back to condition text + plan context. Once streaming STT lands the chunks will carry the live transcript.
 
 ### Session 5 — Stub Other-roles incident dashboard
 

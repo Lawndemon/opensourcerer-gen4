@@ -1,24 +1,15 @@
 /**
- * SceneItemRow — a single row in the Scene Conditions and Actions panel.
+ * SceneItemRow — bulleted entry in the Scene Conditions pane.
  *
- * One per `SceneConditionAndAction`. Layout from left to right:
- *  - Traffic-light icon (green check / yellow ! / red X) encoding life-risk severity per
- *    BACKLOG.md → MAD framework.
- *  - "Condition" or "Action" badge.
- *  - The item's `text`.
- *  - Refine Condition placeholder button (full popup + endpoints land in Session 4).
- *  - Remove button (Fire Officer only; flag flip, not hard delete).
+ * Traffic-light icon (green check / yellow ! / red X) as the bullet glyph, type badge,
+ * the item's text, then a Refine button (live as of Session 4) and a Remove button.
  *
- * Tapping anywhere on the row (other than the buttons) opens the AnalyzePopup,
- * which shows the published plan context, client plan context, and delta. Citations are
- * hidden in the Fire Officer kiosk per the SME's simplicity-under-chaos directive.
+ * Tapping anywhere on the row (other than the buttons) opens the AnalyzePopup.
+ * Citations are hidden in the Fire Officer kiosk per the MAD framework's
+ * simplicity-under-chaos directive.
  *
- * Visual rules:
- *  - Items with `removed=true` render at 0.4 opacity with a strikethrough; per the SME's
- *    sticky-with-resurfacing semantics, they can come back if new transcript evidence
- *    supports them, so they remain visible (not deleted).
- *  - Refine Condition button is disabled (placeholder) — the layout slot is real so the
- *    grid doesn't shift when Session 4 wires it up.
+ * Removed items render at 0.4 opacity with a strikethrough; they remain visible because
+ * sticky-with-resurfacing semantics may revive them on a later Validate IAP pass.
  */
 
 import { Badge, Body1, Button, Tooltip } from "@fluentui/react-components";
@@ -31,9 +22,13 @@ import styles from "./SceneItemRow.module.css";
 interface SceneItemRowProps {
     item: SceneConditionAndAction;
     onAnalyze: (item: SceneConditionAndAction) => void;
+    /**
+     * Refine handler. When undefined, the Refine button is disabled with a tooltip
+     * explaining persistence is required (Session 3+).
+     */
     onRefineClick?: (item: SceneConditionAndAction) => void;
     /**
-     * Fire Officer removal handler. When undefined, the row's remove affordance is hidden —
+     * Fire Officer removal handler. When undefined, the remove button is hidden —
      * used by the read-only support-role view (Session 5) and by the kiosk after Loss Stop.
      */
     onRemove?: (item: SceneConditionAndAction) => void;
@@ -105,14 +100,16 @@ const SceneItemRow = ({ item, onAnalyze, onRefineClick, onRemove }: SceneItemRow
                 content={
                     isRemoved
                         ? "Removed item — refinement disabled."
-                        : "Refine Condition — coming in the next iteration."
+                        : onRefineClick
+                          ? "Refine — narrow this with 3 KB-generated statements."
+                          : "Refine requires a persisted incident."
                 }
                 relationship="label"
             >
                 <Button
                     appearance="subtle"
                     size="small"
-                    disabled
+                    disabled={isRemoved || !onRefineClick}
                     className={styles.refineButton}
                     onClick={e => {
                         e.stopPropagation();

@@ -308,6 +308,80 @@ async def remove_condition(
     return await replace_incident(doc)
 
 
+async def apply_refinement(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    condition_id: str,
+    selected_statement: str | None,
+    new_status,  # ConditionStatus — kept untyped here to avoid a circular import with models
+    new_published_plan_context: str,
+    delta_note: str | None,
+    actor: Actor,
+):
+    """
+    Apply a Fire Officer's "Refine Condition" choice to a persisted condition.
+
+    Updates the condition's status / publishedPlanContext / delta, appends a
+    `ConditionRefinement` entry to its `refinements[]` history, and writes a
+    `condition_refined` audit event. The LLM-side re-evaluation lives in
+    `approaches/refine_condition.py`; this function is the pure persistence step.
+
+    `selected_statement=None` represents "None of the above" — the Fire Officer
+    declined the suggested refinements. We still record the audit event (it's an
+    intentional Fire Officer action) but treat the status as unchanged.
+    """
+    from models.incidents import ConditionRefinement  # local import to dodge cycles
+
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    target = next((c for c in doc.scene_conditions_and_actions if c.id == condition_id), None)
+    if target is None:
+        raise ValueError(f"Condition not found on incident {incident_id}: {condition_id}")
+    if target.removed:
+        # Refining a removed condition is a UX impossibility (the kiosk hides the
+        # Refine button on removed items), so this is defensive — surface as an error
+        # rather than silently allow.
+        raise ValueError(f"Cannot refine a removed condition: {condition_id}")
+
+    now = _now_iso()
+
+    # Record the refinement event on the condition itself even when the user picked
+    # "None of the above" — the audit log should reflect that the FO considered and
+    # declined. Use a sentinel string so future analytics can distinguish.
+    target.refinements.append(
+        ConditionRefinement(
+            timestamp=now,
+            selected_statement=selected_statement or "(none_of_the_above)",
+            selected_by=actor,
+        )
+    )
+
+    if selected_statement is not None:
+        # Apply the LLM's re-evaluation. We only mutate fields the apply prompt produced.
+        target.status = new_status
+        if new_published_plan_context:
+            target.published_plan_context = new_published_plan_context
+        target.delta = delta_note
+
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="condition_refined",
+            actor=actor,
+            payload={
+                "condition_id": condition_id,
+                "selected_statement": selected_statement,
+                "new_status": target.status,
+                "delta_note": delta_note,
+            },
+        )
+    )
+    return await replace_incident(doc)
+
+
 async def transition_to_loss_stopped(
     *,
     tenant_id: str,

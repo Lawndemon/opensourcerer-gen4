@@ -11,11 +11,15 @@
  */
 
 import type {
+    ApplyRefinementRequest,
+    ApplyRefinementResponse,
     CreateIncidentRequest,
     IncidentDocument,
     IncidentEnvelope,
     LossStopRequest,
+    RefineConditionResponse,
     RemoveConditionRequest,
+    SceneConditionAndAction,
     ValidateIAPRequest,
     ValidateIAPResponse
 } from "./incidentTypes";
@@ -33,18 +37,8 @@ export class IncidentApiError extends Error {
     }
 }
 
-/**
- * POST /api/incidents/{incidentId}/validate-iap
- *
- * Submits a transcript for LLM extraction. The backend returns the structured
- * Scene Summary, Scene Conditions and Actions, Support Contributions, and per-role
- * forms — see ValidateIAPResponse for the full shape.
- *
- * Throws IncidentApiError on non-2xx responses. Network errors propagate as TypeError.
- */
 export async function validateIAP(request: ValidateIAPRequest, signal?: AbortSignal): Promise<ValidateIAPResponse> {
     const url = `${BACKEND_URI}/api/incidents/${encodeURIComponent(request.incidentId)}/validate-iap`;
-
     const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -52,33 +46,13 @@ export async function validateIAP(request: ValidateIAPRequest, signal?: AbortSig
         credentials: "include",
         signal
     });
-
     if (!response.ok) {
         let body: unknown;
-        try {
-            body = await response.json();
-        } catch {
-            try {
-                body = await response.text();
-            } catch {
-                body = null;
-            }
-        }
+        try { body = await response.json(); } catch { try { body = await response.text(); } catch { body = null; } }
         throw new IncidentApiError(`validateIAP failed: HTTP ${response.status}`, response.status, body);
     }
-
     return (await response.json()) as ValidateIAPResponse;
 }
-
-// ---------------------------------------------------------------------------
-// Incident lifecycle (Session 3)
-// ---------------------------------------------------------------------------
-//
-// These endpoints require backend Cosmos persistence to be enabled
-// (USE_CHAT_HISTORY_COSMOS=true at deploy time). When disabled, the backend
-// returns 503 on each — the kiosk should handle that case gracefully by
-// falling back to the Session 1 flow: mint a client-side incident id with
-// `generatePrototypeIncidentId()` and call `validateIAP` directly.
 
 async function postJson<T>(url: string, body: unknown, signal?: AbortSignal): Promise<T> {
     const response = await fetch(`${BACKEND_URI}${url}`, {
@@ -90,15 +64,7 @@ async function postJson<T>(url: string, body: unknown, signal?: AbortSignal): Pr
     });
     if (!response.ok) {
         let parsed: unknown;
-        try {
-            parsed = await response.json();
-        } catch {
-            try {
-                parsed = await response.text();
-            } catch {
-                parsed = null;
-            }
-        }
+        try { parsed = await response.json(); } catch { try { parsed = await response.text(); } catch { parsed = null; } }
         throw new IncidentApiError(`${url} failed: HTTP ${response.status}`, response.status, parsed);
     }
     return (await response.json()) as T;
@@ -115,94 +81,48 @@ async function jsonRequest<T>(method: "GET" | "DELETE", url: string, body?: unkn
     const response = await fetch(`${BACKEND_URI}${url}`, init);
     if (!response.ok) {
         let parsed: unknown;
-        try {
-            parsed = await response.json();
-        } catch {
-            try {
-                parsed = await response.text();
-            } catch {
-                parsed = null;
-            }
-        }
+        try { parsed = await response.json(); } catch { try { parsed = await response.text(); } catch { parsed = null; } }
         throw new IncidentApiError(`${url} failed: HTTP ${response.status}`, response.status, parsed);
     }
     return (await response.json()) as T;
 }
 
-/**
- * POST /api/incidents — create a persisted incident.
- *
- * If `transcript` is supplied, the backend runs Validate IAP inline and the returned
- * document already has scene state populated. Recommended path for the kiosk: pass the
- * fixture transcript so the dashboard is ready to render on first response.
- */
 export async function createIncident(request: CreateIncidentRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>("/api/incidents", request, signal);
     return envelope.incident;
 }
 
-/**
- * GET /api/incidents/{id} — read a persisted incident. Used to rehydrate kiosk state on
- * page refresh when an incident is in progress.
- */
 export async function getIncident(incidentId: string, signal?: AbortSignal): Promise<IncidentDocument> {
-    const envelope = await jsonRequest<IncidentEnvelope>(
-        "GET",
-        `/api/incidents/${encodeURIComponent(incidentId)}`,
-        undefined,
-        signal
-    );
+    const envelope = await jsonRequest<IncidentEnvelope>("GET", `/api/incidents/${encodeURIComponent(incidentId)}`, undefined, signal);
     return envelope.incident;
 }
 
-/**
- * POST /api/incidents/{id}/loss-stop — Response → Transition to Recovery.
- *
- * Locks Response-phase forms and appends a `phase_transitioned` audit event. Per
- * BACKLOG.md the Fire Officer's interaction with the incident ends here.
- */
-export async function lossStop(
-    incidentId: string,
-    request: LossStopRequest,
-    signal?: AbortSignal
-): Promise<IncidentDocument> {
-    const envelope = await postJson<IncidentEnvelope>(
-        `/api/incidents/${encodeURIComponent(incidentId)}/loss-stop`,
+export async function lossStop(incidentId: string, request: LossStopRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/loss-stop`, request, signal);
+    return envelope.incident;
+}
+
+export async function removeCondition(incidentId: string, conditionId: string, request: RemoveConditionRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    return (await jsonRequest<IncidentEnvelope>("DELETE", `/api/incidents/${encodeURIComponent(incidentId)}/conditions/${encodeURIComponent(conditionId)}`, request, signal)).incident;
+}
+
+export async function getRefinementOptions(incidentId: string, conditionId: string, signal?: AbortSignal): Promise<RefineConditionResponse> {
+    return await postJson<RefineConditionResponse>(
+        `/api/incidents/${encodeURIComponent(incidentId)}/conditions/${encodeURIComponent(conditionId)}/refine`,
+        {},
+        signal
+    );
+}
+
+export async function applyRefinement(incidentId: string, conditionId: string, request: ApplyRefinementRequest, signal?: AbortSignal): Promise<SceneConditionAndAction> {
+    const response = await postJson<ApplyRefinementResponse>(
+        `/api/incidents/${encodeURIComponent(incidentId)}/conditions/${encodeURIComponent(conditionId)}/refine/apply`,
         request,
         signal
     );
-    return envelope.incident;
+    return response.updatedCondition;
 }
 
-/**
- * DELETE /api/incidents/{id}/conditions/{conditionId} — Fire Officer removes a scene item.
- *
- * Flag flip, not hard delete; sticky-with-resurfacing semantics handled server-side. The
- * returned document reflects the new removed state and includes the appended audit event.
- */
-export async function removeCondition(
-    incidentId: string,
-    conditionId: string,
-    request: RemoveConditionRequest,
-    signal?: AbortSignal
-): Promise<IncidentDocument> {
-    return (
-        await jsonRequest<IncidentEnvelope>(
-            "DELETE",
-            `/api/incidents/${encodeURIComponent(incidentId)}/conditions/${encodeURIComponent(conditionId)}`,
-            request,
-            signal
-        )
-    ).incident;
-}
-
-/**
- * Generate a simple incident ID for the prototype.
- *
- * Format: `incident-YYYYMMDDHHmmss-XXXX` where XXXX is a short random suffix.
- * Used only as a fallback when Cosmos persistence is disabled (backend returns 503 on
- * `POST /api/incidents`). With persistence on, the backend mints the ID.
- */
 export function generatePrototypeIncidentId(): string {
     const now = new Date();
     const pad = (n: number, w = 2) => String(n).padStart(w, "0");

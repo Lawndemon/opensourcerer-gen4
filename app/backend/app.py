@@ -48,11 +48,15 @@ from approaches.approach import Approach, DataPoints
 from approaches.chatreadretrieveread import ChatReadRetrieveReadApproach
 from approaches.promptmanager import PromptManager
 from approaches.validate_iap import ValidateIAPApproach
+from approaches.refine_condition import RefineConditionApproach
 from models.incidents import (
     Actor,
+    ApplyRefinementRequest,
+    ApplyRefinementResponse,
     CreateIncidentRequest,
     IncidentDocument,
     LossStopRequest,
+    RefineConditionResponse,
     RemoveConditionRequest,
     SceneSummary,
     ValidateIAPRequest,
@@ -65,6 +69,7 @@ from config import (
     CONFIG_AUTH_CLIENT,
     CONFIG_CHAT_APPROACH,
     CONFIG_VALIDATE_IAP_APPROACH,
+    CONFIG_REFINE_CONDITION_APPROACH,
     CONFIG_CHAT_HISTORY_BROWSER_ENABLED,
     CONFIG_CHAT_HISTORY_COSMOS_ENABLED,
     CONFIG_INCIDENTS_COSMOS_ENABLED,
@@ -542,6 +547,118 @@ async def remove_condition(auth_claims: dict[str, Any], incident_id: str, condit
         return error_response(error, f"/api/incidents/{incident_id}/conditions/{condition_id}")
 
 
+# --- Refine Condition endpoint pair (Session 4) --------------------------------
+#
+# Two-step UX: (1) GET the 3 narrowing statements from the LLM, (2) POST a selection
+# that the LLM re-evaluates and we persist with an audit event. Both require Cosmos
+# persistence to be enabled — the kiosk has no useful fallback for refine when there's
+# no persisted condition to refine against.
+
+
+@bp.route("/api/incidents/<incident_id>/conditions/<condition_id>/refine", methods=["POST"])
+@authenticated
+async def refine_condition(auth_claims: dict[str, Any], incident_id: str, condition_id: str):
+    """Return three LLM-generated narrowing statements for the Fire Officer to pick from."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        doc = await incidents_cosmos.get_incident(tenant_id, incident_id)
+        if doc is None:
+            return jsonify({"error": f"Incident not found: {incident_id}"}), 404
+        condition = next((c for c in doc.scene_conditions_and_actions if c.id == condition_id), None)
+        if condition is None:
+            return jsonify({"error": f"Condition not found: {condition_id}"}), 404
+        if condition.removed:
+            return jsonify({"error": "Cannot refine a removed condition"}), 409
+
+        # Reconstruct a transcript string from the persisted TranscriptChunk list. For v1
+        # this is empty in most cases (we don't yet write chunks); the LLM falls back to
+        # the condition's own text + plan context. Once streaming STT lands, the chunks
+        # will carry the live radio chatter.
+        transcript_text = "\n".join(
+            ch.de_noised or ch.text for ch in doc.transcript
+        ) if doc.transcript else ""
+
+        approach: RefineConditionApproach = cast(
+            RefineConditionApproach, current_app.config[CONFIG_REFINE_CONDITION_APPROACH]
+        )
+        statements = await approach.generate_narrowing_statements(
+            condition=condition, transcript=transcript_text
+        )
+        response = RefineConditionResponse(
+            condition_id=condition_id, narrowing_statements=statements
+        )
+        return jsonify(response.model_dump(by_alias=True))
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/conditions/{condition_id}/refine")
+
+
+@bp.route("/api/incidents/<incident_id>/conditions/<condition_id>/refine/apply", methods=["POST"])
+@authenticated
+async def apply_refinement_endpoint(auth_claims: dict[str, Any], incident_id: str, condition_id: str):
+    """Apply a Fire Officer's selection and persist the re-evaluated condition.
+
+    `selected_statement=None` represents "None of the above" — the Fire Officer declined
+    all suggestions. We still record the audit event so the decision is in the immutable log.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = ApplyRefinementRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match ApplyRefinementRequest", "details": ve.errors()}), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        doc = await incidents_cosmos.get_incident(tenant_id, incident_id)
+        if doc is None:
+            return jsonify({"error": f"Incident not found: {incident_id}"}), 404
+        condition = next((c for c in doc.scene_conditions_and_actions if c.id == condition_id), None)
+        if condition is None:
+            return jsonify({"error": f"Condition not found: {condition_id}"}), 404
+
+        transcript_text = "\n".join(
+            ch.de_noised or ch.text for ch in doc.transcript
+        ) if doc.transcript else ""
+
+        approach: RefineConditionApproach = cast(
+            RefineConditionApproach, current_app.config[CONFIG_REFINE_CONDITION_APPROACH]
+        )
+        new_status, new_context, delta_note = await approach.apply_refinement(
+            condition=condition,
+            transcript=transcript_text,
+            selected_statement=body.selected_statement,
+        )
+
+        updated_doc = await incidents_cosmos.apply_refinement(
+            tenant_id=tenant_id,
+            incident_id=incident_id,
+            condition_id=condition_id,
+            selected_statement=body.selected_statement,
+            new_status=new_status,
+            new_published_plan_context=new_context,
+            delta_note=delta_note,
+            actor=actor,
+        )
+        updated_condition = next(
+            (c for c in updated_doc.scene_conditions_and_actions if c.id == condition_id), None
+        )
+        if updated_condition is None:
+            return jsonify({"error": "Updated condition missing from document"}), 500
+        response = ApplyRefinementResponse(updated_condition=updated_condition)
+        return jsonify(response.model_dump(by_alias=True))
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(
+            error, f"/api/incidents/{incident_id}/conditions/{condition_id}/refine/apply"
+        )
+
+
 # Send MSAL.js settings to the client UI
 @bp.route("/auth_setup", methods=["GET"])
 def auth_setup():
@@ -986,6 +1103,15 @@ async def setup_clients():
     # ValidateIAPApproach is used by /api/incidents/{id}/validate-iap for the Fire Officer
     # kiosk's structured extraction. Pure LLM extraction in v1; KB retrieval added later.
     current_app.config[CONFIG_VALIDATE_IAP_APPROACH] = ValidateIAPApproach(
+        openai_client=openai_client,
+        chatgpt_model=OPENAI_CHATGPT_MODEL,
+        chatgpt_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,
+    )
+
+    # RefineConditionApproach is used by the Fire Officer's "Refine Condition" UX
+    # (Session 4): two LLM calls — three narrowing statements, then re-evaluate after the
+    # FO picks one. Shares the OpenAI client / model deployment with ValidateIAPApproach.
+    current_app.config[CONFIG_REFINE_CONDITION_APPROACH] = RefineConditionApproach(
         openai_client=openai_client,
         chatgpt_model=OPENAI_CHATGPT_MODEL,
         chatgpt_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,

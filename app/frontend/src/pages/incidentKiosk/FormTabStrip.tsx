@@ -1,13 +1,15 @@
 /**
  * FormTabStrip — per-role ICS form tabs along the bottom of the kiosk.
  *
- * Fire Officer's tab strip: ICS 201 + 2 role-specific placeholders (`AIPform1`, `AIPform2`).
- * Tabs "pop up" / open a preview panel when poked. In this iteration we render the strip and
- * a read-only preview panel for whichever tab is open — full form generation, structured
- * field layout matching the real ICS 201, and editability all land in Session 4.
+ * Excel-sheet-tab paradigm per Dave's structural feedback (2026-05-12):
+ *   - Thin tab strip at the very bottom of the screen.
+ *   - Tapping a tab opens a near-full-screen overlay showing the report.
+ *   - **Single tap anywhere on the overlay minimizes it back to the strip.** No close
+ *     button — kiosk-friendly. The whole overlay is the close-target.
  *
- * Forms passed in already carry the right structure from the backend's ValidateIAPResponse;
- * we just render `content` as a JSON-ish read-only view for the prototype.
+ * Fire Officer's tabs (per docs/prototype_plan.md D1): ICS 201 + 2 role-specific
+ * placeholders (`AIPform1`, `AIPform2`). Forms are returned as structured JSON from the
+ * backend; we render ICS 201 with named fields mimicking the real form's layout.
  */
 
 import { useState } from "react";
@@ -36,19 +38,19 @@ const renderFormContent = (form: FormSummary) => {
                     <Caption1 className={styles.fieldLabel}>Date / time initiated</Caption1>
                     <Body1>{c.dateTimeInitiated || "—"}</Body1>
                 </div>
-                <div className={styles.field}>
+                <div className={styles.fieldFull}>
                     <Caption1 className={styles.fieldLabel}>Situation summary</Caption1>
                     <Body1>{c.situationSummary || "—"}</Body1>
                 </div>
-                <div className={styles.field}>
+                <div className={styles.fieldFull}>
                     <Caption1 className={styles.fieldLabel}>Current objectives</Caption1>
                     <Body1>{c.currentObjectives || "—"}</Body1>
                 </div>
-                <div className={styles.field}>
+                <div className={styles.fieldFull}>
                     <Caption1 className={styles.fieldLabel}>Current actions</Caption1>
                     <Body1>{c.currentActions || "—"}</Body1>
                 </div>
-                <div className={styles.field}>
+                <div className={styles.fieldFull}>
                     <Caption1 className={styles.fieldLabel}>Resource summary</Caption1>
                     <Body1>{c.resourceSummary || "—"}</Body1>
                 </div>
@@ -92,25 +94,8 @@ const FormTabStrip = ({ forms, locked = false }: FormTabStripProps) => {
     const openForm = forms.find(f => f.formId === openFormId) ?? null;
 
     return (
-        <div className={styles.wrapper}>
-            {openForm && (
-                <div className={styles.previewPanel}>
-                    <div className={styles.previewHeader}>
-                        <div>
-                            <Caption1 className={styles.formTypeLabel}>{openForm.title}</Caption1>
-                            <Body1 className={styles.formId}>{openForm.formId}</Body1>
-                        </div>
-                        <Badge
-                            appearance="outline"
-                            color={openForm.status === "locked" || locked ? "danger" : "success"}
-                            size="small"
-                        >
-                            {openForm.status === "locked" || locked ? "Locked" : "Active"}
-                        </Badge>
-                    </div>
-                    <div className={styles.previewBody}>{renderFormContent(openForm)}</div>
-                </div>
-            )}
+        <>
+            {/* Excel-style tab strip pinned to the bottom of the dashboard area. */}
             <div className={styles.tabRow} role="tablist">
                 {forms.map(f => {
                     const isOpen = f.formId === openFormId;
@@ -124,18 +109,45 @@ const FormTabStrip = ({ forms, locked = false }: FormTabStripProps) => {
                             onClick={() => setOpenFormId(isOpen ? null : f.formId)}
                         >
                             <span className={styles.tabTitle}>{f.title}</span>
-                            <span
-                                className={`${styles.tabStatus} ${
-                                    f.status === "locked" || locked ? styles.tabStatusLocked : ""
-                                }`}
-                            >
-                                {f.status === "locked" || locked ? "locked" : "active"}
-                            </span>
                         </button>
                     );
                 })}
             </div>
-        </div>
+
+            {/*
+                Full-screen overlay when a form is open. The whole overlay is the
+                close target — single tap anywhere collapses it back to the strip.
+                Inner content also gets the same handler so any tap dismisses; we
+                stopPropagation on nothing because we want the simplest possible
+                kiosk gesture.
+            */}
+            {openForm && (
+                <div
+                    className={styles.overlay}
+                    role="dialog"
+                    aria-label={openForm.title}
+                    onClick={() => setOpenFormId(null)}
+                >
+                    <div className={styles.overlayCard}>
+                        <div className={styles.overlayHeader}>
+                            <div>
+                                <Caption1 className={styles.formTypeLabel}>{openForm.title}</Caption1>
+                                <Body1 className={styles.formId}>{openForm.formId}</Body1>
+                            </div>
+                            <Badge
+                                appearance="outline"
+                                color={openForm.status === "locked" || locked ? "danger" : "success"}
+                                size="small"
+                            >
+                                {openForm.status === "locked" || locked ? "Locked" : "Active"}
+                            </Badge>
+                        </div>
+                        <div className={styles.overlayBody}>{renderFormContent(openForm)}</div>
+                        <div className={styles.overlayHint}>Tap anywhere to minimize</div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 

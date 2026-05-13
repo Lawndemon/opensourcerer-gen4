@@ -1,9 +1,17 @@
 /* Fire Officer kiosk — designed for a tablet held by an on-scene responder. Big tap targets,
-   high contrast, minimal chrome. Most styling lives here for the prototype; will be refined
-   in the demo-polish session. */
+   high contrast, minimal chrome. Three vertical panes per Dave's structural feedback
+   (2026-05-12): Scene Summary → Scene Conditions (bullets) → Support Contributions; with
+   Excel-style form tabs along the bottom. The user never types — every affordance is a
+   single tap. */
 
 .container {
     position: relative;
+    /* Fill the available horizontal and vertical space inside Layout.main (which is a
+       flex row with no explicit width on children). Without flex:1 / width:100% the
+       container collapses to its children's intrinsic width and the kiosk appears
+       left-justified. */
+    flex: 1;
+    width: 100%;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -70,7 +78,7 @@
 }
 
 /* ------------------------------------------------------------------------ */
-/* In-incident dashboard                                                    */
+/* In-incident dashboard — three vertical panes + bottom form tab strip      */
 /* ------------------------------------------------------------------------ */
 
 .inIncident {
@@ -78,8 +86,9 @@
     display: flex;
     flex-direction: column;
     padding: 16px 24px 0;
-    gap: 16px;
+    gap: 12px;
     overflow: hidden;
+    min-height: 0;
 }
 
 .incidentHeaderRow {
@@ -89,6 +98,7 @@
     gap: 16px;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
 }
 
 .incidentMetadata {
@@ -139,14 +149,33 @@
     opacity: 0.6;
 }
 
-.summaryPanel {
-    background-color: rgba(255, 255, 255, 0.04);
+/* Each pane is bordered + rounded, has its own scroll for overflow. */
+.pane {
+    background-color: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
     padding: 14px 18px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Pane 1 — Scene Summary. Compact, doesn't grow. Max 3 sentences. */
+.summaryPane {
+    flex: 0 0 auto;
+}
+
+/* Pane 2 — Scene Conditions, the thing the Fire Officer watches. Largest. */
+.scenePane {
+    flex: 2 1 0;
+}
+
+/* Pane 3 — Support Contributions, supplementary info from other roles. */
+.supportPane {
+    flex: 1 1 0;
+    min-height: 120px;
 }
 
 .panelHeading {
@@ -155,59 +184,35 @@
     opacity: 0.55;
 }
 
-.summaryText {
-    line-height: 1.45;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.twoColumn {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    gap: 16px;
-    flex: 1;
-    min-height: 0;
-}
-
-@media (max-width: 980px) {
-    .twoColumn {
-        grid-template-columns: 1fr;
-    }
-}
-
-.scenePanel,
-.supportPanel {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px 16px;
-    background-color: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    overflow-y: auto;
-    min-height: 0;
-}
-
-.panelHeader {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
 .panelSubheading {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     opacity: 0.5;
 }
 
+.paneHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+
+.summaryText {
+    line-height: 1.45;
+    /* Cap to roughly 3 lines visually; overflow with ellipsis. */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .itemList {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
+    padding-top: 4px;
 }
 
 .empty {
@@ -221,11 +226,11 @@
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .supportItem {
-    padding: 10px 12px;
+    padding: 8px 12px;
     background-color: rgba(255, 255, 255, 0.04);
     border-radius: 6px;
     border-left: 3px solid rgba(78, 163, 255, 0.55);
@@ -239,10 +244,11 @@
     margin-bottom: 2px;
 }
 
+/* Floating Re-Validate IAP button — always within thumb's reach. */
 .revalidateButton {
     position: fixed;
     right: 24px;
-    bottom: 24px;
+    bottom: 60px; /* sits above the form tab strip */
     min-height: 56px;
     padding: 0 28px !important;
     font-size: 16px !important;
@@ -251,6 +257,10 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     z-index: 50;
 }
+
+/* ------------------------------------------------------------------------ */
+/* Shared utility panels                                                    */
+/* ------------------------------------------------------------------------ */
 
 .errorPanel {
     border-radius: 8px;

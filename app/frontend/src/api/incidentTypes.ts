@@ -1,46 +1,14 @@
 /**
  * TypeScript shapes for the Validate IAP contract.
- *
- * Mirrors the Pydantic models in `app/backend/models/incidents.py` and the contract documented in
- * `docs/prototype_plan.md` Decisions section. Wire format is camelCase.
+ * Mirrors the Pydantic models in `app/backend/models/incidents.py`. Wire format is camelCase.
  */
 
 import type { ActingRole } from "../roles";
 
-// ============================================================================
-// ENUMS / DISCRIMINATORS
-// ============================================================================
-
-/**
- * Traffic-light status encoding life-risk severity.
- *
- * - `conforming`         green check;  conforms with KB guidance.
- * - `deviating_safe`     yellow !;     deviates from KB but does NOT put human life at risk.
- * - `deviating_unsafe`   red X;        deviates from KB AND puts human life at risk.
- */
 export type ConditionStatus = "conforming" | "deviating_safe" | "deviating_unsafe";
-
-/**
- * Whether a row in the Scene Conditions and Actions list represents an observed condition
- * or an action the Fire Officer / crew has taken.
- */
 export type ItemType = "condition" | "action";
-
-/**
- * Incident lifecycle phase. v1 prototype only ships `response`; the others exist as
- * architectural hooks (BACKLOG.md → Incident-centric architecture → Incident lifecycle).
- */
 export type IncidentPhase = "response" | "transition_to_recovery" | "recovery";
-
-/**
- * Document precedence tier for citations in the retrieval cascade.
- * Client > Region > Federal > Domain.
- */
 export type CitationTier = "client" | "region" | "federal" | "domain";
-
-// ============================================================================
-// SHARED TYPES
-// ============================================================================
 
 export interface Actor {
     role: ActingRole | string;
@@ -59,10 +27,6 @@ export interface ConditionRefinement {
     selectedStatement: string;
     selectedBy: Actor;
 }
-
-// ============================================================================
-// SCENE / SUPPORT ITEMS
-// ============================================================================
 
 export interface SceneConditionAndAction {
     id: string;
@@ -89,18 +53,10 @@ export interface SupportContribution {
     addedAt: string;
 }
 
-// ============================================================================
-// SCENE SUMMARY
-// ============================================================================
-
 export interface SceneSummary {
     text: string;
     lastUpdated: string;
 }
-
-// ============================================================================
-// FORMS
-// ============================================================================
 
 export interface FormSection {
     heading: string;
@@ -137,10 +93,6 @@ export interface FormSummary {
     lastUpdated: string;
 }
 
-// ============================================================================
-// REQUEST / RESPONSE
-// ============================================================================
-
 export interface ValidateIAPRequest {
     incidentId: string;
     transcript: string;
@@ -160,10 +112,6 @@ export interface ValidateIAPResponse {
 // PERSISTENCE — INCIDENT DOCUMENT + AUDIT LOG (Session 3)
 // ============================================================================
 
-/**
- * Audit-log event types emitted by the backend. Mirrors `AuditEventType` in
- * `app/backend/models/incidents.py`.
- */
 export type AuditEventType =
     | "condition_extracted"
     | "condition_status_changed"
@@ -181,7 +129,6 @@ export interface AuditEvent {
     incidentId: string;
     type: AuditEventType;
     timestamp: string;
-    /** Actor or the literal string "system" for LLM/automated events. */
     actor: Actor | "system";
     payload: Record<string, unknown>;
 }
@@ -193,15 +140,6 @@ export interface TranscriptChunk {
     deNoised: string | null;
 }
 
-/**
- * Full persisted incident document. Returned by `POST /api/incidents`,
- * `GET /api/incidents/{id}`, `POST /api/incidents/{id}/loss-stop`,
- * `DELETE /api/incidents/{id}/conditions/{conditionId}`.
- *
- * Append-only fields per immutability principle: `eventLog`, `transcript`. The current-state
- * fields (`sceneSummary`, `sceneConditionsAndActions`, etc.) are derived from the event log
- * but materialized on the document for read efficiency.
- */
 export interface IncidentDocument {
     id: string;
     tenantId: string;
@@ -224,9 +162,7 @@ export interface IncidentDocument {
 
 export interface CreateIncidentRequest {
     actingRole: ActingRole | string;
-    /** Optional fixture transcript — kiosk supplies one in the prototype; gone post-STT. */
     transcript?: string;
-    /** Override for the tenant id (falls back to "default" or the auth `tid` claim server-side). */
     tenantId?: string;
 }
 
@@ -242,4 +178,24 @@ export interface LossStopRequest {
 export interface RemoveConditionRequest {
     actingRole: ActingRole | string;
     userId: string;
+}
+
+// ============================================================================
+// REQUEST / RESPONSE — REFINE CONDITION (Session 4)
+// ============================================================================
+
+export interface RefineConditionResponse {
+    conditionId: string;
+    narrowingStatements: string[];
+}
+
+export interface ApplyRefinementRequest {
+    /** Selected narrowing statement, or null for "None of the above". */
+    selectedStatement: string | null;
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface ApplyRefinementResponse {
+    updatedCondition: SceneConditionAndAction;
 }

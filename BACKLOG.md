@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-05-12
+**Last updated:** 2026-05-12 (post-Session 4)
 
 ---
 
@@ -411,6 +411,44 @@ Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azu
 ---
 
 ## Done
+
+### 2026-05-12 — Session 4 of Fire Officer prototype: Refine Condition + ICS 201 verification
+
+**Outcome:** Refine Condition button is live end-to-end. Tap → backend returns 3 LLM-generated narrowing statements → Fire Officer picks one (or "None of the above") → backend re-evaluates the condition under the narrowed scenario, persists the new status, writes a `condition_refined` audit event, and the kiosk row updates in place. ICS 201 generation verified working from existing extraction prompt; no new code needed for that piece.
+
+**What changed:**
+
+- `app/backend/approaches/refine_condition.py` (new) — `RefineConditionApproach` class with `generate_narrowing_statements()` (temp 0.45 for diversity across the three statements) and `apply_refinement()` (temp 0.15 for deterministic re-evaluation). Mirrors the `ValidateIAPApproach` shape: load prompt from file, OpenAI JSON-mode, parse into local Pydantic models.
+- Two new prompts in `app/backend/prompts/extraction/`: `fire_officer_refine_condition.md` (narrowing-statements generator — short, distinct, scenario-specific) and `fire_officer_apply_refinement.md` (re-evaluation with explicit None-of-the-above sentinel handling).
+- `app/backend/incidents/cosmosdb.py` — new `apply_refinement()` helper: updates condition fields, appends a `ConditionRefinement` entry to `refinements[]`, writes a `condition_refined` audit event. "None of the above" recorded as the sentinel string `(none_of_the_above)` so analytics can distinguish a deliberate decline from a real refinement.
+- `app/backend/app.py` — two new endpoints (`POST /api/incidents/{id}/conditions/{condId}/refine`, `POST .../refine/apply`). Both gated on Cosmos persistence (503 fallback). `RefineConditionApproach` instance registered as `CONFIG_REFINE_CONDITION_APPROACH`.
+- Frontend `app/frontend/src/api/incidents.ts` + `incidentTypes.ts` — `getRefinementOptions()`, `applyRefinement()`, plus the three matching wire types.
+- Frontend `app/frontend/src/pages/incidentKiosk/RefineConditionPopup.tsx` (new) + CSS — Fluent Dialog with four big tap targets (3 statements + dashed "None of the above"). Distinct loading / applying / error states. Single-tap selection → backend → close.
+- Frontend `SceneItemRow.tsx` — Refine button is now functional when `onRefineClick` supplied; disabled with helpful tooltip when not (e.g., ephemeral incident, locked phase).
+- Frontend `IncidentKiosk.tsx` — wired refine state and `handleRefinementApplied` (merges the returned `SceneConditionAndAction` into the in-memory state).
+
+**Trade-offs accepted:**
+
+- **Refine requires persistence.** No useful ephemeral fallback — you need a persisted condition for the audit log to mean anything. Refine button is disabled in the Session-1 fallback path (Cosmos 503).
+- **Transcript fed to the refine prompt is empty in v1.** We read `TranscriptChunk[]` from the persisted incident, but chunks aren't yet written (streaming STT is post-MVP). The LLM falls back to condition text + plan context; quality improves automatically once chunks start flowing in.
+- **No KB retrieval in v1 refine.** Same call to the chat-completion LLM, no Azure Search hop. The "knowledgebase-generated" narrowing statements are LLM-generated for now; real KB grounding lands with the role-based retrieval cascade.
+- **Temperature split.** Narrowing is creative (0.45) so the three options actually differ; apply is near-deterministic (0.15) so the same inputs yield the same re-evaluation. Considered making this configurable but it's not worth a knob until we see real evals.
+
+**ICS 201 verification finding:** the existing extraction prompt already produces fully-populated ICS 201 content in all three smoke-test fixtures (incident name, situation summary, current objectives, actions, resources, prepared-by). Only known cosmetic quirk: `dateTimeInitiated` invents a 2024 year because transcripts have no year context. Fixable later by server-injecting the request-time date; not on the critical path.
+
+**Deploy:** code-only (no Bicep), goes out via `azd deploy` (~10 min). No new env vars.
+
+### 2026-05-12 — Kiosk UI structural restructure (mid-Session)
+
+**Outcome:** Kiosk layout matches Dave's structural spec — three vertical panes stacked top-to-bottom (Scene Summary → Scene Conditions bullets → Support Contributions) with Excel-style form tabs along the bottom. Pre-incident page now fills the viewport properly.
+
+**What changed:**
+
+- `IncidentKiosk.module.css` — `.container` got `flex: 1; width: 100%` so the Start Incident screen actually centers (was left-justified because the parent `.main` is a flex row with no width on children). Replaced the two-column `.twoColumn` grid with three vertical `.pane`-styled sections (`.summaryPane`, `.scenePane`, `.supportPane`) using flex-grow ratios 0/2/1.
+- `SceneItemRow.tsx` + CSS — stripped card chrome to read as a bulleted list. Traffic-light icon serves as the bullet glyph. Refine / Remove buttons kept but de-emphasized.
+- `FormTabStrip.tsx` + CSS — Excel-sheet-tab paradigm: thin tab strip pinned to the bottom, narrow tabs with top-only rounded corners, active tab lifts 2px. Tapping a tab opens a near-full-screen overlay (max 1100px wide, 90vh tall) with the form content; tap anywhere on the overlay to minimize. No close button — single-tap-anywhere is the kiosk-friendly close gesture.
+
+**Trade-off:** the overlay's tap-anywhere-to-close means accidentally tapping inside the form content also closes it. Acceptable for a read-only viewer; if forms become editable later, the inner card will need to stopPropagation. Hint text at the bottom of the overlay tells the user what to expect.
 
 ### 2026-05-12 — Session 3 of Fire Officer prototype: Cosmos persistence, Loss Stop, condition removal
 
