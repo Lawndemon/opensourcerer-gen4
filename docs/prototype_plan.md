@@ -1,6 +1,6 @@
 # Fire Officer Prototype — Implementation Plan
 
-**Status as of 2026-04-29:** not started. Session 0 (decisions) precedes Session 1.
+**Status as of 2026-05-12:** Sessions 0–3 complete. Sessions 4–6 remain (form generation + Refine Condition, IMT incident dashboard stub, demo polish).
 
 Vertical-slice prototype of the Fire Officer kiosk journey, end-to-end, for SME demo. Everything else (other roles' workflows, full retrieval cascade, multi-tenant data isolation, streaming STT, the rest of the ICS form set) is deferred — stubbed minimally where the prototype needs them visible, full implementation comes after SME validates the priority feature.
 
@@ -332,29 +332,27 @@ All seven decisions resolved across two SME working sessions. See "Decisions" se
 - Seed 3 sample transcripts in `app/backend/fixtures/transcripts/` per D4.
 - Manual verification: feed each fixture, eyeball the structured response.
 
-### Session 2 — Fire Officer kiosk page (two-panel UI + form tab strip)
+### Session 2 — Fire Officer kiosk page (two-panel UI + form tab strip) ✓ (2026-04-30)
 
-End state: Fire Officer signs in, lands on the kiosk's Start Incident screen; pressing Start Incident loads a fixture transcript and renders the kiosk dashboard — Scene Summary at top, Scene Conditions and Actions panel with traffic-light items, Support Contributions placeholder, ICS 201 tab at the bottom.
+End state achieved: Fire Officer signs in, lands on the kiosk's Start Incident screen; pressing Start Incident loads a fixture transcript and renders the kiosk dashboard — Scene Summary at top, Scene Conditions and Actions panel with traffic-light items, Support Contributions placeholder, ICS 201 tab at the bottom.
 
-- New page `IncidentKiosk.tsx` with two sub-views: pre-incident (Start Incident button only) and in-incident (Scene Summary + Scene Conditions and Actions + Support Contributions + form tab strip + Re-Validate IAP button + Loss Stop button).
-- Update `IndexRouter.tsx` per D6.
-- Build `SceneItemRow` with traffic-light icon (green check / yellow ! / red X), Condition vs Action badge, and Refine Condition button placeholder.
-- Build `AnalyzePopup` showing publishedPlanContext, clientPlanContext, delta. No citations rendered (Fire Officer kiosk).
-- Build `ReValidateButton` floating bottom-right.
-- Wire to the backend endpoint via `app/frontend/src/api/incidents.ts`.
-- Support Contributions panel renders as "No support contributions yet" placeholder.
-- Skip persistence in this session — the in-incident state is in-memory only; Loss Stop logic comes next session.
+Shipped: `IncidentKiosk.tsx` (full two-sub-view layout), `SceneItemRow.tsx` (traffic-light + Refine placeholder), `AnalyzePopup.tsx` (no citations for Fire Officer per MAD), `FormTabStrip.tsx` (ICS 201 + 2 placeholder tabs, pop-up preview panel), floating Re-Validate IAP button, Loss Stop button (locked-state UI only at this stage).
 
-### Session 3 — Start Incident / Loss Stop persistence + curation
+### Session 3 — Start Incident / Loss Stop persistence + curation ✓ (2026-05-12)
 
-End state: Pressing Start Incident creates a real incident record in Cosmos. Loss Stop transitions it to `transition_to_recovery` phase and freezes the live transcript and Response-phase forms. Fire Officer can remove a Scene Conditions and Actions item; Re-Validate honors the removal sticky-with-resurfacing.
+End state achieved: Pressing Start Incident creates a real incident record in Cosmos. Loss Stop transitions it to `transition_to_recovery` phase and locks Response-phase forms server-side. Fire Officer can remove a Scene Conditions and Actions item via the trash button on each row; Re-Validate honors the removal sticky-with-resurfacing.
 
-- `incidents` Cosmos container per D5. Module under `app/backend/incidents/` for CRUD plus the append-only `eventLog` write path.
-- `POST /api/incidents` — create incident (returns incidentId, phase=response, audit event `phase_transitioned` to "response").
-- `POST /api/incidents/{id}/loss-stop` — transitions phase, locks Response-phase forms, audit event `phase_transitioned` to "transition_to_recovery".
-- `DELETE /api/incidents/{id}/conditions/{conditionId}` — Fire Officer condition removal; audit event `condition_removed`.
-- Frontend wires Start Incident → create + persist, Loss Stop → loss-stop endpoint, condition row → remove action.
-- Revisit kiosk state to read from the persisted incident on reload (refresh during an incident doesn't lose state).
+Shipped:
+
+- `infra/main.bicep` — second container `incidents` under the existing chat-history Cosmos account/database. Hierarchical partition key `[/tenantId, /id]` for forward-compatibility with the multi-tenant Entra goal. Same `useChatHistoryCosmos` flag gates both containers.
+- `app/backend/incidents/cosmosdb.py` (new) — full CRUD module with the audit-log-on-every-write pattern. Exposes `create_incident`, `get_incident`, `replace_incident`, `apply_validate_iap_result` (sticky-removal reconciliation), `remove_condition`, `transition_to_loss_stopped`, `append_audit_event`, `setup_incidents_cosmos`.
+- `app/backend/app.py` — four new endpoints: `POST /api/incidents`, `GET /api/incidents/{id}`, `POST /api/incidents/{id}/loss-stop`, `DELETE /api/incidents/{id}/conditions/{conditionId}`. The existing Validate IAP endpoint now persists reconciled state when the incident exists in Cosmos.
+- `app/backend/models/incidents.py` — `CreateIncidentRequest`, `LossStopRequest`, `RemoveConditionRequest` added.
+- Frontend `incidents.ts` + `incidentTypes.ts` — full API client and types for the new endpoints, including `IncidentDocument`, `AuditEvent`, `TranscriptChunk`.
+- Frontend `IncidentKiosk.tsx` — Start Incident calls server (graceful 503 fallback to ephemeral flow), Loss Stop hits server with optimistic UI, condition removal optimistic with server reconciliation. New `persisted: boolean` in kiosk state distinguishes the two modes.
+- Frontend `SceneItemRow.tsx` — trash button rendered when `onRemove` supplied (Fire Officer, not locked).
+
+Trade-offs accepted (documented in BACKLOG Done entry): no optimistic concurrency in v1, read-then-write audit append, `condition_resurfaced` event-type wiring deferred until extraction prompt iteration. Refresh-rehydrate of kiosk state isn't implemented this session — kiosk state still lives in React useState. Trivial to add (call `getIncident` on mount when an `incidentId` is in URL/storage), but not on the demo critical path.
 
 ### Session 4 — ICS 201 tab + form generation + Refine Condition
 

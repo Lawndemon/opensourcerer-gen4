@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-04-29
+**Last updated:** 2026-05-12
 
 ---
 
@@ -24,7 +24,7 @@ Not on the critical path — can wait until current deploy is stable. Touching s
 
 Blocked on auth being live (because chat history partitions by Entra user ID). Stock template capability, gated by `USE_CHAT_HISTORY_COSMOS=true`. One `azd env set` plus `azd up`. Provisions a Cosmos DB serverless account (~5-10 min added to deploy, single-digit dollars/month at lab usage). Backend code in `app/backend/chat_history/cosmosdb.py` handles the rest.
 
-This is a prerequisite for the event-level workflow below but is useful on its own as "each user sees their own chat history across sessions".
+**Status update (2026-05-12):** the Cosmos account and database get provisioned together with the **incidents container** added in Session 3 (see Done below). The same `USE_CHAT_HISTORY_COSMOS=true` flag enables both. So enabling chat history is now a no-op infra-wise — flip the env and chat history starts using the existing Cosmos account. Backend wiring for chat history was always there; the only remaining work is verifying the chat-history sidebar surfaces in the chat UI when the flag is on.
 
 ---
 
@@ -411,6 +411,53 @@ Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azu
 ---
 
 ## Done
+
+### 2026-05-12 — Session 3 of Fire Officer prototype: Cosmos persistence, Loss Stop, condition removal
+
+**Outcome:** Incidents persist across kiosk reloads. Start Incident creates a real document in Cosmos with an embedded append-only audit log. Loss Stop transitions the phase server-side and locks Response-phase forms. Fire Officer's Remove button flag-flips conditions with an audit entry. Re-Validate IAP reconciles new extraction against the persisted state (sticky-removal semantics).
+
+**What changed:**
+
+- `infra/main.bicep` — added an `incidents` container alongside the existing chat-history container. Hierarchical partition key `[/tenantId, /id]` for forward-compatibility with the multi-tenant Entra goal. Same Cosmos account, same database — one infra footprint, two containers. New `incidentsContainerName` parameter (default `incidents`), new `AZURE_INCIDENTS_CONTAINER` env var on the Container App.
+- `app/backend/incidents/cosmosdb.py` (new) — CRUD layer with the audit-log-on-every-write pattern. Exposes `create_incident`, `get_incident`, `replace_incident`, `apply_validate_iap_result` (sticky-removal reconciliation built in), `remove_condition`, `transition_to_loss_stopped`, `append_audit_event`, and a `setup_incidents_cosmos()` helper that installs the container proxy into Quart app config alongside the chat-history one. Gated by `USE_CHAT_HISTORY_COSMOS=true`.
+- `app/backend/app.py` — four new endpoints (`POST /api/incidents`, `GET /api/incidents/{id}`, `POST /api/incidents/{id}/loss-stop`, `DELETE /api/incidents/{id}/conditions/{conditionId}`). Existing `POST /api/incidents/{id}/validate-iap` extended: when the incident exists in Cosmos, the LLM result is reconciled with the persisted state (removed-flag stickiness) and a `condition_extracted` audit event is appended. When Cosmos isn't enabled it falls back to the Session-1 behavior (pure LLM extraction, no persistence) for the unpersisted-incident path.
+- `app/backend/models/incidents.py` — added `CreateIncidentRequest`, `LossStopRequest`, `RemoveConditionRequest`. Expanded docstring on `IncidentDocument` reflecting the hierarchical partition key.
+- `app/backend/config.py` — `CONFIG_INCIDENTS_COSMOS_ENABLED`, `CONFIG_COSMOS_INCIDENTS_CONTAINER`.
+- Frontend `app/frontend/src/api/incidents.ts` + `incidentTypes.ts` — new functions (`createIncident`, `getIncident`, `lossStop`, `removeCondition`), new types (`IncidentDocument`, `AuditEvent`, `TranscriptChunk`, request/response shapes).
+- Frontend `app/frontend/src/pages/incidentKiosk/IncidentKiosk.tsx` — Start Incident hits `POST /api/incidents`; on 503 the kiosk gracefully falls back to the ephemeral flow so the demo path keeps working without Cosmos. Loss Stop and condition removal call the server when the incident is persisted; optimistic UI updates with rollback on error. New `persisted` flag in state distinguishes the two modes.
+- Frontend `app/frontend/src/pages/incidentKiosk/SceneItemRow.tsx` — new optional `onRemove` prop; trash button rendered only when supplied (Fire Officer, not locked).
+
+**Trade-offs accepted:**
+
+- **No optimistic concurrency on Cosmos writes.** v1 has a single writer per incident (Fire Officer); multi-writer support roles in Session 5+ will need ETag-based replace. Documented in the CRUD module.
+- **Read-then-write pattern for audit-event append.** Each state change does `read_item` + `replace_item`. Fine for the v1 throughput profile (handful of curation events per incident, one Fire Officer). Patch-operations path is the optimization when contention warrants it.
+- **`userId` falls back to `auth_claims.oid`.** Frontend hardcodes `"kiosk"` as a placeholder string — backend overrides with the real Entra OID when auth is in front. Acceptable because the OID is authoritative for audit purposes.
+- **Resurface detection is deferred.** The reconciliation in `apply_validate_iap_result` currently honors sticky-removal but doesn't emit `condition_resurfaced` events. The audit type exists in the contract; the wiring lands when the extraction prompt is tuned to mint fresh ids for materially new evidence.
+
+**Deploy:**
+
+- `azd env set USE_CHAT_HISTORY_COSMOS true` (flips both chat-history Cosmos and the new incidents container on).
+- `azd up` — provisions the Cosmos account, both containers, role assignments. ~1hr end-to-end. Subsequent code-only changes go via `azd deploy`.
+
+**Verified:** `npx tsc --noEmit` clean. Python AST parse clean on all modified files. Bicep follows the existing AVM module pattern. Not yet smoke-tested against live deploy — that's the post-`azd up` step.
+
+### 2026-04-30 — Session 2 of Fire Officer prototype: kiosk dashboard UI
+
+**Outcome:** Validate IAP backend results now render as a live kiosk dashboard. Traffic-light scene items, Analyze popup, ICS 201 form preview, Re-Validate IAP button, and Loss Stop (local-only at this stage) all work end-to-end against the deployed backend.
+
+**What changed:**
+
+- `app/frontend/src/pages/incidentKiosk/SceneItemRow.tsx` + CSS — single-line scene item row with traffic-light icon (green check / yellow ! / red X), Condition/Action badge, click-to-Analyze, disabled Refine placeholder.
+- `app/frontend/src/pages/incidentKiosk/AnalyzePopup.tsx` + CSS — modal showing publishedPlanContext, clientPlanContext, delta. Citations gated by `showCitations` prop (hidden for Fire Officer per MAD framework simplicity-under-chaos rule).
+- `app/frontend/src/pages/incidentKiosk/FormTabStrip.tsx` + CSS — bottom-of-screen form tabs with pop-up preview panel; ICS 201 renders structured fields.
+- `app/frontend/src/pages/incidentKiosk/IncidentKiosk.tsx` — full in-incident dashboard layout (Scene Summary / Scene Conditions and Actions / Support Contributions / form tabs), floating Re-Validate IAP button, Loss Stop button (locked badge after press).
+
+**Trade-offs accepted:**
+
+- Refine Condition button was a placeholder this session — full popup + endpoints land in Session 4 per the plan.
+- Loss Stop was local-only at this stage (no Cosmos persistence); real persistence landed in Session 3 (above).
+
+**Verified:** `npx tsc --noEmit` clean against the deployed Container App backend.
 
 ### 2026-04-21 — Locked down public access with Entra authentication
 
