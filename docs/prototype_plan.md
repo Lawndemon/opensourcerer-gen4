@@ -1,6 +1,6 @@
 # Fire Officer Prototype — Implementation Plan
 
-**Status as of 2026-05-12:** Sessions 0–4 complete (plus a mid-session UI restructure on 2026-05-12 — see BACKLOG Done). Sessions 5–6 remain (IMT incident dashboard stub, demo polish).
+**Status as of 2026-05-13:** Sessions 0–5 complete. Only Session 6 (demo polish) remains.
 
 Vertical-slice prototype of the Fire Officer kiosk journey, end-to-end, for SME demo. Everything else (other roles' workflows, full retrieval cascade, multi-tenant data isolation, streaming STT, the rest of the ICS form set) is deferred — stubbed minimally where the prototype needs them visible, full implementation comes after SME validates the priority feature.
 
@@ -371,13 +371,20 @@ ICS 201 verification: already producing correct output (fixtures show fully popu
 
 Trade-offs: refine path requires Cosmos persistence (no useful ephemeral fallback — you need a persisted condition to refine). Transcript fed to the refine prompt is reconstructed from persisted `TranscriptChunk[]`, which is empty in v1 (chunks aren't yet written); the LLM falls back to condition text + plan context. Once streaming STT lands the chunks will carry the live transcript.
 
-### Session 5 — Stub Other-roles incident dashboard
+### Session 5 — Stub Other-roles incident dashboard ✓ (2026-05-13)
 
-End state: When an IMT role signs in, they see a list of incidents grouped by phase (Response, Transition to Recovery). Click into one → read-only kiosk view (Scene Summary, Scene Conditions and Actions visible, Support Contributions placeholder, citations rendered in AnalyzePopup since this is a support role).
+End state achieved. IMT / ICS roles (Incident Commander, Safety Officer, Liaison, Information, Section Chiefs) now land on the new `IncidentList` page instead of chat. Incidents are grouped by phase (Response live / Transition to Recovery). Click a card → read-only kiosk view with citations enabled in the Analyze popup. No write affordances for support roles in v1.
 
-- New page `IncidentList.tsx` — query `/api/incidents`, group by phase, render entries with ID + datetime + short description.
-- Read-only kiosk view reuses the `IncidentKiosk.tsx` components with an `editable={false}` prop or similar; AnalyzePopup citations conditional on actingRole.
-- No "join incident" / contribute logic in the prototype — supporting-role write authority is post-demo work.
+Shipped:
+
+- Backend `GET /api/incidents` — tenant-scoped list endpoint, newest first, recovery-phase excluded. Uses Cosmos hierarchical partition-key prefix scan (`[tenantId]`) so we don't cross-tenant.
+- Backend `incidents/cosmosdb.py` — new `list_incidents(tenant_id)` helper.
+- Frontend `incidentList/IncidentList.tsx` + CSS — landing page with loading / loaded / error / empty states, two phase groups, responsive card grid, refresh button.
+- Frontend `incidentList/IncidentReadOnlyView.tsx` + CSS — reuses kiosk's `SceneItemRow`, `AnalyzePopup`, `FormTabStrip` components. No Loss Stop / Re-Validate / Refine / Remove. Citations rendered (showCitations=true). Form tabs always locked. Back-to-incidents button replaces End demo.
+- `IndexRouter.tsx` — IMT / ICS roles now land on `IncidentList` instead of `Chat`. Fire Officer and Site Admin routing unchanged.
+- `incidents.ts` / `incidentTypes.ts` — `listIncidents()` and `IncidentListResponse`.
+
+Trade-offs: list endpoint returns full IncidentDocument objects rather than summaries — saves a second round-trip when opening but won't scale past hundreds of incidents per tenant. v1 prototype volume is fine; a summaries-only projection is the obvious optimization later. No deep-linking — clicking a card sets local state, navigating away loses selection. React-router refactor is post-demo if needed.
 
 ### Session 6 — Demo polish
 

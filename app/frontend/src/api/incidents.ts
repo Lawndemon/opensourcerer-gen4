@@ -16,6 +16,7 @@ import type {
     CreateIncidentRequest,
     IncidentDocument,
     IncidentEnvelope,
+    IncidentListResponse,
     LossStopRequest,
     RefineConditionResponse,
     RemoveConditionRequest,
@@ -90,6 +91,17 @@ async function jsonRequest<T>(method: "GET" | "DELETE", url: string, body?: unkn
 export async function createIncident(request: CreateIncidentRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>("/api/incidents", request, signal);
     return envelope.incident;
+}
+
+/**
+ * GET /api/incidents — list incidents in the requesting user's tenant.
+ *
+ * Used by the IMT incident dashboard. Returns full IncidentDocument objects (no separate
+ * lookup needed when opening one). Newest first; recovery-phase incidents excluded.
+ */
+export async function listIncidents(signal?: AbortSignal): Promise<IncidentDocument[]> {
+    const response = await jsonRequest<IncidentListResponse>("GET", "/api/incidents", undefined, signal);
+    return response.incidents;
 }
 
 export async function getIncident(incidentId: string, signal?: AbortSignal): Promise<IncidentDocument> {

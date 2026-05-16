@@ -13,9 +13,13 @@
  * Refine Condition (Session 4): tapping the Refine button on a scene item opens a popup
  * that fetches 3 LLM-generated narrowing statements; selecting one re-evaluates the
  * condition server-side and updates the row in place.
+ *
+ * Live support contributions (Session 5b): during Response (persisted, not locked), the
+ * kiosk polls getIncident() every 10s and merges newly-published Support Contributions
+ * into state. The Fire Officer doesn't need to press anything to see them.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Subtitle1, Title1, Title3 } from "@fluentui/react-components";
 import { ArrowClockwise24Regular, Stop24Filled } from "@fluentui/react-icons";
 
@@ -23,6 +27,7 @@ import type { IncidentDocument, SceneConditionAndAction, ValidateIAPResponse } f
 import {
     createIncident,
     generatePrototypeIncidentId,
+    getIncident,
     IncidentApiError,
     lossStop as lossStopRequest,
     removeCondition,
@@ -69,6 +74,45 @@ const IncidentKiosk = () => {
     const [refineItem, setRefineItem] = useState<SceneConditionAndAction | null>(null);
 
     const showCitations = actingRole !== "fire-officer";
+
+    // --- Live support-contribution poll (Session 5b) ---------------------------
+    // While the Fire Officer is in-incident, persisted, and not locked, poll
+    // getIncident() every 10s and merge new Support Contributions into state.
+    const pollIncidentId = state.phase === "in_incident" ? state.incidentId : null;
+    const pollPersisted = state.phase === "in_incident" ? state.persisted : false;
+    const pollLocked = state.phase === "in_incident" ? state.locked : true;
+    useEffect(() => {
+        if (!pollIncidentId || !pollPersisted || pollLocked) return;
+        const incidentId = pollIncidentId;
+        let cancelled = false;
+        const tick = async () => {
+            try {
+                const fresh = await getIncident(incidentId);
+                if (cancelled) return;
+                setState(prev => {
+                    if (prev.phase !== "in_incident") return prev;
+                    if (prev.incidentId !== incidentId) return prev;
+                    const a = prev.iap.supportContributions;
+                    const b = fresh.supportContributions;
+                    if (a.length === b.length && a.every((x, i) => x.id === b[i].id)) {
+                        return prev;
+                    }
+                    return {
+                        ...prev,
+                        iap: { ...prev.iap, supportContributions: b }
+                    };
+                });
+            } catch {
+                // Silently ignore poll errors — next tick will retry.
+            }
+        };
+        const handle = window.setInterval(tick, 10_000);
+        void tick();
+        return () => {
+            cancelled = true;
+            window.clearInterval(handle);
+        };
+    }, [pollIncidentId, pollPersisted, pollLocked]);
 
     const handleStartIncident = useCallback(async () => {
         const currentScenarioId = state.phase === "pre_incident" ? state.scenarioId : DEFAULT_SCENARIO_ID;

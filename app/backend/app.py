@@ -49,14 +49,20 @@ from approaches.chatreadretrieveread import ChatReadRetrieveReadApproach
 from approaches.promptmanager import PromptManager
 from approaches.validate_iap import ValidateIAPApproach
 from approaches.refine_condition import RefineConditionApproach
+from approaches.recommend_actions import RecommendActionsApproach
 from models.incidents import (
     Actor,
+    AddCustomRecommendationRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
     CreateIncidentRequest,
+    DismissRecommendationRequest,
+    GetRecommendationsResponse,
     IncidentDocument,
     LossStopRequest,
+    PublishRecommendationRequest,
     RefineConditionResponse,
+    RefreshRecommendationsRequest,
     RemoveConditionRequest,
     SceneSummary,
     ValidateIAPRequest,
@@ -70,6 +76,7 @@ from config import (
     CONFIG_CHAT_APPROACH,
     CONFIG_VALIDATE_IAP_APPROACH,
     CONFIG_REFINE_CONDITION_APPROACH,
+    CONFIG_RECOMMEND_ACTIONS_APPROACH,
     CONFIG_CHAT_HISTORY_BROWSER_ENABLED,
     CONFIG_CHAT_HISTORY_COSMOS_ENABLED,
     CONFIG_INCIDENTS_COSMOS_ENABLED,
@@ -471,6 +478,25 @@ async def create_incident(auth_claims: dict[str, Any]):
         return error_response(error, "/api/incidents")
 
 
+@bp.route("/api/incidents", methods=["GET"])
+@authenticated
+async def list_incidents(auth_claims: dict[str, Any]):
+    """List incidents in the requesting user's tenant, newest first.
+
+    Used by the IMT incident dashboard (Session 5). Returns the full IncidentDocument for
+    each — for v1 prototype volumes this is fine and saves the frontend a second round-trip
+    when an incident is opened. Future optimization: a summaries-only projection.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    tenant_id = _tenant_id_from(auth_claims, request.args.get("tenantId"))
+    try:
+        items = await incidents_cosmos.list_incidents(tenant_id)
+        return jsonify({"incidents": [item.model_dump(by_alias=True) for item in items]})
+    except Exception as error:
+        return error_response(error, "/api/incidents")
+
+
 @bp.route("/api/incidents/<incident_id>", methods=["GET"])
 @authenticated
 async def get_incident(auth_claims: dict[str, Any], incident_id: str):
@@ -656,6 +682,254 @@ async def apply_refinement_endpoint(auth_claims: dict[str, Any], incident_id: st
     except Exception as error:
         return error_response(
             error, f"/api/incidents/{incident_id}/conditions/{condition_id}/refine/apply"
+        )
+
+
+# --- Support-role recommendations endpoints (Session 5b) -----------------------
+#
+# Each support role gets their own pending list per incident. Refresh regenerates from
+# the current scene + already-published + recently-dismissed context. Publish moves a
+# pending item onto the incident's support_contributions (visible to the Fire Officer).
+# Dismiss removes it from pending and writes a dismissal audit event.
+
+
+def _find_role_recommendations(doc: IncidentDocument, role: str):
+    """Return the RoleRecommendations entry for `role` or None."""
+    return next((rr for rr in doc.role_recommendations if rr.role == role), None)
+
+
+@bp.route("/api/incidents/<incident_id>/support-recommendations", methods=["GET"])
+@authenticated
+async def get_support_recommendations(auth_claims: dict[str, Any], incident_id: str):
+    """Read the requesting role's pending recommendations list.
+
+    Used by the support-role page on open. Returns an empty list (with
+    `last_generated_at=None`) if the role hasn't refreshed yet — the frontend then
+    auto-fires a Refresh on mount to get an initial set.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    role = request.args.get("role")
+    if not role:
+        return jsonify({"error": "?role= query parameter required"}), 400
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        doc = await incidents_cosmos.get_incident(tenant_id, incident_id)
+        if doc is None:
+            return jsonify({"error": f"Incident not found: {incident_id}"}), 404
+        entry = _find_role_recommendations(doc, role)
+        response = GetRecommendationsResponse(
+            role=role,
+            items=entry.items if entry else [],
+            last_generated_at=entry.last_generated_at if entry else None,
+            scene_last_updated=doc.scene_summary.last_updated if doc.scene_summary else None,
+        )
+        return jsonify(response.model_dump(by_alias=True))
+    except Exception as error:
+        return error_response(
+            error, f"/api/incidents/{incident_id}/support-recommendations"
+        )
+
+
+@bp.route("/api/incidents/<incident_id>/support-recommendations/refresh", methods=["POST"])
+@authenticated
+async def refresh_support_recommendations(auth_claims: dict[str, Any], incident_id: str):
+    """Regenerate the role's pending list via the LLM."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = RefreshRecommendationsRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({
+            "error": "request body did not match RefreshRecommendationsRequest",
+            "details": ve.errors(),
+        }), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        doc = await incidents_cosmos.get_incident(tenant_id, incident_id)
+        if doc is None:
+            return jsonify({"error": f"Incident not found: {incident_id}"}), 404
+
+        recently_dismissed = incidents_cosmos.get_recent_dismissed_texts(doc, body.acting_role)
+        approach: RecommendActionsApproach = cast(
+            RecommendActionsApproach, current_app.config[CONFIG_RECOMMEND_ACTIONS_APPROACH]
+        )
+        new_items = await approach.run(
+            role=body.acting_role,
+            scene_summary_text=doc.scene_summary.text if doc.scene_summary else "",
+            scene_conditions=doc.scene_conditions_and_actions,
+            already_published=doc.support_contributions,
+            recently_dismissed=recently_dismissed,
+        )
+        updated_doc = await incidents_cosmos.refresh_role_recommendations(
+            tenant_id=tenant_id,
+            incident_id=incident_id,
+            role=body.acting_role,
+            new_items_text=new_items,
+            actor=actor,
+        )
+        entry = _find_role_recommendations(updated_doc, body.acting_role)
+        response = GetRecommendationsResponse(
+            role=body.acting_role,
+            items=entry.items if entry else [],
+            last_generated_at=entry.last_generated_at if entry else None,
+            scene_last_updated=updated_doc.scene_summary.last_updated if updated_doc.scene_summary else None,
+        )
+        return jsonify(response.model_dump(by_alias=True))
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(
+            error, f"/api/incidents/{incident_id}/support-recommendations/refresh"
+        )
+
+
+@bp.route(
+    "/api/incidents/<incident_id>/support-recommendations/<recommendation_id>/publish",
+    methods=["POST"],
+)
+@authenticated
+async def publish_support_recommendation(
+    auth_claims: dict[str, Any], incident_id: str, recommendation_id: str
+):
+    """Move a pending item onto the incident's support_contributions list."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = PublishRecommendationRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({
+            "error": "request body did not match PublishRecommendationRequest",
+            "details": ve.errors(),
+        }), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated_doc = await incidents_cosmos.publish_recommendation(
+            tenant_id=tenant_id,
+            incident_id=incident_id,
+            role=body.acting_role,
+            recommendation_id=recommendation_id,
+            actor=actor,
+        )
+        entry = _find_role_recommendations(updated_doc, body.acting_role)
+        response = GetRecommendationsResponse(
+            role=body.acting_role,
+            items=entry.items if entry else [],
+            last_generated_at=entry.last_generated_at if entry else None,
+            scene_last_updated=updated_doc.scene_summary.last_updated if updated_doc.scene_summary else None,
+        )
+        return jsonify(response.model_dump(by_alias=True))
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(
+            error,
+            f"/api/incidents/{incident_id}/support-recommendations/{recommendation_id}/publish",
+        )
+
+
+@bp.route(
+    "/api/incidents/<incident_id>/support-recommendations/<recommendation_id>/dismiss",
+    methods=["POST"],
+)
+@authenticated
+async def dismiss_support_recommendation(
+    auth_claims: dict[str, Any], incident_id: str, recommendation_id: str
+):
+    """Remove a pending item; record a `support_recommendation_dismissed` audit event."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = DismissRecommendationRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({
+            "error": "request body did not match DismissRecommendationRequest",
+            "details": ve.errors(),
+        }), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated_doc = await incidents_cosmos.dismiss_recommendation(
+            tenant_id=tenant_id,
+            incident_id=incident_id,
+            role=body.acting_role,
+            recommendation_id=recommendation_id,
+            actor=actor,
+        )
+        entry = _find_role_recommendations(updated_doc, body.acting_role)
+        response = GetRecommendationsResponse(
+            role=body.acting_role,
+            items=entry.items if entry else [],
+            last_generated_at=entry.last_generated_at if entry else None,
+            scene_last_updated=updated_doc.scene_summary.last_updated if updated_doc.scene_summary else None,
+        )
+        return jsonify(response.model_dump(by_alias=True))
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(
+            error,
+            f"/api/incidents/{incident_id}/support-recommendations/{recommendation_id}/dismiss",
+        )
+
+
+@bp.route("/api/incidents/<incident_id>/support-recommendations/custom", methods=["POST"])
+@authenticated
+async def add_custom_support_recommendation(auth_claims: dict[str, Any], incident_id: str):
+    """Append a role-typed custom item to the pending list.
+
+    Custom items still require an explicit publish step before they reach the Fire
+    Officer's kiosk — matches the curation spec (every published item is deliberate).
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = AddCustomRecommendationRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({
+            "error": "request body did not match AddCustomRecommendationRequest",
+            "details": ve.errors(),
+        }), 400
+
+    if not body.text.strip():
+        return jsonify({"error": "Custom recommendation text cannot be empty"}), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated_doc = await incidents_cosmos.add_custom_recommendation(
+            tenant_id=tenant_id,
+            incident_id=incident_id,
+            role=body.acting_role,
+            text=body.text.strip(),
+            actor=actor,
+        )
+        entry = _find_role_recommendations(updated_doc, body.acting_role)
+        response = GetRecommendationsResponse(
+            role=body.acting_role,
+            items=entry.items if entry else [],
+            last_generated_at=entry.last_generated_at if entry else None,
+            scene_last_updated=updated_doc.scene_summary.last_updated if updated_doc.scene_summary else None,
+        )
+        return jsonify(response.model_dump(by_alias=True))
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(
+            error, f"/api/incidents/{incident_id}/support-recommendations/custom"
         )
 
 
@@ -1112,6 +1386,15 @@ async def setup_clients():
     # (Session 4): two LLM calls — three narrowing statements, then re-evaluate after the
     # FO picks one. Shares the OpenAI client / model deployment with ValidateIAPApproach.
     current_app.config[CONFIG_REFINE_CONDITION_APPROACH] = RefineConditionApproach(
+        openai_client=openai_client,
+        chatgpt_model=OPENAI_CHATGPT_MODEL,
+        chatgpt_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,
+    )
+
+    # RecommendActionsApproach (Session 5b): generates 3-5 role-specific recommended
+    # actions for support roles, given the scene state + already-published + recently-
+    # dismissed. Each refresh call replaces the role's pending working set in Cosmos.
+    current_app.config[CONFIG_RECOMMEND_ACTIONS_APPROACH] = RecommendActionsApproach(
         openai_client=openai_client,
         chatgpt_model=OPENAI_CHATGPT_MODEL,
         chatgpt_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,

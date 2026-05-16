@@ -1,0 +1,171 @@
+/* IncidentList — IMT landing page. Keyboard-friendly (not kiosk-restricted).
+   Distinct visual from the Fire Officer kiosk: lighter background, denser type,
+   list-of-cards rather than the kiosk's pane-stack. */
+
+.container {
+    flex: 1;
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 32px;
+    gap: 20px;
+    background-color: #0b1119;
+    color: #e6edf3;
+    overflow-y: auto;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.title {
+    margin: 0;
+}
+
+.subtitle {
+    opacity: 0.7;
+    max-width: 720px;
+}
+
+.groups {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    flex: 1;
+}
+
+.group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.groupHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.groupLabel {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.groupCount {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: rgba(78, 163, 255, 0.18);
+    color: #93c5fd;
+}
+
+.cardList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+}
+
+.card {
+    width: 100%;
+    text-align: left;
+    appearance: none;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: inherit;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
+}
+
+.card:hover {
+    background-color: rgba(78, 163, 255, 0.08);
+    border-color: rgba(78, 163, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+.card:focus-visible {
+    outline: 2px solid #4ea3ff;
+    outline-offset: 2px;
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.cardId {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    opacity: 0.65;
+    word-break: break-all;
+}
+
+.cardTime {
+    font-size: 11px;
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+.cardDesc {
+    line-height: 1.4;
+}
+
+.center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px 0;
+}
+
+.muted {
+    opacity: 0.65;
+}
+
+.empty {
+    opacity: 0.55;
+    font-style: italic;
+}
+
+.emptyAll {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 48px 16px;
+    text-align: center;
+}
+
+.errorPanel {
+    border-radius: 8px;
+    padding: 16px 20px;
+    background-color: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fecaca;
+    font-size: 14px;
+}
+
+.footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 8px;
+}

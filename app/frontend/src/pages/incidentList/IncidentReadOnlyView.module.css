@@ -1,0 +1,26 @@
+/* IncidentReadOnlyView — light overlay styles. The bulk of the layout comes from
+   the kiosk's CSS module (imported alongside) so the structure stays consistent. */
+
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.backButton {
+    flex-shrink: 0;
+}
+
+.headerMeta {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.metaItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 12px;
+}

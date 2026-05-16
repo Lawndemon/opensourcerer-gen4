@@ -338,6 +338,44 @@ class ApplyRefinementResponse(_IncidentBase):
 # === INCIDENT DOCUMENT (Cosmos persistence — Session 3) ===
 
 
+class PendingRecommendation(_IncidentBase):
+    """
+    One LLM-generated (or custom-added) support action waiting for a support role's
+    publish / dismiss decision.
+
+    Stays in the role's pending working set until either:
+    - the role taps "check" (publish) → the item is converted into a SupportContribution
+      and moved into IncidentDocument.support_contributions.
+    - the role taps "X" (dismiss) → the item is removed from pending; an audit event
+      records that this suggestion was considered and declined.
+
+    `source` distinguishes KB-generated suggestions from role-typed custom entries; both
+    require an explicit "check" before publishing to the Fire Officer's kiosk.
+    """
+
+    id: str
+    text: str
+    source: Literal["kb", "custom"]
+    created_at: str
+    created_by: Actor
+
+
+class RoleRecommendations(_IncidentBase):
+    """
+    Per-role pending working set on an incident.
+
+    Each support role that joins an incident gets one of these. Refreshing replaces the
+    `items` list (the LLM regenerates from the current scene + already-published items +
+    recently-dismissed items). The `last_generated_at` timestamp drives staleness
+    detection on the frontend (button turns yellow when the scene has moved on since the
+    role last refreshed).
+    """
+
+    role: str  # ActingRole — the support role that owns this list.
+    items: list[PendingRecommendation] = Field(default_factory=list)
+    last_generated_at: str | None = None
+
+
 class IncidentDocument(_IncidentBase):
     """
     Persistence shape for an incident record in Cosmos.
@@ -368,6 +406,10 @@ class IncidentDocument(_IncidentBase):
     support_contributions: list[SupportContribution] = Field(default_factory=list)
     forms: list[FormSummary] = Field(default_factory=list)
     event_log: list[AuditEvent] = Field(default_factory=list)
+    # Session 5b: per-role pending recommendation working sets. One entry per role that has
+    # joined the incident. Items are LLM-generated or custom-added and require explicit
+    # publish ("check") to appear on the Fire Officer kiosk's Support Contributions pane.
+    role_recommendations: list[RoleRecommendations] = Field(default_factory=list)
 
 
 # === INCIDENT CRUD REQUEST / RESPONSE (Session 3) ===
@@ -427,5 +469,53 @@ class RemoveConditionRequest(_IncidentBase):
     new transcript evidence supports it (audit event type `condition_resurfaced`).
     """
 
+    acting_role: str
+    user_id: str
+
+
+# === SUPPORT ROLE RECOMMENDATIONS (Session 5b) ============================
+
+
+class RefreshRecommendationsRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/support-recommendations/refresh`."""
+
+    acting_role: str
+    user_id: str
+
+
+class GetRecommendationsResponse(_IncidentBase):
+    """Response body for the GET and refresh endpoints. Returns the role's current list."""
+
+    role: str
+    items: list[PendingRecommendation] = Field(default_factory=list)
+    last_generated_at: str | None = None
+    # The frontend uses this to drive the Refresh button's stale/fresh state. If the
+    # incident's scene state has moved on since `last_generated_at`, recommendations are
+    # stale.
+    scene_last_updated: str | None = None
+
+
+class PublishRecommendationRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/support-recommendations/{recId}/publish`."""
+
+    acting_role: str
+    user_id: str
+
+
+class DismissRecommendationRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/support-recommendations/{recId}/dismiss`."""
+
+    acting_role: str
+    user_id: str
+
+
+class AddCustomRecommendationRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/support-recommendations/custom`.
+
+    Custom items go into the role's pending list (source="custom") and require the same
+    "check" publish step as KB-generated items — matches the spec from 2026-05-13.
+    """
+
+    text: str
     acting_role: str
     user_id: str

@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-05-12 (post-Session 4)
+**Last updated:** 2026-05-13 (post-Session 5)
 
 ---
 
@@ -411,6 +411,29 @@ Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azu
 ---
 
 ## Done
+
+### 2026-05-13 — Session 5 of Fire Officer prototype: IMT incident dashboard
+
+**Outcome:** IMT / ICS roles get a new landing page — a list of incidents in their tenant grouped by phase, with click-through to a read-only view of the Fire Officer's dashboard. Citations rendered in the Analyze popup for support roles per the MAD framework. No write affordances for IMT in v1 (Support Contribution curation lands post-demo). Chat is no longer the default landing for non-Fire-Officer / non-admin roles.
+
+**What changed:**
+
+- `app/backend/incidents/cosmosdb.py` — new `list_incidents(tenant_id, *, exclude_recovery=True)`. Cross-partition query within a single tenant using a partial hierarchical partition key `[tenant_id]`. Sorted by `createdAt` DESC. Recovery-phase docs excluded by default since we don't ship that lifecycle yet.
+- `app/backend/app.py` — new `GET /api/incidents` endpoint. Positioned before `GET /api/incidents/<incident_id>` so Quart routes correctly. Returns full `IncidentDocument` envelopes (`{"incidents": [...]}`).
+- `app/frontend/src/api/incidents.ts` + `incidentTypes.ts` — `listIncidents()` function and `IncidentListResponse` type.
+- `app/frontend/src/pages/incidentList/IncidentList.tsx` + CSS (new) — IMT landing. Loading / loaded / error / empty states. Two phase groups (Response live, Transition to Recovery) with subtitle hints, responsive card grid with incident ID + datetime + short description (truncated scene summary). Refresh button.
+- `app/frontend/src/pages/incidentList/IncidentReadOnlyView.tsx` + CSS (new) — read-only single-incident view. Reuses kiosk's `SceneItemRow`, `AnalyzePopup`, `FormTabStrip` components and imports the kiosk's CSS module to keep structure identical. No Loss Stop / Re-Validate / Refine / Remove buttons. `AnalyzePopup` always renders citations (support-role view). `FormTabStrip` always locked. Back-to-incidents button in the header. Shows createdAt and lossStoppedAt metadata.
+- `app/frontend/src/pages/IndexRouter.tsx` — IMT / ICS roles now land on `IncidentList` instead of `Chat`. Fire Officer and Site Admin routing unchanged. Chat remains available as a feature but is no longer the default landing for IMT.
+
+**Trade-offs accepted:**
+
+- **Full-document list, not summaries.** `GET /api/incidents` returns the entire `IncidentDocument` for each row, including `eventLog[]`. Fine for v1 volume; once tenants accumulate hundreds of incidents per day a summaries-only projection will pay for itself. Documented in the endpoint comments as the obvious next optimization.
+- **No deep-linking to incident detail.** Selection lives in `IncidentList`'s React state. Navigating away or refreshing drops you back at the list. A real react-router refactor is post-demo if SME asks for shareable URLs.
+- **No "join incident" or contribute UX.** Support roles can read but can't write Support Contributions yet. The curation workflow (KB recommendations + accept/dismiss + custom add) is BACKLOG'd for post-demo.
+
+**Deploy:** code-only (no Bicep), goes out via `azd deploy` (~10 min). No new env vars.
+
+**Verified:** `npx tsc --noEmit` clean. Backend Python parses cleanly.
 
 ### 2026-05-12 — Session 4 of Fire Officer prototype: Refine Condition + ICS 201 verification
 

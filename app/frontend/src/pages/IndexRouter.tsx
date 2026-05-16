@@ -7,10 +7,11 @@
  *  - <RoleSelect />     — the user needs to pick (or confirm) their acting role
  *  - <AdminLanding />   — the user's acting role is Site Administrator
  *  - <IncidentKiosk />  — the user's acting role is Fire Officer (kiosk paradigm)
- *  - <Chat />           — every other acting role (chat UI for now; will switch to
- *                         the active-incidents dashboard in a later session)
+ *  - <IncidentList />   — every other ICS / IMT role (Session 5 landing)
  *
- * See BACKLOG.md → "Incident-centric architecture" for the routing rationale.
+ * Chat is no longer the default landing for IMT roles per BACKLOG.md →
+ * "Incident-centric architecture". Chat remains available as an interaction mode within
+ * an incident's context (post-demo work).
  */
 
 import { useRole } from "../roleContext";
@@ -20,13 +21,13 @@ import Chat from "./chat/Chat";
 import RoleSelect from "./roleSelect/RoleSelect";
 import AdminLanding from "./adminLanding/AdminLanding";
 import IncidentKiosk from "./incidentKiosk/IncidentKiosk";
+import IncidentList from "./incidentList/IncidentList";
 
 const IndexRouter = () => {
     const { actingRole, accountContext } = useRole();
 
-    // If login is disabled (no-auth dev mode), skip role plumbing
-    // entirely and render the chat — role system is meaningless without a
-    // signed-in user to attribute it to.
+    // If login is disabled (no-auth dev mode), skip role plumbing entirely and render
+    // chat — the role system is meaningless without a signed-in user to attribute it to.
     if (!useLogin) {
         return <Chat />;
     }
@@ -44,7 +45,6 @@ const IndexRouter = () => {
     }
 
     // Fire Officer is the kiosk paradigm — voice + single-button-press, never keyboard.
-    // This is the prototype's primary surface.
     if (actingRole === "fire-officer") {
         return <IncidentKiosk />;
     }
@@ -55,9 +55,9 @@ const IndexRouter = () => {
         return <AdminLanding />;
     }
 
-    // Every other ICS role still lands on chat for now. Later sessions switch them
-    // to the active-incidents dashboard described in BACKLOG.md.
-    return <Chat />;
+    // Every other ICS / IMT role lands on the incidents dashboard (Session 5).
+    // Click into an incident → read-only kiosk view with citations rendered.
+    return <IncidentList />;
 };
 
 export default IndexRouter;

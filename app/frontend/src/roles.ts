@@ -1,34 +1,20 @@
 /**
  * Role taxonomy and account-type model for opensourcerer-gen4.
  *
- * There are two distinct concepts in the role system, each on its own axis:
- *
- *  - AccountType: how a user signs in. Determines what login flow they see
- *    (which pickers, or none) and is derived from the Entra UPN for MVP.
- *    Real deployments would map this via Entra group membership or a Cosmos
- *    user record.
- *
- *  - ActingRole: the persona that drives RAG retrieval, system-prompt tone,
- *    and audit logging. One of 10 values, set at login and held for the
- *    session (stored in sessionStorage, not localStorage — intentional).
+ * There are two distinct concepts in the role system:
+ *  - AccountType: how a user signs in. Derived from the Entra UPN for MVP.
+ *  - ActingRole: the persona that drives RAG retrieval, prompt tone, audit logging.
  *
  * Account type and acting role are related but not identical:
- *  - Some account types (fire-officer, site_administrator, legacy per-role
- *    accounts) map directly to a single acting role — no picker shown.
- *  - Others (incident_management_team, generic_user) require the user to
- *    pick an acting role at login.
+ *  - fire-officer / legacy per-role accounts map directly to an acting role; no
+ *    picker shown.
+ *  - incident_management_team / generic_user / site_administrator require the user
+ *    to pick at login. Admins see the same picker as generic users plus the Fire
+ *    Officer choice (2026-05-16 spec).
  *
- * See BACKLOG.md → "Event-level workflow and audit log" for the full design
- * rationale and the audit/immutability principles this file supports.
+ * See BACKLOG.md → "Event-level workflow and audit log" for the full design rationale.
  */
 
-/**
- * Account type — how a user enters the app.
- *
- * Derived from the UPN prefix in MVP. If a real deployment uses Entra groups
- * or Cosmos records for this instead, swap out `deriveAccountContext` below
- * without changing the rest of the app.
- */
 export type AccountType =
     | "fire-officer"
     | "incident_management_team"
@@ -36,14 +22,6 @@ export type AccountType =
     | "generic_user"
     | "direct_role";
 
-/**
- * Acting role — the persona the user is acting as for this session.
- *
- * Drives:
- *  - RAG retrieval biasing (future: Task #6 — role-based document filtering)
- *  - System-prompt tone and assumed expertise level
- *  - Audit log entries on every chat/event action
- */
 export type ActingRole =
     | "fire-officer"
     | "incident-commander"
@@ -56,9 +34,6 @@ export type ActingRole =
     | "section-chief-finance"
     | "site-administrator";
 
-/**
- * Display groups. Used to visually cluster roles in pickers.
- */
 export type RoleCategory = "field" | "ics-command" | "ics-command-staff" | "ics-section-chief" | "admin";
 
 export interface RoleDefinition {
@@ -68,12 +43,6 @@ export interface RoleDefinition {
     category: RoleCategory;
 }
 
-/**
- * Canonical list of all acting roles with display metadata.
- *
- * Edit this array to add, rename, or describe roles. This is the single
- * source of truth; other exports in this file derive from it.
- */
 export const ACTING_ROLES: RoleDefinition[] = [
     {
         id: "fire-officer",
@@ -137,9 +106,6 @@ export const ACTING_ROLES: RoleDefinition[] = [
     }
 ];
 
-/**
- * Lookup a role definition by id. Throws if the id is unknown.
- */
 export function getRoleDefinition(id: ActingRole): RoleDefinition {
     const role = ACTING_ROLES.find(r => r.id === id);
     if (!role) {
@@ -148,11 +114,6 @@ export function getRoleDefinition(id: ActingRole): RoleDefinition {
     return role;
 }
 
-/**
- * The 8 ICS roles offered on the IMT sub-picker.
- * (Fire Officer is not here — it's its own account type. Site Administrator
- * is not here — IMT accounts don't grant admin powers.)
- */
 export const IMT_ROLE_CHOICES: ActingRole[] = [
     "incident-commander",
     "safety-officer",
@@ -166,16 +127,14 @@ export const IMT_ROLE_CHOICES: ActingRole[] = [
 
 /**
  * Account types offered on the generic_user initial picker.
- * Selecting one routes to the corresponding account-type flow.
+ *
+ * Fire Officer is intentionally excluded (2026-05-13 spec): a demo / generic account
+ * should never be able to spin up the kiosk paradigm — only the dedicated `fireofficer@`
+ * UPN can. This keeps demo sessions from accidentally landing on the kiosk.
  */
-export type GenericPickerChoice = Exclude<AccountType, "generic_user" | "direct_role">;
+export type GenericPickerChoice = Exclude<AccountType, "generic_user" | "direct_role" | "fire-officer">;
 
 export const GENERIC_PICKER_CHOICES: { id: GenericPickerChoice; displayName: string; description: string }[] = [
-    {
-        id: "fire-officer",
-        displayName: "Fire Officer",
-        description: "Operate as a Fire Officer. Field responder on the line. Proceeds directly to chat."
-    },
     {
         id: "incident_management_team",
         displayName: "Incident Management Team",
@@ -189,10 +148,33 @@ export const GENERIC_PICKER_CHOICES: { id: GenericPickerChoice; displayName: str
 ];
 
 /**
- * Legacy per-role accounts (created pre-refinement for deployments where
- * Entra accounts are 1:1 with ICS roles). UPN prefix directly maps to an
- * acting role; these accounts skip all pickers.
+ * Account types offered on the site_administrator initial picker.
+ *
+ * Admins can operate as any role — including Fire Officer — so the admin picker
+ * is the generic picker plus the Fire Officer option (2026-05-16 spec). Picking
+ * IMT advances to the existing ICS sub-picker; picking Fire Officer routes
+ * straight to the kiosk; picking Site Administrator routes to admin landing.
  */
+export type AdminPickerChoice = Exclude<AccountType, "generic_user" | "direct_role">;
+
+export const ADMIN_PICKER_CHOICES: { id: AdminPickerChoice; displayName: string; description: string }[] = [
+    {
+        id: "fire-officer",
+        displayName: "Fire Officer",
+        description: "Operate the kiosk paradigm for live field response. Voice + single-button; never keyboard."
+    },
+    {
+        id: "incident_management_team",
+        displayName: "Incident Management Team",
+        description: "Operate as an Incident Management Team member. Select your specific ICS role next."
+    },
+    {
+        id: "site_administrator",
+        displayName: "Site Administrator",
+        description: "Operate as a Site Administrator. Cross-event aggregate views, event closure, and report generation."
+    }
+];
+
 const LEGACY_UPN_TO_ROLE: Record<string, ActingRole> = {
     incident_commander: "incident-commander",
     safety_officer: "safety-officer",
@@ -204,47 +186,22 @@ const LEGACY_UPN_TO_ROLE: Record<string, ActingRole> = {
     section_chief_finance: "section-chief-finance"
 };
 
-/**
- * UPN local-parts that should be treated as Site Administrator accounts.
- * Add additional admin users here. This is a stopgap until role assignment
- * moves to Entra group membership or a Cosmos user record (see BACKLOG.md).
- *
- * Includes the literal `site_administrator` test account plus any real users
- * who should have admin powers (cross-event aggregate views, event closure,
- * report generation, taxonomy management).
- */
 const ADMIN_UPN_PREFIXES = new Set<string>(["site_administrator", "jhughes"]);
 
-/**
- * Result of deriving account context from the signed-in user's UPN.
- */
 export interface AccountContext {
     accountType: AccountType;
-    /**
-     * Populated when the account type implies a direct acting role with
-     * no picker shown to the user. Undefined for IMT and generic_user,
-     * which require interactive selection.
-     */
     directActingRole?: ActingRole;
 }
 
-/**
- * Derive account context from a user's UPN.
- *
- * Inspects the UPN local-part prefix and matches against the known account
- * cohort. Alternative deployment models can replace this with an Entra group
- * lookup or Cosmos user record lookup — swap this function, keep the rest of
- * the app unchanged.
- *
- * Unrecognized UPNs fall back to `generic_user` so unknown accounts still
- * get a usable flow rather than an error page; the user picks the role they
- * are operating as for the session.
- */
 export function deriveAccountContext(upn: string): AccountContext {
     const localPart = upn.toLowerCase().split("@")[0];
 
     if (ADMIN_UPN_PREFIXES.has(localPart)) {
-        return { accountType: "site_administrator", directActingRole: "site-administrator" };
+        // Admins do NOT get a directActingRole — they land on the picker every login so
+        // they can choose any role (including Fire Officer) for the session. Per 2026-05-16
+        // spec: admins can operate as any role; generic / non-admin users cannot pick
+        // Fire Officer.
+        return { accountType: "site_administrator" };
     }
     if (localPart === "fireofficer") {
         return { accountType: "fire-officer", directActingRole: "fire-officer" };
@@ -264,9 +221,4 @@ export function deriveAccountContext(upn: string): AccountContext {
     return { accountType: "generic_user" };
 }
 
-/**
- * sessionStorage key used by RoleContext to persist the selected acting
- * role across page refreshes within a single browser tab. Cleared on tab
- * close (matches session-scoped semantics we agreed to).
- */
 export const ACTING_ROLE_STORAGE_KEY = "opensourcerer.actingRole";

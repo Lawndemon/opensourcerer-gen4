@@ -170,6 +170,11 @@ export interface IncidentEnvelope {
     incident: IncidentDocument;
 }
 
+/** Response body for `GET /api/incidents` (Session 5 — IMT incident dashboard). */
+export interface IncidentListResponse {
+    incidents: IncidentDocument[];
+}
+
 export interface LossStopRequest {
     actingRole: ActingRole | string;
     userId: string;

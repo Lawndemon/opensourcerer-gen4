@@ -166,6 +166,43 @@ async def get_incident(tenant_id: str, incident_id: str) -> IncidentDocument | N
     return _parse_document(item)
 
 
+async def list_incidents(tenant_id: str, *, exclude_recovery: bool = True) -> list[IncidentDocument]:
+    """Cross-partition query for all incidents in a tenant, newest first.
+
+    Hierarchical partition keys let us scope to a single tenant by supplying only the first
+    level of the key (`[tenant_id]`); Cosmos handles the partition prefix scan. The query
+    excludes `recovery` phase by default because v1 doesn't ship that lifecycle yet — those
+    documents shouldn't appear in the IMT list.
+
+    The result set is small enough in v1 (handfuls of incidents per tenant) that we pull it
+    all into memory; once volume grows we'll add pagination via continuation tokens.
+    """
+    container = _container()
+    if container is None:
+        raise RuntimeError("Incidents Cosmos container not configured")
+
+    where_clauses = ["c.tenantId = @tid"]
+    parameters: list[dict[str, Any]] = [{"name": "@tid", "value": tenant_id}]
+    if exclude_recovery:
+        where_clauses.append("c.phase != 'recovery'")
+    query = (
+        f"SELECT * FROM c WHERE {' AND '.join(where_clauses)} "
+        f"ORDER BY c.createdAt DESC"
+    )
+
+    items: list[IncidentDocument] = []
+    pager = container.query_items(
+        query=query,
+        parameters=parameters,
+        partition_key=[tenant_id],  # partial hierarchical key — scope to this tenant
+        max_item_count=100,
+    )
+    async for page in pager.by_page():
+        async for raw in page:
+            items.append(_parse_document(raw))
+    return items
+
+
 async def replace_incident(doc: IncidentDocument) -> IncidentDocument:
     """Replace the full incident document. Use for state updates after audit-event append.
 
@@ -306,6 +343,224 @@ async def remove_condition(
         )
     )
     return await replace_incident(doc)
+
+
+async def refresh_role_recommendations(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    role: str,
+    new_items_text: list[str],
+    actor: Actor,
+):
+    """Replace the role's pending recommendations with a freshly-generated list.
+
+    `new_items_text` is the raw LLM output (list of strings); we mint ids and timestamps
+    server-side so the role's view has stable identifiers for publish/dismiss calls.
+
+    Writes one audit event recording the refresh. Items themselves do not get individual
+    "created" events — that would be noisy. Each subsequent publish/dismiss IS audited
+    because it represents a deliberate role decision.
+    """
+    from models.incidents import PendingRecommendation, RoleRecommendations  # local import to dodge cycles
+    import uuid
+
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    now = _now_iso()
+    new_items = [
+        PendingRecommendation(
+            id=str(uuid.uuid4()),
+            text=text,
+            source="kb",
+            created_at=now,
+            created_by=actor,
+        )
+        for text in new_items_text
+    ]
+
+    # Find existing role entry or insert a new one.
+    existing = next((rr for rr in doc.role_recommendations if rr.role == role), None)
+    if existing is not None:
+        existing.items = new_items
+        existing.last_generated_at = now
+    else:
+        doc.role_recommendations.append(
+            RoleRecommendations(role=role, items=new_items, last_generated_at=now)
+        )
+
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="condition_extracted",  # closest existing type for "LLM produced suggestions"
+            actor=actor,
+            payload={
+                "kind": "support_recommendations_refreshed",
+                "role": role,
+                "count": len(new_items),
+            },
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def add_custom_recommendation(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    role: str,
+    text: str,
+    actor: Actor,
+):
+    """Append a user-typed item to the role's pending list (source='custom').
+
+    Per the spec, custom items still require an explicit publish ("check") step before
+    they appear on the Fire Officer's kiosk — same UX as KB-generated items.
+    """
+    from models.incidents import PendingRecommendation, RoleRecommendations
+    import uuid
+
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    now = _now_iso()
+    item = PendingRecommendation(
+        id=str(uuid.uuid4()),
+        text=text,
+        source="custom",
+        created_at=now,
+        created_by=actor,
+    )
+
+    existing = next((rr for rr in doc.role_recommendations if rr.role == role), None)
+    if existing is not None:
+        existing.items.append(item)
+    else:
+        doc.role_recommendations.append(
+            RoleRecommendations(role=role, items=[item], last_generated_at=now)
+        )
+
+    # No audit event for "added to private list" — the publish step (if it happens) gets
+    # one. If the role types-then-dismisses, that's a non-event; nothing to record.
+    return await replace_incident(doc)
+
+
+async def publish_recommendation(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    role: str,
+    recommendation_id: str,
+    actor: Actor,
+):
+    """Move an item from the role's pending list into the incident's support_contributions.
+
+    Records a `support_contribution_added` audit event. The newly-published item becomes
+    visible to the Fire Officer's kiosk on its next poll/refresh.
+    """
+    from models.incidents import SupportContribution
+    import uuid
+
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    role_entry = next((rr for rr in doc.role_recommendations if rr.role == role), None)
+    if role_entry is None:
+        raise ValueError(f"No recommendations for role {role} on incident {incident_id}")
+    item = next((i for i in role_entry.items if i.id == recommendation_id), None)
+    if item is None:
+        raise ValueError(f"Recommendation not found: {recommendation_id}")
+
+    # Mint a fresh SupportContribution. We use a new id on the contribution side so the
+    # pending-recommendation id can be reused later (e.g., if the role un-publishes —
+    # not in v1 but the IDs being independent leaves that door open).
+    contribution = SupportContribution(
+        id=str(uuid.uuid4()),
+        text=item.text,
+        source="recommended" if item.source == "kb" else "custom",
+        added_by=actor,
+        added_at=_now_iso(),
+    )
+    doc.support_contributions.append(contribution)
+    role_entry.items = [i for i in role_entry.items if i.id != recommendation_id]
+
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="support_contribution_added",
+            actor=actor,
+            payload={
+                "role": role,
+                "contribution_id": contribution.id,
+                "source": contribution.source,
+                "text": contribution.text,
+                "pending_id": recommendation_id,
+            },
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def dismiss_recommendation(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    role: str,
+    recommendation_id: str,
+    actor: Actor,
+):
+    """Remove an item from the role's pending list. Records a dismissal audit event.
+
+    The text of the dismissed item is preserved in the audit payload so future refresh
+    calls can pass it to the LLM as `recentlyDismissed` (don't re-suggest).
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    role_entry = next((rr for rr in doc.role_recommendations if rr.role == role), None)
+    if role_entry is None:
+        raise ValueError(f"No recommendations for role {role} on incident {incident_id}")
+    item = next((i for i in role_entry.items if i.id == recommendation_id), None)
+    if item is None:
+        raise ValueError(f"Recommendation not found: {recommendation_id}")
+
+    role_entry.items = [i for i in role_entry.items if i.id != recommendation_id]
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="support_recommendation_dismissed",
+            actor=actor,
+            payload={
+                "role": role,
+                "pending_id": recommendation_id,
+                "text": item.text,
+                "source": item.source,
+            },
+        )
+    )
+    return await replace_incident(doc)
+
+
+def get_recent_dismissed_texts(doc, role: str, limit: int = 20) -> list[str]:
+    """Pull recently-dismissed suggestion texts for a role from the audit log.
+
+    Used to feed the LLM on refresh — don't re-suggest things this role has already said
+    no to. Reads from doc.event_log (already loaded as a side-effect of get_incident).
+    Synchronous helper because it's pure dict iteration; no Cosmos call.
+    """
+    texts: list[str] = []
+    for ev in reversed(doc.event_log):
+        if ev.type == "support_recommendation_dismissed" and ev.payload.get("role") == role:
+            text = ev.payload.get("text")
+            if text:
+                texts.append(text)
+                if len(texts) >= limit:
+                    break
+    return texts
 
 
 async def apply_refinement(
@@ -486,3 +741,4 @@ async def setup_incidents_cosmos() -> None:
     current_app.logger.info(
         "Incidents Cosmos persistence enabled (database=%s container=%s)", database_name, container_name
     )
+
