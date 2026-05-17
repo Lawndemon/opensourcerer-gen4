@@ -1,0 +1,71 @@
+/* RecommendationsPanel — owns the unified support-role recommendations list. */
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+}
+
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.headerText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.subtitle {
+    color: var(--colorNeutralForeground3, #707070);
+}
+
+.refreshButton {
+    flex-shrink: 0;
+}
+
+.refreshFresh {
+    /* Default appearance. Tooltip carries the "fresh" semantics. */
+}
+
+.refreshStale {
+    /* "primary" appearance already gives a strong color; warning icon reinforces. */
+    box-shadow: 0 0 0 2px rgba(247, 165, 0, 0.35);
+}
+
+.addRow {
+    /* CustomAddForm provides its own layout; this is just a spacing wrapper. */
+}
+
+.error {
+    color: var(--colorPaletteRedForeground1, #b10e1c);
+    background-color: var(--colorPaletteRedBackground1, rgba(177, 14, 28, 0.08));
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.loading,
+.empty {
+    color: var(--colorNeutralForeground3, #707070);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    min-height: 0;
+}

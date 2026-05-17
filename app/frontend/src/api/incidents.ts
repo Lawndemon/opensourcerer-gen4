@@ -11,14 +11,19 @@
  */
 
 import type {
+    AddCustomRecommendationRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
     CreateIncidentRequest,
+    DismissRecommendationRequest,
+    GetRecommendationsResponse,
     IncidentDocument,
     IncidentEnvelope,
     IncidentListResponse,
     LossStopRequest,
+    PublishRecommendationRequest,
     RefineConditionResponse,
+    RefreshRecommendationsRequest,
     RemoveConditionRequest,
     SceneConditionAndAction,
     ValidateIAPRequest,
@@ -133,6 +138,92 @@ export async function applyRefinement(incidentId: string, conditionId: string, r
         signal
     );
     return response.updatedCondition;
+}
+
+// ============================================================================
+// SUPPORT-ROLE RECOMMENDATIONS (Session 5b backend; 5c frontend)
+// ============================================================================
+
+/**
+ * GET /api/incidents/{id}/support-recommendations?role=X — read the role's pending
+ * working set. Returns an empty list (with lastGeneratedAt=null) if the role hasn't
+ * refreshed yet; the support view auto-fires a refresh on mount in that case.
+ */
+export async function getSupportRecommendations(
+    incidentId: string,
+    role: string,
+    signal?: AbortSignal
+): Promise<GetRecommendationsResponse> {
+    const url = `/api/incidents/${encodeURIComponent(incidentId)}/support-recommendations?role=${encodeURIComponent(role)}`;
+    return await jsonRequest<GetRecommendationsResponse>("GET", url, undefined, signal);
+}
+
+/**
+ * POST /api/incidents/{id}/support-recommendations/refresh — regenerate the role's
+ * pending list via the LLM. The backend deliberately tells the LLM to avoid
+ * already-published items and recently-dismissed items.
+ */
+export async function refreshSupportRecommendations(
+    incidentId: string,
+    request: RefreshRecommendationsRequest,
+    signal?: AbortSignal
+): Promise<GetRecommendationsResponse> {
+    return await postJson<GetRecommendationsResponse>(
+        `/api/incidents/${encodeURIComponent(incidentId)}/support-recommendations/refresh`,
+        request,
+        signal
+    );
+}
+
+/**
+ * POST /api/incidents/{id}/support-recommendations/{recId}/publish — move a pending
+ * item onto the incident's supportContributions list (visible to the Fire Officer).
+ */
+export async function publishRecommendation(
+    incidentId: string,
+    recommendationId: string,
+    request: PublishRecommendationRequest,
+    signal?: AbortSignal
+): Promise<GetRecommendationsResponse> {
+    return await postJson<GetRecommendationsResponse>(
+        `/api/incidents/${encodeURIComponent(incidentId)}/support-recommendations/${encodeURIComponent(recommendationId)}/publish`,
+        request,
+        signal
+    );
+}
+
+/**
+ * POST /api/incidents/{id}/support-recommendations/{recId}/dismiss — drop a pending
+ * item, recording an audit event so the next refresh won't repeat the same text.
+ */
+export async function dismissRecommendation(
+    incidentId: string,
+    recommendationId: string,
+    request: DismissRecommendationRequest,
+    signal?: AbortSignal
+): Promise<GetRecommendationsResponse> {
+    return await postJson<GetRecommendationsResponse>(
+        `/api/incidents/${encodeURIComponent(incidentId)}/support-recommendations/${encodeURIComponent(recommendationId)}/dismiss`,
+        request,
+        signal
+    );
+}
+
+/**
+ * POST /api/incidents/{id}/support-recommendations/custom — add a role-typed custom
+ * item to the pending list. Still requires an explicit publish before reaching the
+ * kiosk (every Fire-Officer-visible item is deliberate).
+ */
+export async function addCustomRecommendation(
+    incidentId: string,
+    request: AddCustomRecommendationRequest,
+    signal?: AbortSignal
+): Promise<GetRecommendationsResponse> {
+    return await postJson<GetRecommendationsResponse>(
+        `/api/incidents/${encodeURIComponent(incidentId)}/support-recommendations/custom`,
+        request,
+        signal
+    );
 }
 
 export function generatePrototypeIncidentId(): string {

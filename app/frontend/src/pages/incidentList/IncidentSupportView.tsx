@@ -1,33 +1,44 @@
 /**
- * IncidentReadOnlyView — IMT / support-role view of a single incident (Session 5).
+ * IncidentSupportView — IMT / support-role view of a single incident (Session 5c, was
+ * IncidentReadOnlyView in Session 5).
  *
  * Renders the same three-pane structure as the Fire Officer kiosk (Scene Summary →
  * Scene Conditions → Support Contributions) plus the form tab strip, but:
- *  - No Loss Stop, Re-Validate IAP, Refine, or Remove affordances.
+ *  - No Loss Stop, Re-Validate IAP, Refine, or Remove affordances on the scene.
  *  - AnalyzePopup shows citations (support roles benefit from source-tracing).
- *  - Form tabs are read-only no matter the incident phase.
- *  - A Back-to-incidents link replaces End demo.
+ *  - Pane 3 is now the writable RecommendationsPanel — the role's pending working set
+ *    plus their already-published and recently-dismissed items, with publish (✓),
+ *    dismiss (✕), Refresh, and a custom-add form.
+ *  - Form tabs are read-only no matter the incident phase. Per-role tab filtering
+ *    lands in 5d.
  *
- * Supporting roles will eventually get write authority over Support Contributions
- * (post-demo work); for v1 the panel is read-only on this view too.
+ * Polling (new in 5c): while the incident is in Response or Transition to Recovery,
+ * this view polls getIncident() every 10s. The polled-in incident state feeds the
+ * RecommendationsPanel's staleness detection (it hashes scene-items and flips the
+ * Refresh button to yellow when the scene moves on after the last refresh).
  */
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular } from "@fluentui/react-icons";
 
+import { getIncident } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
+import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "../incidentKiosk/AnalyzePopup";
 import FormTabStrip from "../incidentKiosk/FormTabStrip";
 import SceneItemRow from "../incidentKiosk/SceneItemRow";
 import kioskStyles from "../incidentKiosk/IncidentKiosk.module.css";
-import styles from "./IncidentReadOnlyView.module.css";
+import RecommendationsPanel from "./RecommendationsPanel";
+import styles from "./IncidentSupportView.module.css";
 
-interface IncidentReadOnlyViewProps {
+interface IncidentSupportViewProps {
     incident: IncidentDocument;
     onBack: () => void;
 }
+
+const POLL_INTERVAL_MS = 10_000;
 
 function formatTimestamp(iso: string | null): string | null {
     if (!iso) return null;
@@ -38,11 +49,72 @@ function formatTimestamp(iso: string | null): string | null {
     }
 }
 
-const IncidentReadOnlyView = ({ incident, onBack }: IncidentReadOnlyViewProps) => {
+const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupportViewProps) => {
+    const { actingRole } = useRole();
+    const [incident, setIncident] = useState<IncidentDocument>(initialIncident);
     const [analyzeItem, setAnalyzeItem] = useState<SceneConditionAndAction | null>(null);
+    // Used by RecommendationsPanel to ping us for an immediate refresh after publish/dismiss.
+    const refreshTokenRef = useRef(0);
+    const [refreshToken, setRefreshToken] = useState(0);
+
     const isLocked = incident.phase !== "response";
     const createdAt = formatTimestamp(incident.createdAt);
     const lossStoppedAt = formatTimestamp(incident.lossStoppedAt);
+
+    // --- Polling --------------------------------------------------------------
+    // While the incident is in Response or Transition to Recovery, refresh the
+    // local incident state every 10s. Recovery is locked so no need to poll.
+    useEffect(() => {
+        if (incident.phase === "recovery") return;
+        const incidentId = incident.id;
+        let cancelled = false;
+        const tick = async () => {
+            try {
+                const fresh = await getIncident(incidentId);
+                if (cancelled) return;
+                setIncident(prev => {
+                    if (prev.id !== fresh.id) return prev;
+                    return fresh;
+                });
+            } catch {
+                /* Swallow polling errors; next tick retries. The user-visible error
+                   surface is the RecommendationsPanel for its own ops. */
+            }
+        };
+        const handle = window.setInterval(tick, POLL_INTERVAL_MS);
+        return () => {
+            cancelled = true;
+            window.clearInterval(handle);
+        };
+        // Re-establish polling if the incident id changes (shouldn't normally — this
+        // component is keyed by id higher up, but guard anyway).
+    }, [incident.id, incident.phase]);
+
+    // --- Manual refresh trigger ------------------------------------------------
+    // RecommendationsPanel calls this after a publish/dismiss so we don't have to
+    // wait for the next 10s poll tick to see fresh supportContributions / eventLog.
+    const handleIncidentRefresh = useCallback(() => {
+        refreshTokenRef.current += 1;
+        setRefreshToken(refreshTokenRef.current);
+    }, []);
+
+    useEffect(() => {
+        if (refreshToken === 0) return;
+        let cancelled = false;
+        getIncident(incident.id)
+            .then(fresh => {
+                if (cancelled) return;
+                setIncident(fresh);
+            })
+            .catch(() => {
+                /* Silent — next poll tick will retry. */
+            });
+        return () => {
+            cancelled = true;
+        };
+        // Intentional: we want this to fire only when refreshToken changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refreshToken]);
 
     return (
         <div className={kioskStyles.container}>
@@ -118,29 +190,22 @@ const IncidentReadOnlyView = ({ incident, onBack }: IncidentReadOnlyViewProps) =
                     )}
                 </section>
 
-                {/* ----- Pane 3: Support Contributions ----- */}
+                {/* ----- Pane 3: Recommendations + Published + Dismissed ----- */}
                 <section className={`${kioskStyles.pane} ${kioskStyles.supportPane}`}>
-                    <div className={kioskStyles.paneHeader}>
-                        <Title3>Support Contributions</Title3>
-                        <Caption1 className={kioskStyles.panelSubheading}>
-                            Write authority: supporting roles (curation UI lands post-demo)
-                        </Caption1>
-                    </div>
-                    {incident.supportContributions.length === 0 ? (
-                        <Body1 className={kioskStyles.empty}>No support contributions yet.</Body1>
+                    {actingRole ? (
+                        <RecommendationsPanel
+                            incident={incident}
+                            actingRole={actingRole}
+                            userId="support-view"
+                            onIncidentRefresh={handleIncidentRefresh}
+                            locked={isLocked}
+                        />
                     ) : (
-                        <ul className={kioskStyles.supportList}>
-                            {incident.supportContributions.map(c => (
-                                <li key={c.id} className={kioskStyles.supportItem}>
-                                    <Caption1 className={kioskStyles.supportRole}>{c.addedBy.role}</Caption1>
-                                    <Body1>{c.text}</Body1>
-                                </li>
-                            ))}
-                        </ul>
+                        <Body1 className={kioskStyles.empty}>Resolving role…</Body1>
                     )}
                 </section>
 
-                {/* ----- Form tab strip (always locked in IMT view) ----- */}
+                {/* ----- Form tab strip (always locked in this view; per-role filter lands in 5d) ----- */}
                 <FormTabStrip forms={incident.forms} locked />
             </div>
 
@@ -154,4 +219,4 @@ const IncidentReadOnlyView = ({ incident, onBack }: IncidentReadOnlyViewProps) =
     );
 };
 
-export default IncidentReadOnlyView;
+export default IncidentSupportView;

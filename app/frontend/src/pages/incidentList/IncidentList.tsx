@@ -20,7 +20,7 @@ import { Body1, Button, Caption1, Spinner, Subtitle1, Title2 } from "@fluentui/r
 import type { IncidentDocument, IncidentPhase } from "../../api/incidentTypes";
 import { IncidentApiError, listIncidents } from "../../api/incidents";
 
-import IncidentReadOnlyView from "./IncidentReadOnlyView";
+import IncidentSupportView from "./IncidentSupportView";
 import styles from "./IncidentList.module.css";
 
 type ListState =
@@ -90,11 +90,11 @@ const IncidentList = () => {
         };
     }, []);
 
-    // Detail view — render the read-only kiosk for the selected incident.
+    // Detail view — render the support-role view for the selected incident.
     if (selectedId && state.kind === "loaded") {
         const incident = state.incidents.find(i => i.id === selectedId);
         if (incident) {
-            return <IncidentReadOnlyView incident={incident} onBack={() => setSelectedId(null)} />;
+            return <IncidentSupportView incident={incident} onBack={() => setSelectedId(null)} />;
         }
     }
 

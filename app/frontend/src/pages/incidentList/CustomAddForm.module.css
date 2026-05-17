@@ -1,0 +1,22 @@
+/* CustomAddForm — inline text-entry for role-typed pending recommendations. */
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.inputRow {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.input {
+    flex: 1;
+}
+
+.error {
+    color: var(--colorPaletteRedForeground1, #b10e1c);
+    font-size: 12px;
+}

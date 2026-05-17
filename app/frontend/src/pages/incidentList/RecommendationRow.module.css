@@ -1,0 +1,58 @@
+/* RecommendationRow — single unified row for pending/published/dismissed states. */
+
+.row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.15s ease;
+}
+
+.row:hover {
+    background-color: var(--colorNeutralBackground2Hover, rgba(0, 0, 0, 0.04));
+}
+
+.rowDismissed {
+    opacity: 0.55;
+}
+
+.rowDismissed .text {
+    text-decoration: line-through;
+}
+
+.badges {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+    min-width: 72px;
+}
+
+.text {
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 64px;
+    justify-content: flex-end;
+}
+
+.publishButton {
+    color: var(--colorPaletteGreenForeground1, #107c10);
+}
+
+.dismissButton {
+    color: var(--colorPaletteRedForeground1, #b10e1c);
+}
+
+.timestamp {
+    color: var(--colorNeutralForeground3, #707070);
+    font-size: 11px;
+    white-space: nowrap;
+}

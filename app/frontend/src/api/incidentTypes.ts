@@ -154,6 +154,10 @@ export interface IncidentDocument {
     supportContributions: SupportContribution[];
     forms: FormSummary[];
     eventLog: AuditEvent[];
+    // Session 5b: per-role pending recommendation working sets. One entry per role
+    // that has joined the incident. Items require an explicit publish step before
+    // they appear on the Fire Officer's kiosk.
+    roleRecommendations: RoleRecommendations[];
 }
 
 // ============================================================================
@@ -203,4 +207,66 @@ export interface ApplyRefinementRequest {
 
 export interface ApplyRefinementResponse {
     updatedCondition: SceneConditionAndAction;
+}
+
+// ============================================================================
+// REQUEST / RESPONSE — SUPPORT-ROLE RECOMMENDATIONS (Session 5b)
+// ============================================================================
+
+/**
+ * One LLM-generated (or custom-added) support action waiting for a support role's
+ * publish / dismiss decision. Stays in the role's pending working set until either
+ * published (becomes a SupportContribution visible to the Fire Officer) or dismissed
+ * (removed, audit event recorded so the next refresh can avoid repeating it).
+ */
+export interface PendingRecommendation {
+    id: string;
+    text: string;
+    source: "kb" | "custom";
+    createdAt: string;
+    createdBy: Actor;
+}
+
+/**
+ * Per-role pending working set on an incident. Each support role that has joined the
+ * incident gets one entry. Refreshing replaces `items` (LLM regenerates from the
+ * current scene + already-published items + recently-dismissed items).
+ */
+export interface RoleRecommendations {
+    role: ActingRole | string;
+    items: PendingRecommendation[];
+    lastGeneratedAt: string | null;
+}
+
+/**
+ * Response shape for the GET and refresh endpoints. `sceneLastUpdated` is the
+ * scene-summary's last-updated timestamp; the frontend uses it (alongside its own
+ * scene-items hash) to drive the Refresh button's stale/fresh state.
+ */
+export interface GetRecommendationsResponse {
+    role: ActingRole | string;
+    items: PendingRecommendation[];
+    lastGeneratedAt: string | null;
+    sceneLastUpdated: string | null;
+}
+
+export interface RefreshRecommendationsRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface PublishRecommendationRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface DismissRecommendationRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface AddCustomRecommendationRequest {
+    text: string;
+    actingRole: ActingRole | string;
+    userId: string;
 }
