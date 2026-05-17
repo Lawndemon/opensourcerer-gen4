@@ -5,10 +5,11 @@
  *   - Response (live)         — Fire Officer is on scene, transcript building, IMT can monitor
  *   - Transition to Recovery  — Loss Stop pressed; supporting roles take over enrichment + reports
  *
- * Clicking an incident opens a read-only view of the kiosk dashboard (Scene Summary,
- * Scene Conditions, Support Contributions, ICS form tabs) — IMT roles can see what the
- * Fire Officer is doing but cannot mutate it. AnalyzePopup renders citations for support
- * roles per the MAD framework rules.
+ * Clicking an incident opens the support-role view of the dashboard (Scene Summary,
+ * Scene Conditions, Recommendations + Published + Dismissed, ICS form tabs). The
+ * scene panes are read-only mirrors of the Fire Officer's view; the recommendations
+ * pane is the role's working set (publish/dismiss/custom-add). AnalyzePopup renders
+ * citations for support roles per the MAD framework rules.
  *
  * In v1 the list is a single-page in-memory state machine — no react-router. When list
  * volume grows or we add deep-linking we'll switch to a real route.
@@ -104,7 +105,7 @@ const IncidentList = () => {
                 <Title2 className={styles.title}>Incidents</Title2>
                 <Subtitle1 className={styles.subtitle}>
                     Active and recently-transitioned incidents in your tenant. Click one to open
-                    a read-only view of the Fire Officer's dashboard.
+                    your support-role view of the dashboard.
                 </Subtitle1>
             </header>
 
