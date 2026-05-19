@@ -2,12 +2,9 @@
  * RoleSelect — the post-login role picker for accounts that need one.
  *
  * Only rendered for account types that require interactive selection:
- *  - generic_user: shows initial picker (IMT / Site Admin — Fire Officer
- *    intentionally excluded per 2026-05-13 spec), then (if user picks IMT)
- *    shows the ICS sub-picker.
- *  - site_administrator: shows the initial picker including Fire Officer
- *    (2026-05-16 spec — admins can operate as any role), then (if user picks IMT)
- *    shows the ICS sub-picker.
+ *  - generic_user / site_administrator: same three-option primary picker
+ *    (Fire Officer / Incident Support / Client/Site Administrator) per 2026-05-19
+ *    spec. Picking Incident Support advances to the ICS sub-picker.
  *  - incident_management_team: shows the ICS sub-picker directly.
  *
  * Account types with a direct acting role (fire-officer, direct_role) auto-commit
@@ -23,9 +20,8 @@ import {
     ACTING_ROLES,
     ActingRole,
     AccountType,
-    ADMIN_PICKER_CHOICES,
-    GENERIC_PICKER_CHOICES,
     IMT_ROLE_CHOICES,
+    PRIMARY_ROLE_CHOICES,
     RoleCategory,
     getRoleDefinition
 } from "../../roles";
@@ -47,17 +43,11 @@ const RoleSelect = () => {
 
     if (!accountContext) return null;
 
-    const isAdminPicker = accountContext.accountType === "site_administrator";
-    const showsInitialPicker = accountContext.accountType === "generic_user" || isAdminPicker;
-    const initialChoices = isAdminPicker ? ADMIN_PICKER_CHOICES : GENERIC_PICKER_CHOICES;
+    const showsInitialPicker =
+        accountContext.accountType === "generic_user" || accountContext.accountType === "site_administrator";
 
-    // The initial-picker choice id is an AccountType, but the set of admissible
-    // values depends on whether this is the admin picker (includes Fire Officer)
-    // or the generic picker (does not).
     const handleInitialChoice = (choice: AccountType) => {
         if (choice === "fire-officer") {
-            // Admin chose to operate the kiosk paradigm. Generic users never see
-            // this option, so this branch is only reachable for admins.
             setActingRole("fire-officer");
             return;
         }
@@ -65,7 +55,7 @@ const RoleSelect = () => {
             setActingRole("site-administrator");
             return;
         }
-        // Incident Management Team — advance to the ICS sub-picker.
+        // Incident Support — advance to the ICS sub-picker.
         setStep("imt");
     };
 
@@ -76,18 +66,16 @@ const RoleSelect = () => {
     const backToInitial = () => setStep("initial");
 
     if (step === "initial" && showsInitialPicker) {
-        const title = isAdminPicker ? "Choose a role for this session" : "How would you like to proceed?";
-        const subtitle = isAdminPicker
-            ? "Signed in as an administrator. Pick the role you will be operating as for this session — you can choose any role."
-            : "Your account is not tied to a specific role. Choose the role you will be operating as for this session.";
         return (
             <div className={styles.container}>
                 <div className={styles.header}>
-                    <Title2>{title}</Title2>
-                    <Body1 className={styles.subtitle}>{subtitle}</Body1>
+                    <Title2>Choose a role for this session</Title2>
+                    <Body1 className={styles.subtitle}>
+                        Pick the role you will be operating as. You can sign out and back in to change.
+                    </Body1>
                 </div>
                 <div className={styles.cardGrid}>
-                    {initialChoices.map(choice => (
+                    {PRIMARY_ROLE_CHOICES.map(choice => (
                         <Card
                             key={choice.id}
                             className={styles.choiceCard}
@@ -114,12 +102,12 @@ const RoleSelect = () => {
     );
 
     const orderedCategories: RoleCategory[] = ["ics-command", "ics-command-staff", "ics-section-chief"];
-    // Admins and generic users both reach the ICS sub-picker via the initial picker,
-    // so they can go back to revisit it. IMT accounts land directly here and can't.
-    const canGoBack = accountContext.accountType === "generic_user" || isAdminPicker;
+    // Users who reached the ICS sub-picker via the primary picker can step back to it.
+    // IMT accounts land directly on the sub-picker and have no primary picker to return to.
+    const canGoBack = showsInitialPicker;
 
-    const imtSubtitle = isAdminPicker
-        ? "You chose Incident Management Team. Pick the specific ICS role you're operating in for this session."
+    const imtSubtitle = showsInitialPicker
+        ? "You chose Incident Support. Pick the specific ICS role you're operating in for this session."
         : "Signed in as Incident Management Team. Pick the specific ICS role you're operating in for this session.";
 
     return (

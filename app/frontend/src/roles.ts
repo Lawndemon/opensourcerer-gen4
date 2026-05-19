@@ -8,9 +8,11 @@
  * Account type and acting role are related but not identical:
  *  - fire-officer / legacy per-role accounts map directly to an acting role; no
  *    picker shown.
- *  - incident_management_team / generic_user / site_administrator require the user
- *    to pick at login. Admins see the same picker as generic users plus the Fire
- *    Officer choice (2026-05-16 spec).
+ *  - incident_management_team goes straight to the ICS sub-picker.
+ *  - generic_user / site_administrator land on the same three-option primary picker
+ *    (Fire Officer / Incident Support / Client/Site Administrator) per 2026-05-19
+ *    spec. Admin detection from UPN isn't reliable enough to gate any choice, so
+ *    everyone who reaches the picker sees all three primary options.
  *
  * See BACKLOG.md → "Event-level workflow and audit log" for the full design rationale.
  */
@@ -126,52 +128,37 @@ export const IMT_ROLE_CHOICES: ActingRole[] = [
 ];
 
 /**
- * Account types offered on the generic_user initial picker.
+ * The three primary roles offered on the post-login picker (2026-05-19 spec).
  *
- * Fire Officer is intentionally excluded (2026-05-13 spec): a demo / generic account
- * should never be able to spin up the kiosk paradigm — only the dedicated `fireofficer@`
- * UPN can. This keeps demo sessions from accidentally landing on the kiosk.
- */
-export type GenericPickerChoice = Exclude<AccountType, "generic_user" | "direct_role" | "fire-officer">;
-
-export const GENERIC_PICKER_CHOICES: { id: GenericPickerChoice; displayName: string; description: string }[] = [
-    {
-        id: "incident_management_team",
-        displayName: "Incident Management Team",
-        description: "Operate as an Incident Management Team member. Select your specific ICS role next."
-    },
-    {
-        id: "site_administrator",
-        displayName: "Site Administrator",
-        description: "Operate as a Site Administrator. Cross-event aggregate views, event closure, and report generation."
-    }
-];
-
-/**
- * Account types offered on the site_administrator initial picker.
+ * Shown to every account type that reaches the picker — generic_user and
+ * site_administrator alike. Earlier specs gated Fire Officer behind the admin
+ * UPN check, but UPN-based admin detection isn't reliable enough for testing
+ * (most test accounts don't match the admin prefixes), so all three options are
+ * always visible. The dedicated `fireofficer@` UPN still bypasses the picker
+ * entirely via deriveAccountContext.
  *
- * Admins can operate as any role — including Fire Officer — so the admin picker
- * is the generic picker plus the Fire Officer option (2026-05-16 spec). Picking
- * IMT advances to the existing ICS sub-picker; picking Fire Officer routes
- * straight to the kiosk; picking Site Administrator routes to admin landing.
+ * Each option lands the user in a different flow:
+ *  - fire-officer            → IncidentKiosk (Fire Officer on-scene page)
+ *  - incident_management_team → ICS sub-picker → IncidentList (support role)
+ *  - site_administrator      → AdminLanding (Client/Site Administrator)
  */
-export type AdminPickerChoice = Exclude<AccountType, "generic_user" | "direct_role">;
+export type PrimaryRoleChoice = Exclude<AccountType, "generic_user" | "direct_role">;
 
-export const ADMIN_PICKER_CHOICES: { id: AdminPickerChoice; displayName: string; description: string }[] = [
+export const PRIMARY_ROLE_CHOICES: { id: PrimaryRoleChoice; displayName: string; description: string }[] = [
     {
         id: "fire-officer",
         displayName: "Fire Officer",
-        description: "Operate the kiosk paradigm for live field response. Voice + single-button; never keyboard."
+        description: "Run the on-scene kiosk. Voice + single-button — start incidents, validate IAPs, press Loss Stop."
     },
     {
         id: "incident_management_team",
-        displayName: "Incident Management Team",
-        description: "Operate as an Incident Management Team member. Select your specific ICS role next."
+        displayName: "Incident Support",
+        description: "Support an active incident from an ICS role. Pick your specific role next (Incident Commander, Safety Officer, Section Chiefs, etc.)."
     },
     {
         id: "site_administrator",
-        displayName: "Site Administrator",
-        description: "Operate as a Site Administrator. Cross-event aggregate views, event closure, and report generation."
+        displayName: "Client/Site Administrator",
+        description: "Manage content, generate summary reports, and close out events. (Admin tooling lands in a later session.)"
     }
 ];
 

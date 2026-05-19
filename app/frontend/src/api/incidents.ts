@@ -239,4 +239,3 @@ export function generatePrototypeIncidentId(): string {
     const suffix = Math.random().toString(36).slice(2, 6);
     return `incident-${timestamp}-${suffix}`;
 }
-
