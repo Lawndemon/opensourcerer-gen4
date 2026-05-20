@@ -50,10 +50,8 @@ Example: an earlier transcript chunk produced "Fire on scene" from the word "fir
 
 ## What goes in `support_contributions` and `forms`
 
-- `support_contributions` — empty array in the v1 prototype. Supporting roles' contributions are not yet wired.
-- `forms` — for the v1 prototype, generate the ICS 201 (Incident Briefing) for the Fire Officer plus two placeholder forms (`AIPform1`, `AIPform2`). Populate ICS 201 fields with content drawn from the transcript: `incident_name`, `date_time_initiated` (the time of the first transcript entry), `situation_summary` (similar in spirit to the Scene Summary but slightly longer), `current_objectives` (what the IC is trying to accomplish), `current_actions` (what crews are doing), `resource_summary` (which units are on scene), `prepared_by` (the Fire Officer's name from the transcript). The two placeholder forms can have minimal content — title plus 1-2 sections each, drawn from the transcript context.
-
-For each form, set `role` to `"fire-officer"`, `status` to `"active"`, `last_updated` to the timestamp of the latest transcript entry, and a stable `form_id` like `f-1`, `f-2`, `f-3`.
+- `support_contributions` — empty array. Supporting roles' contributions are written through a separate publish workflow, not by this extraction.
+- `forms` — empty array. A separate downstream extraction (`extract_forms`) generates the 27 role-tagged forms from the scene state this prompt produces, so this prompt is no longer responsible for form content. Always emit `"forms": []` here.
 
 ## Constraints
 
@@ -96,57 +94,8 @@ Produce JSON exactly matching the response schema below. Do not include explanat
     }
   ],
   "supportContributions": [],
-  "forms": [
-    {
-      "formId": "f-1",
-      "title": "Incident Briefing",
-      "role": "fire-officer",
-      "status": "active",
-      "content": {
-        "kind": "ics_201",
-        "formType": "ICS-201",
-        "incidentName": "<derived from transcript>",
-        "dateTimeInitiated": "<ISO 8601>",
-        "situationSummary": "<paragraph derived from transcript>",
-        "currentObjectives": "<what the IC is trying to accomplish>",
-        "currentActions": "<what crews are doing>",
-        "resourceSummary": "<units on scene>",
-        "preparedBy": "<Fire Officer name from transcript>"
-      },
-      "lastUpdated": "<ISO 8601>"
-    },
-    {
-      "formId": "f-2",
-      "title": "AIPform1",
-      "role": "fire-officer",
-      "status": "active",
-      "content": {
-        "kind": "placeholder",
-        "formType": "AIPform1",
-        "title": "AIPform1",
-        "sections": [
-          { "heading": "<heading>", "body": "<body text>" }
-        ]
-      },
-      "lastUpdated": "<ISO 8601>"
-    },
-    {
-      "formId": "f-3",
-      "title": "AIPform2",
-      "role": "fire-officer",
-      "status": "active",
-      "content": {
-        "kind": "placeholder",
-        "formType": "AIPform2",
-        "title": "AIPform2",
-        "sections": [
-          { "heading": "<heading>", "body": "<body text>" }
-        ]
-      },
-      "lastUpdated": "<ISO 8601>"
-    }
-  ]
+  "forms": []
 }
 ```
 
-`status` must be exactly one of: `"conforming"`, `"deviating_safe"`, `"deviating_unsafe"`. `type` must be exactly one of: `"condition"`, `"action"`. `phase` is always `"response"` for these calls. The `content.kind` discriminator must be `"ics_201"` for ICS 201 specifically and `"placeholder"` for the other forms.
+`status` must be exactly one of: `"conforming"`, `"deviating_safe"`, `"deviating_unsafe"`. `type` must be exactly one of: `"condition"`, `"action"`. `phase` is always `"response"` for these calls. Always emit `"forms": []` — the downstream `extract_forms` extraction populates forms separately.

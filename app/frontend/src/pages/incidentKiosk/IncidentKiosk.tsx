@@ -366,7 +366,7 @@ const IncidentKiosk = () => {
                         )}
                     </section>
 
-                    <FormTabStrip forms={iap.forms} locked={locked} />
+                    <FormTabStrip forms={iap.forms} currentRole="fire-officer" locked={locked} />
                 </div>
 
                 {!locked && (

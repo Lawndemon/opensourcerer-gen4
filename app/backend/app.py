@@ -50,6 +50,7 @@ from approaches.promptmanager import PromptManager
 from approaches.validate_iap import ValidateIAPApproach
 from approaches.refine_condition import RefineConditionApproach
 from approaches.recommend_actions import RecommendActionsApproach
+from approaches.extract_forms import ExtractFormsApproach
 from models.incidents import (
     Actor,
     AddCustomRecommendationRequest,
@@ -77,6 +78,7 @@ from config import (
     CONFIG_VALIDATE_IAP_APPROACH,
     CONFIG_REFINE_CONDITION_APPROACH,
     CONFIG_RECOMMEND_ACTIONS_APPROACH,
+    CONFIG_EXTRACT_FORMS_APPROACH,
     CONFIG_CHAT_HISTORY_BROWSER_ENABLED,
     CONFIG_CHAT_HISTORY_COSMOS_ENABLED,
     CONFIG_INCIDENTS_COSMOS_ENABLED,
@@ -327,6 +329,47 @@ def _incidents_enabled_or_503():
     return None
 
 
+async def _run_validate_iap_with_forms(
+    validate_request: ValidateIAPRequest,
+):
+    """Run the two-stage extraction: primary scene extraction, then downstream forms.
+
+    Phase 1 of the 5d split-prompt architecture (2026-05-19). The primary scene extraction
+    is authoritative for the scene state; the forms extraction takes its result as input
+    and populates 27 role-tagged forms.
+
+    Graceful degradation: if the forms extraction fails (LLM refusal, schema mismatch,
+    upstream error), we log and return the scene result with an empty forms list. Better
+    to ship the dashboard without forms than to fail the whole Validate IAP call.
+
+    Returns the `ValidateIAPResponse` from the primary extraction with `forms` replaced.
+    """
+    primary: ValidateIAPApproach = cast(
+        ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
+    )
+    result = await primary.run(validate_request)
+
+    forms_approach: ExtractFormsApproach = cast(
+        ExtractFormsApproach, current_app.config[CONFIG_EXTRACT_FORMS_APPROACH]
+    )
+    try:
+        result.forms = await forms_approach.run(
+            incident_id=validate_request.incident_id,
+            transcript=validate_request.transcript,
+            scene_summary=result.scene_summary,
+            scene_conditions_and_actions=result.scene_conditions_and_actions,
+        )
+    except Exception as forms_error:
+        logging.getLogger(__name__).exception(
+            "extract_forms failed for incident %s; returning empty forms list. Error: %s",
+            validate_request.incident_id,
+            forms_error,
+        )
+        result.forms = []
+
+    return result
+
+
 # --- Fire Officer kiosk: Validate IAP -------------------------------------------
 #
 # Takes the accumulated transcript, returns structured Scene Summary + Scene Conditions and
@@ -362,10 +405,7 @@ async def validate_iap(auth_claims: dict[str, Any], incident_id: str):
         return jsonify({"error": "request body did not match the ValidateIAPRequest contract", "details": ve.errors()}), 400
 
     try:
-        approach: ValidateIAPApproach = cast(
-            ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
-        )
-        result = await approach.run(validate_request)
+        result = await _run_validate_iap_with_forms(validate_request)
 
         # Persist reconciliation if Cosmos is enabled and an incident record exists.
         # We intentionally only attempt reconciliation when the incident is already
@@ -454,12 +494,10 @@ async def create_incident(auth_claims: dict[str, Any]):
     try:
         created = await incidents_cosmos.create_incident(initial_doc)
 
-        # Optional inline Validate IAP if a transcript was supplied.
+        # Optional inline Validate IAP if a transcript was supplied. Same two-stage flow
+        # (primary scene extraction → downstream forms extraction) as the standalone endpoint.
         if body.transcript:
-            approach: ValidateIAPApproach = cast(
-                ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
-            )
-            iap_result = await approach.run(
+            iap_result = await _run_validate_iap_with_forms(
                 ValidateIAPRequest(
                     incident_id=incident_id,
                     transcript=body.transcript,
@@ -1395,6 +1433,15 @@ async def setup_clients():
     # actions for support roles, given the scene state + already-published + recently-
     # dismissed. Each refresh call replaces the role's pending working set in Cosmos.
     current_app.config[CONFIG_RECOMMEND_ACTIONS_APPROACH] = RecommendActionsApproach(
+        openai_client=openai_client,
+        chatgpt_model=OPENAI_CHATGPT_MODEL,
+        chatgpt_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,
+    )
+
+    # ExtractFormsApproach (5d): downstream extractor that runs after ValidateIAPApproach
+    # and populates the 27 role-tagged ICS forms. Same OpenAI client / model — the
+    # cost/latency tradeoff is one extra chat completion per Validate IAP press.
+    current_app.config[CONFIG_EXTRACT_FORMS_APPROACH] = ExtractFormsApproach(
         openai_client=openai_client,
         chatgpt_model=OPENAI_CHATGPT_MODEL,
         chatgpt_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,

@@ -1,5 +1,5 @@
 /**
- * FormTabStrip — per-role ICS form tabs along the bottom of the kiosk.
+ * FormTabStrip — per-role ICS form tabs along the bottom of the kiosk / support view.
  *
  * Excel-sheet-tab paradigm per Dave's structural feedback (2026-05-12):
  *   - Thin tab strip at the very bottom of the screen.
@@ -7,12 +7,14 @@
  *   - **Single tap anywhere on the overlay minimizes it back to the strip.** No close
  *     button — kiosk-friendly. The whole overlay is the close-target.
  *
- * Fire Officer's tabs (per docs/prototype_plan.md D1): ICS 201 + 2 role-specific
- * placeholders (`AIPform1`, `AIPform2`). Forms are returned as structured JSON from the
- * backend; we render ICS 201 with named fields mimicking the real form's layout.
+ * Role filtering (5d, 2026-05-19): the backend now generates 27 role-tagged forms across
+ * Fire Officer + 8 support roles (see app/backend/incidents/form_templates.py). This
+ * component filters `forms[]` to those matching `currentRole` so each role sees only
+ * their 3 tabs. Pass `currentRole={null}` to show every form (useful for an admin
+ * cross-role view down the road).
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge, Body1, Caption1 } from "@fluentui/react-components";
 
 import type { FormSummary } from "../../api/incidentTypes";
@@ -21,6 +23,11 @@ import styles from "./FormTabStrip.module.css";
 
 interface FormTabStripProps {
     forms: FormSummary[];
+    /**
+     * Filter forms to those tagged with this role. Pass null/undefined to show every
+     * form regardless of role.
+     */
+    currentRole?: string | null;
     /** If true, all forms render as locked/read-only (Loss Stop has been pressed). */
     locked?: boolean;
 }
@@ -80,24 +87,33 @@ const renderFormContent = (form: FormSummary) => {
     );
 };
 
-const FormTabStrip = ({ forms, locked = false }: FormTabStripProps) => {
+const FormTabStrip = ({ forms, currentRole, locked = false }: FormTabStripProps) => {
     const [openFormId, setOpenFormId] = useState<string | null>(null);
 
-    if (forms.length === 0) {
+    const visibleForms = useMemo(
+        () => (currentRole ? forms.filter(f => f.role === currentRole) : forms),
+        [forms, currentRole]
+    );
+
+    if (visibleForms.length === 0) {
         return (
             <div className={styles.emptyStrip}>
-                <Caption1>No forms attached to this incident yet.</Caption1>
+                <Caption1>
+                    {currentRole
+                        ? "No forms assigned to this role on this incident yet."
+                        : "No forms attached to this incident yet."}
+                </Caption1>
             </div>
         );
     }
 
-    const openForm = forms.find(f => f.formId === openFormId) ?? null;
+    const openForm = visibleForms.find(f => f.formId === openFormId) ?? null;
 
     return (
         <>
             {/* Excel-style tab strip pinned to the bottom of the dashboard area. */}
             <div className={styles.tabRow} role="tablist">
-                {forms.map(f => {
+                {visibleForms.map(f => {
                     const isOpen = f.formId === openFormId;
                     return (
                         <button

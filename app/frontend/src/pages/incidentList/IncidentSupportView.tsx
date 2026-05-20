@@ -6,16 +6,16 @@
  * Scene Conditions → Support Contributions) plus the form tab strip, but:
  *  - No Loss Stop, Re-Validate IAP, Refine, or Remove affordances on the scene.
  *  - AnalyzePopup shows citations (support roles benefit from source-tracing).
- *  - Pane 3 is now the writable RecommendationsPanel — the role's pending working set
- *    plus their already-published and recently-dismissed items, with publish (✓),
- *    dismiss (✕), Refresh, and a custom-add form.
- *  - Form tabs are read-only no matter the incident phase. Per-role tab filtering
- *    lands in 5d.
+ *  - Pane 3 is the writable RecommendationsPanel — the role's pending working set plus
+ *    their already-published and recently-dismissed items, with publish (✓), dismiss
+ *    (✕), Refresh, and a custom-add form.
+ *  - Form tabs (5d): filtered to the current acting role's 3 forms via FormTabStrip's
+ *    currentRole prop. Read-only no matter the incident phase.
  *
- * Polling (new in 5c): while the incident is in Response or Transition to Recovery,
- * this view polls getIncident() every 10s. The polled-in incident state feeds the
- * RecommendationsPanel's staleness detection (it hashes scene-items and flips the
- * Refresh button to yellow when the scene moves on after the last refresh).
+ * Polling (5c): while the incident is in Response or Transition to Recovery, this view
+ * polls getIncident() every 10s. The polled-in incident state feeds RecommendationsPanel's
+ * staleness detection (it hashes scene-items and flips the Refresh button to yellow when
+ * the scene moves on after the last refresh).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -205,8 +205,12 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                     )}
                 </section>
 
-                {/* ----- Form tab strip (always locked in this view; per-role filter lands in 5d) ----- */}
-                <FormTabStrip forms={incident.forms} locked />
+                {/* ----- Form tab strip — filtered to the current role's 3 forms ----- */}
+                <FormTabStrip
+                    forms={incident.forms}
+                    currentRole={actingRole ?? null}
+                    locked
+                />
             </div>
 
             {/* Citations rendered for support roles — they trace the published-standard source. */}
