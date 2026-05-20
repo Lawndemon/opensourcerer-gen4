@@ -539,7 +539,10 @@ class ExtractFormsRequest(_IncidentBase):
     """
 
     acting_role: str
-    transcript: str
+    # Optional (5e): the kiosk passes the scenario transcript directly. The support-role
+    # "Update forms" path omits it — the endpoint then derives the transcript from the
+    # persisted incident's transcript chunks (or falls back to scene-state-only).
+    transcript: str = ""
     scene_summary: SceneSummary | None = None
     scene_conditions_and_actions: list[SceneConditionAndAction] = Field(default_factory=list)
 
@@ -548,3 +551,18 @@ class ExtractFormsResponse(_IncidentBase):
     """Response body for `POST /api/incidents/{id}/extract-forms`."""
 
     forms: list[FormSummary] = Field(default_factory=list)
+
+
+class CloseIncidentRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/close` (5e).
+
+    Closing transitions the incident to the terminal `recovery` phase, which drops it from
+    the support-role incident list (`list_incidents(exclude_recovery=True)`). The record is
+    NOT deleted — it stays auditable per the immutability principle.
+
+    Authorization (enforced in the endpoint): `acting_role` must be `safety-officer` or
+    `site-administrator`, and the incident must be in `transition_to_recovery`.
+    """
+
+    acting_role: str
+    user_id: str

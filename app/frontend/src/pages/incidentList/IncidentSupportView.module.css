@@ -24,3 +24,18 @@
     gap: 2px;
     font-size: 12px;
 }
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.actionError {
+    color: var(--colorPaletteRedForeground1, #b10e1c);
+    background-color: var(--colorPaletteRedBackground1, rgba(177, 14, 28, 0.08));
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin: 4px 0;
+}

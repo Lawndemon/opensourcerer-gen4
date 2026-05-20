@@ -718,6 +718,58 @@ async def transition_to_loss_stopped(
     return await replace_incident(doc)
 
 
+async def close_incident(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Close an incident: Transition to Recovery → Recovery (terminal).
+
+    Triggered by the Safety Officer (or Site Administrator) via POST /api/incidents/{id}/close.
+    Moving to `recovery` drops the incident from the support-role incident list
+    (`list_incidents(exclude_recovery=True)`). The record persists and stays auditable — per
+    the immutability principle, incidents are never purged.
+
+    Authorization (role + caller identity) is enforced in the endpoint; this helper only
+    guards the phase precondition. Idempotent: closing an already-recovery incident is a no-op.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    if doc.phase == "recovery":
+        # Already closed — no-op, don't duplicate the audit event.
+        return doc
+    if doc.phase != "transition_to_recovery":
+        # Closable only from Transition to Recovery (decision 2026-05-20). Surfacing this as
+        # a ValueError lets the endpoint translate it into a 409.
+        raise ValueError(
+            f"Incident {incident_id} cannot be closed from phase '{doc.phase}'; "
+            "it must be in 'transition_to_recovery'."
+        )
+
+    now = _now_iso()
+    previous_phase = doc.phase
+    doc.phase = "recovery"
+    doc.closed_at = now
+
+    # Lock any still-active forms — recovery is reviewable but not editable.
+    for f in doc.forms:
+        if f.status == "active":
+            f.status = "locked"
+            f.last_updated = now
+
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="phase_transitioned",
+            actor=actor,
+            payload={"from": previous_phase, "to": doc.phase, "trigger": "close_incident"},
+        )
+    )
+    return await replace_incident(doc)
+
+
 # === Blueprint lifecycle hooks ==================================================
 #
 # We don't register HTTP endpoints here — the incident endpoints live in `app.py`
@@ -770,4 +822,5 @@ async def setup_incidents_cosmos() -> None:
     current_app.logger.info(
         "Incidents Cosmos persistence enabled (database=%s container=%s)", database_name, container_name
     )
+
 

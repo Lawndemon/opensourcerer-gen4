@@ -14,6 +14,7 @@ import type {
     AddCustomRecommendationRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
+    CloseIncidentRequest,
     CreateIncidentRequest,
     DismissRecommendationRequest,
     ExtractFormsRequest,
@@ -243,6 +244,25 @@ export async function extractForms(
         request,
         signal
     );
+}
+
+/**
+ * POST /api/incidents/{id}/close — close an incident (5e). Transitions it to the terminal
+ * recovery phase so it drops out of the support-role incident list. Authorized for Safety
+ * Officer + Site Administrator, only from Transition to Recovery. Returns the updated
+ * incident.
+ */
+export async function closeIncident(
+    incidentId: string,
+    request: CloseIncidentRequest,
+    signal?: AbortSignal
+): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(
+        `/api/incidents/${encodeURIComponent(incidentId)}/close`,
+        request,
+        signal
+    );
+    return envelope.incident;
 }
 
 export function generatePrototypeIncidentId(): string {

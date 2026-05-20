@@ -11,6 +11,7 @@
  *    (✕), Refresh, and a custom-add form.
  *  - Form tabs (5d): filtered to the current acting role's 3 forms via FormTabStrip's
  *    currentRole prop. Read-only no matter the incident phase.
+ *  - Update forms / Close Incident actions (5e) in the header.
  *
  * Polling (5c): while the incident is in Response or Transition to Recovery, this view
  * polls getIncident() every 10s. The polled-in incident state feeds RecommendationsPanel's
@@ -19,10 +20,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Body1, Button, Caption1, Title3 } from "@fluentui/react-components";
-import { ArrowLeft24Regular } from "@fluentui/react-icons";
+import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
+import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { getIncident } from "../../api/incidents";
+import { closeIncident, extractForms, getIncident } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
@@ -53,6 +54,10 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     const { actingRole } = useRole();
     const [incident, setIncident] = useState<IncidentDocument>(initialIncident);
     const [analyzeItem, setAnalyzeItem] = useState<SceneConditionAndAction | null>(null);
+    const [formsUpdating, setFormsUpdating] = useState(false);
+    const [closing, setClosing] = useState(false);
+    const [confirmingClose, setConfirmingClose] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
     // Used by RecommendationsPanel to ping us for an immediate refresh after publish/dismiss.
     const refreshTokenRef = useRef(0);
     const [refreshToken, setRefreshToken] = useState(0);
@@ -60,6 +65,12 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     const isLocked = incident.phase !== "response";
     const createdAt = formatTimestamp(incident.createdAt);
     const lossStoppedAt = formatTimestamp(incident.lossStoppedAt);
+
+    // Close Incident is available to the Safety Officer + Site Administrator, only from
+    // Transition to Recovery (decision 2026-05-20). Backend enforces this too.
+    const canClose =
+        (actingRole === "safety-officer" || actingRole === "site-administrator") &&
+        incident.phase === "transition_to_recovery";
 
     // --- Polling --------------------------------------------------------------
     // While the incident is in Response or Transition to Recovery, refresh the
@@ -116,6 +127,41 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [refreshToken]);
 
+    // --- Update forms (5e) -----------------------------------------------------
+    // Role-driven, non-blocking regeneration of the incident's forms. The backend reads
+    // the authoritative scene + transcript from the persisted incident, so we don't pass
+    // them. Mirrors the kiosk's background pattern — never blocks the screen.
+    const handleUpdateForms = useCallback(async () => {
+        if (!actingRole || formsUpdating) return;
+        setFormsUpdating(true);
+        setActionError(null);
+        try {
+            const { forms } = await extractForms(incident.id, { actingRole });
+            setIncident(prev => ({ ...prev, forms }));
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : "Failed to update forms");
+        } finally {
+            setFormsUpdating(false);
+        }
+    }, [actingRole, formsUpdating, incident.id]);
+
+    // --- Close incident (5e) ---------------------------------------------------
+    // Two-step confirm (no modal) — first click arms, second click commits. On success
+    // route back to the list, where the now-recovery incident no longer appears.
+    const handleCloseIncident = useCallback(async () => {
+        if (!actingRole || closing) return;
+        setClosing(true);
+        setActionError(null);
+        try {
+            await closeIncident(incident.id, { actingRole, userId: "support-view" });
+            onBack();
+        } catch (err) {
+            setActionError(err instanceof Error ? err.message : "Failed to close incident");
+            setClosing(false);
+            setConfirmingClose(false);
+        }
+    }, [actingRole, closing, incident.id, onBack]);
+
     return (
         <div className={kioskStyles.container}>
             <div className={kioskStyles.inIncident}>
@@ -155,8 +201,51 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                                 LOCKED — {incident.phase === "transition_to_recovery" ? "Transition" : "Closed"}
                             </span>
                         )}
+                        <div className={styles.headerActions}>
+                            <Button
+                                appearance="secondary"
+                                size="small"
+                                icon={formsUpdating ? <Spinner size="tiny" /> : <ArrowSync24Regular />}
+                                onClick={() => void handleUpdateForms()}
+                                disabled={formsUpdating}
+                            >
+                                {formsUpdating ? "Updating…" : "Update forms"}
+                            </Button>
+                            {canClose &&
+                                (confirmingClose ? (
+                                    <>
+                                        <Button
+                                            appearance="primary"
+                                            size="small"
+                                            icon={closing ? <Spinner size="tiny" /> : <LockClosed24Regular />}
+                                            onClick={() => void handleCloseIncident()}
+                                            disabled={closing}
+                                        >
+                                            {closing ? "Closing…" : "Confirm close"}
+                                        </Button>
+                                        <Button
+                                            appearance="subtle"
+                                            size="small"
+                                            onClick={() => setConfirmingClose(false)}
+                                            disabled={closing}
+                                        >
+                                            Cancel
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button
+                                        appearance="secondary"
+                                        size="small"
+                                        icon={<LockClosed24Regular />}
+                                        onClick={() => setConfirmingClose(true)}
+                                    >
+                                        Close Incident
+                                    </Button>
+                                ))}
+                        </div>
                     </div>
                 </div>
+                {actionError && <div className={styles.actionError}>{actionError}</div>}
 
                 {/* ----- Pane 1: Scene Summary ----- */}
                 <section className={`${kioskStyles.pane} ${kioskStyles.summaryPane}`}>
@@ -210,6 +299,7 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                     forms={incident.forms}
                     currentRole={actingRole ?? null}
                     locked
+                    generating={formsUpdating}
                 />
             </div>
 

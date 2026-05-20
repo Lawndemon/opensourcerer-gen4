@@ -56,6 +56,7 @@ from models.incidents import (
     AddCustomRecommendationRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
+    CloseIncidentRequest,
     CreateIncidentRequest,
     DismissRecommendationRequest,
     ExtractFormsRequest,
@@ -68,6 +69,7 @@ from models.incidents import (
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
     SceneSummary,
+    TranscriptChunk,
     ValidateIAPRequest,
 )
 from pydantic import ValidationError
@@ -447,12 +449,22 @@ async def extract_forms(auth_claims: dict[str, Any], incident_id: str):
             scene_summary = body.scene_summary
             scene_conditions = body.scene_conditions_and_actions
 
+        # Transcript resolution (5e): prefer the body transcript (kiosk passes the fixture);
+        # otherwise derive it from the persisted incident's chunks so the support-role
+        # "Update forms" path generates from the same source the kiosk used. Falls back to
+        # scene-state-only when neither is available.
+        transcript_text = body.transcript
+        if not transcript_text and persisted_doc is not None and persisted_doc.transcript:
+            transcript_text = "\n".join(
+                ch.de_noised or ch.text for ch in persisted_doc.transcript
+            )
+
         forms_approach: ExtractFormsApproach = cast(
             ExtractFormsApproach, current_app.config[CONFIG_EXTRACT_FORMS_APPROACH]
         )
         forms = await forms_approach.run(
             incident_id=incident_id,
-            transcript=body.transcript,
+            transcript=transcript_text,
             scene_summary=scene_summary,
             scene_conditions_and_actions=scene_conditions,
         )
@@ -503,6 +515,17 @@ async def create_incident(auth_claims: dict[str, Any]):
     incident_id = f"incident-{int(time.time() * 1000)}-{os.urandom(2).hex()}"
     now = incidents_cosmos._now_iso()
 
+    # Persist the opening transcript (5e) so any later forms regeneration — by the kiosk OR
+    # by a support role's "Update forms" — works from the same source and can't degrade the
+    # forms. Prototype simplification: the transcript is a fixture, stored as a single chunk.
+    # Real append-only-from-mic STT chunks land post-demo; the immutability semantics apply
+    # then. de_noised is null until the de-noising preprocessor exists.
+    initial_transcript = (
+        [TranscriptChunk(chunk_id="t-1", timestamp=now, text=body.transcript, de_noised=None)]
+        if body.transcript
+        else []
+    )
+
     # Initial document — empty scene state, single phase_transitioned audit event recording
     # the incident's creation. If the kiosk supplied an opening transcript, Validate IAP
     # runs below and populates scene state.
@@ -512,6 +535,7 @@ async def create_incident(auth_claims: dict[str, Any]):
         phase="response",
         created_by=actor,
         created_at=now,
+        transcript=initial_transcript,
         scene_summary=SceneSummary(text="", last_updated=now),
         event_log=[
             incidents_cosmos.make_audit_event(
@@ -609,6 +633,52 @@ async def loss_stop(auth_claims: dict[str, Any], incident_id: str):
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/loss-stop")
+
+
+# Roles permitted to close an incident (decision 2026-05-20). Safety Officer is the
+# operational closer; Site Administrator keeps a broad override.
+_CLOSE_INCIDENT_ROLES = {"safety-officer", "site-administrator"}
+
+
+@bp.route("/api/incidents/<incident_id>/close", methods=["POST"])
+@authenticated
+async def close_incident(auth_claims: dict[str, Any], incident_id: str):
+    """Close an incident: Transition to Recovery → Recovery (terminal). Audit-logged.
+
+    Authorized for the Safety Officer and Site Administrator only, and only from the
+    Transition to Recovery phase. Closing drops the incident from the support-role list
+    (recovery phase is excluded); the record persists per the immutability principle.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = CloseIncidentRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match CloseIncidentRequest", "details": ve.errors()}), 400
+
+    if body.acting_role not in _CLOSE_INCIDENT_ROLES:
+        return jsonify({
+            "error": "Only the Safety Officer or Site Administrator can close an incident.",
+            "actingRole": body.acting_role,
+        }), 403
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.close_incident(
+            tenant_id=tenant_id, incident_id=incident_id, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        # Phase precondition failures ("must be in transition_to_recovery") and not-found
+        # both raise ValueError; distinguish so the client can react appropriately.
+        message = str(ve)
+        status = 404 if "not found" in message.lower() else 409
+        return jsonify({"error": message}), status
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/close")
 
 
 @bp.route("/api/incidents/<incident_id>/conditions/<condition_id>", methods=["DELETE"])
@@ -1561,4 +1631,5 @@ def create_app():
             cors(app, allow_origin=allowed_origins, allow_methods=["GET", "POST"])
 
     return app
+
 

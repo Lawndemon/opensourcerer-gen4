@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-05-13 (post-Session 5)
+**Last updated:** 2026-05-20 (post-Session 5d.1)
 
 ---
 
@@ -13,6 +13,31 @@ _Nothing in flight — pick up from "Next up"._
 ---
 
 ## Next up
+
+### Session 5e — per-role "Update my forms" + Safety Officer "Close Incident"
+
+Two pieces queued for the next working session.
+
+**1. Per-role "Update my forms" button (the deferred half of the forms work).**
+
+Phase 1 (5d) + the decoupling refactor (5d.1) shipped forms generation off the Fire Officer's critical path: Validate IAP returns the scene immediately, and the kiosk fires a background `extract-forms` call that populates all 27 role-tagged forms. What's still missing is a **role-driven** trigger so a support role can refresh *their* forms without waiting on the Fire Officer:
+
+- Add an "Update my forms" affordance on the support-role incident view (`IncidentSupportView`).
+- It calls the existing `POST /api/incidents/{id}/extract-forms` endpoint (persisted path — reads authoritative scene from Cosmos), non-blocking, mirroring the kiosk's background pattern. Show a subtle "Updating…" state; never lock the screen (same constraint as the kiosk).
+- Optional quality lift: split `extract_forms` into per-role or per-form-type prompts so each form gets a focused generator. Do this only if single-prompt quality proves weak against real transcripts — don't pre-build prompts we might throw away.
+
+**2. Safety Officer "Close Incident" (NEW — requested 2026-05-20).**
+
+The Safety Officer can close an incident, which removes it from the list of incidents support roles can select from. Closing is a lifecycle action, not a delete — the record persists and stays auditable (immutability principle: incidents are never purged).
+
+Design notes / decisions to lock with the build:
+
+- **This resolves open question #2** (the "Transition to Recovery → Recovery transition trigger"). The trigger is a manual **Close Incident** action; the actor is the **Safety Officer** (not the Site Administrator, which the older chat-centric "close-event flow" had assumed — see "Event-level workflow" below). Capturing this here supersedes that assumption for the incident-centric model.
+- **Mechanism:** transition the incident to a terminal closed state. Simplest path that fits existing code: move it to the `recovery` phase (or add a `closed` flag), since `list_incidents(..., exclude_recovery=True)` already excludes recovery-phase incidents from the support-role list. Whichever we choose, the closed incident drops out of `GET /api/incidents` for support roles.
+- **New endpoint:** `POST /api/incidents/{id}/close` — gated on Cosmos persistence, writes a `phase_transitioned` (or new `incident_closed`) audit event recording who closed it and when. Mirror the `loss-stop` endpoint's shape.
+- **Authority question to confirm with Dave/SME:** is close **Safety-Officer-only**, or Safety-Officer-*plus*-admin? And can any incident be closed (Response or Transition), or only post-Loss-Stop (Transition to Recovery)? Reasonable default: closable from Transition to Recovery onward; Safety Officer + Site Administrator both permitted. Confirm before building.
+- **Frontend:** a "Close Incident" button on the Safety Officer's `IncidentSupportView`, with a confirmation guard (closing is consequential). After close, route back to the incident list; the closed incident no longer appears.
+- **Out of scope for 5e:** the full Recovery-phase UI (government/legal reports). This is just the close action + list exclusion + audit. Recovery-phase tooling stays future scope.
 
 ### Make fresh-deploy work with auth on by default
 
@@ -212,7 +237,7 @@ Fallback if multi-tenant data-isolation cannot be made bulletproof: deploy a sep
 **Still open:**
 
 1. **Jurisdictional filter on the incident list** — within a tenant, do IMT roles see every incident across all jurisdictions, or are incidents scoped further (region, agency, dispatch zone)? The multi-tenant goal handles client-level isolation; this is the within-tenant question.
-2. **Transition to Recovery → Recovery transition trigger** — manual button by an admin? Automatic when checklists complete? SME to weigh in once Recovery scope is closer to being addressed.
+2. ~~**Transition to Recovery → Recovery transition trigger**~~ — RESOLVED 2026-05-20: a manual **Close Incident** action performed by the **Safety Officer** (see "Session 5e" in Next up). Closing removes the incident from the support-role selectable list (record persists, auditable). Full Recovery-phase tooling (reports) remains future scope; 5e implements only the close action + list exclusion.
 3. **Per-form matrix from SME** — full list of ~12 forms, each with: which roles see, which roles edit, which lifecycle phase the form is active in, lock-on-Loss-Stop vs editable-through-Transition. SME preparing.
 4. **Per-role Transition to Recovery content** — what each role's "what to do next" checklist looks like, generated from which knowledgebase content. SME preparing.
 5. **Loss Stop button placement on the kiosk** — visible alongside Re-Validate IAP from the moment Start Incident is pressed, or surfaces only at some later point? UX detail.
@@ -411,6 +436,57 @@ Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azu
 ---
 
 ## Done
+
+### 2026-05-20 — Session 5d.1: forms decoupled from the critical path
+
+**Outcome:** Forms generation moved OFF the Fire Officer's critical path. Validate IAP returns the scene immediately; the 27 role-tagged forms are generated by a separate, background `extract-forms` call. The kiosk renders the dashboard the moment the scene returns and is never locked by form generation. Directly answers Dave's two requirements (2026-05-20): forms populated as fully as possible after the first parse, and the Fire Officer portal usable at all times (reloads never lock the screen).
+
+**Why the refactor:** 5d originally chained scene→forms server-side in one request (`_run_validate_iap_with_forms`), which doubled Validate IAP latency and would have made the kiosk wait on form generation. Wrong shape for an emergency field device. Reversed it the same day — agile, fail-fast.
+
+**What changed:**
+
+- `app/backend/models/incidents.py` — `ExtractFormsRequest` (actingRole, transcript, optional scene state for the ephemeral path) + `ExtractFormsResponse`.
+- `app/backend/incidents/cosmosdb.py` — new `apply_extracted_forms()` (wholesale forms replace + `form_generated` audit event). `apply_validate_iap_result()` no longer takes/sets `new_forms` — a scene re-validation preserves the last-generated forms until the background pass replaces them.
+- `app/backend/app.py` — removed `_run_validate_iap_with_forms`. `validate-iap` and the `create_incident` inline path are scene-only again. New `POST /api/incidents/{id}/extract-forms`: reads authoritative scene from Cosmos when persisted, else from request body (ephemeral); runs `ExtractFormsApproach`; persists forms + audit when persisted; returns forms.
+- `app/backend/prompts/extraction/extract_forms.md` — retuned to populate every form as fully as evidence + reasonable professional inference allow; hard line against fabricating specific identifiers (unit numbers, names, frequencies, addresses). "No info" is an explicit last resort.
+- `app/frontend/src/api/*` — `extractForms()` client + `ExtractFormsRequest`/`Response` types.
+- `app/frontend/src/pages/incidentKiosk/IncidentKiosk.tsx` — `formsGenerating` state + `triggerFormsExtraction` callback. Start Incident and Re-Validate render the scene, then fire the forms call in the background and merge when ready. Re-Validate keeps prior forms visible during the gap (no flicker). Functional setState guards against racing with Loss Stop / End demo / a newer incident.
+- `app/frontend/src/pages/incidentKiosk/FormTabStrip.tsx` — `generating` prop → "Generating forms…" empty state.
+
+**Trade-offs accepted:**
+
+- **Forms lag scene by the background-generation window.** A support role opening a brand-new incident within ~1–2s may briefly see scene-populated-but-forms-empty until the kiosk's background call persists and their 10s poll picks it up. Expected, not a bug.
+- **Forms generation is kiosk-triggered.** Persistence is server-side (survives once the call is in flight), but the *trigger* comes from the Fire Officer's client. If the tab closed in the split second between Start Incident and the call going out, forms wouldn't generate. Fix-if-needed: trigger `extract-forms` server-side at incident creation as a background task. Not worth it for the demo.
+- **Two LLM calls, still serial.** Scene then forms — the forms call depends on the scene result, so they can't parallelize as-is. Latency levers if it ever bites: (1) per-role parallel split of the forms call (cheapest), (2) decouple forms from scene by re-reading the transcript so both run in parallel (risks scene/forms drift), (3) server-side background forms job (removes forms from the perceived critical path entirely). Documented so the decision trail survives.
+
+**Verified:** Python AST parse clean (models, cosmosdb, app); `npx tsc --noEmit` clean. Hit the recurring Windows→Linux mount staleness on several frontend files; resolved via bash heredoc per `feedback_large_file_edits` memory.
+
+### 2026-05-19 — Session 5d: per-role ICS forms (split-prompt extraction)
+
+**Outcome:** The backend generates 27 role-tagged ICS forms (Fire Officer 3 + 8 support roles × 3) instead of just the Fire Officer's. Each role's incident view filters to its own 3 tabs. Built on a split-prompt architecture — a primary scene extraction whose result feeds a downstream forms extraction (Dave's idea: "primary scene extraction that can trigger the downstream extractions").
+
+**What changed:**
+
+- `app/backend/incidents/form_templates.py` (new) — single source of truth for the role→3-forms mapping + `stable_form_id()` for deterministic ids across passes. Mapping is standard federal ICS practice (each position's canonical forms); **SME's authoritative per-form matrix still pending** (open question #3) — titles/kinds swap here when it lands.
+- `app/backend/approaches/extract_forms.py` (new) — `ExtractFormsApproach`: one LLM call, takes scene state + transcript, returns `list[FormSummary]`. Reconciles LLM output against the templates and overrides identity fields server-side.
+- `app/backend/prompts/extraction/extract_forms.md` (new) — the forms prompt.
+- `app/frontend/.../FormTabStrip.tsx` — `currentRole` prop filters forms by role; wired from kiosk (`fire-officer`) and `IncidentSupportView` (acting role).
+- `fire_officer_validate_iap.md` — trimmed; scene prompt no longer emits forms (`"forms": []`).
+
+**Form→role mapping shipped** (swap when SME matrix arrives): Fire Officer = ICS-201/214/213; Incident Commander = 202/207/209; Safety Officer = 208/215A/214; Liaison = Agencies-Log/213/214; PIO = Media-Log/Press-Log/214; Ops = 204/215/210; Planning = 203/211/209; Logistics = 205/206/218; Finance = OF-288/226/219.
+
+### 2026-05-19 — Session 5c: support-role recommendation curation UI
+
+**Outcome:** Support roles get a working recommendation-curation surface. `IncidentReadOnlyView` → `IncidentSupportView`. The Support Contributions pane is now a unified list (per Dave's "single list with status badges" choice) of pending / published / dismissed items, with publish (✓) / dismiss (✕) / custom-add, and a Refresh button with green/yellow staleness state. View polls `getIncident` every 10s.
+
+**What changed:** `RecommendationRow`, `CustomAddForm`, `RecommendationsPanel` components (new); `IncidentSupportView` (renamed, polling added); wire types + 5 API client fns for the support-recommendation endpoints; `IncidentList` import rewire. Staleness computed frontend-side: hash of scene-items signature (`id:status:removed`) persisted in sessionStorage keyed by `${incidentId}:${role}`, compared on render — honors "only flag stale when scene items actually changed" without churning the backend's `scene_last_updated`.
+
+### 2026-05-19 — Sessions 5b deploy + admin/picker changes
+
+**Outcome:** Shipped the Session 5b recommendation-engine backend (5 endpoints, `RecommendActionsApproach`, kiosk polling for support contributions, Fire Officer dropped from the generic picker). Then two role-picker changes:
+
+- **Admin can pick any role:** admin UPNs no longer auto-commit to `site-administrator`; they land on the picker.
+- **Universal three-option picker (2026-05-19):** because UPN-based admin detection isn't reliable for testing, *everyone* who reaches a picker now sees the same three primary options — **Fire Officer** (→ kiosk), **Incident Support** (→ ICS sub-picker → support view), **Client/Site Administrator** (→ admin landing). `fireofficer@` and legacy direct-role UPNs still bypass the picker. Replaced `GENERIC_PICKER_CHOICES` + `ADMIN_PICKER_CHOICES` with one `PRIMARY_ROLE_CHOICES`.
 
 ### 2026-05-13 — Session 5 of Fire Officer prototype: IMT incident dashboard
 

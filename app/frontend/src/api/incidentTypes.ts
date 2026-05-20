@@ -284,11 +284,26 @@ export interface AddCustomRecommendationRequest {
  */
 export interface ExtractFormsRequest {
     actingRole: ActingRole | string;
-    transcript: string;
+    /**
+     * Optional (5e). The kiosk passes the scenario transcript; the support-role "Update
+     * forms" path omits it and the backend derives the transcript from the persisted
+     * incident's chunks.
+     */
+    transcript?: string;
     sceneSummary?: SceneSummary | null;
     sceneConditionsAndActions?: SceneConditionAndAction[];
 }
 
 export interface ExtractFormsResponse {
     forms: FormSummary[];
+}
+
+/**
+ * Request body for `POST /api/incidents/{id}/close` (5e). Closing transitions the incident
+ * to the terminal recovery phase, dropping it from the support-role list. Authorized for
+ * Safety Officer + Site Administrator, only from Transition to Recovery.
+ */
+export interface CloseIncidentRequest {
+    actingRole: ActingRole | string;
+    userId: string;
 }
