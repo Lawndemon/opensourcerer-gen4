@@ -26,6 +26,7 @@ import { ArrowClockwise24Regular, Stop24Filled } from "@fluentui/react-icons";
 import type { IncidentDocument, SceneConditionAndAction, ValidateIAPResponse } from "../../api/incidentTypes";
 import {
     createIncident,
+    extractForms,
     generatePrototypeIncidentId,
     getIncident,
     IncidentApiError,
@@ -53,6 +54,9 @@ type KioskState =
           revalidating: boolean;
           locked: boolean;
           persisted: boolean;
+          // 5d.1: true while the decoupled extract-forms call is in flight. Never blocks
+          // the screen — drives a subtle "Generating forms…" hint on the form tab strip.
+          formsGenerating: boolean;
       }
     | { phase: "error"; scenarioId: string; message: string };
 
@@ -114,6 +118,45 @@ const IncidentKiosk = () => {
         };
     }, [pollIncidentId, pollPersisted, pollLocked]);
 
+    // --- Background forms extraction (5d.1) ------------------------------------
+    // Fired AFTER the scene dashboard has rendered. Generates the role-tagged forms off
+    // the critical path and merges them in when ready. Failures are non-fatal — the scene
+    // dashboard stays fully usable regardless. Functional setState guards against racing
+    // with phase changes (Loss Stop, End demo) or a newer incident.
+    const triggerFormsExtraction = useCallback(
+        async (incidentId: string, scenarioId: string, iap: ValidateIAPResponse) => {
+            const scenario = getScenarioById(scenarioId);
+            if (!scenario) return;
+            setState(prev =>
+                prev.phase === "in_incident" && prev.incidentId === incidentId
+                    ? { ...prev, formsGenerating: true }
+                    : prev
+            );
+            try {
+                const { forms } = await extractForms(incidentId, {
+                    actingRole: actingRole ?? "fire-officer",
+                    transcript: scenario.transcript,
+                    sceneSummary: iap.sceneSummary,
+                    sceneConditionsAndActions: iap.sceneConditionsAndActions
+                });
+                setState(prev =>
+                    prev.phase === "in_incident" && prev.incidentId === incidentId
+                        ? { ...prev, iap: { ...prev.iap, forms }, formsGenerating: false }
+                        : prev
+                );
+            } catch {
+                // Forms are non-critical. Keep whatever forms are already shown and clear
+                // the flag; the next Re-Validate (or a manual retry later) can try again.
+                setState(prev =>
+                    prev.phase === "in_incident" && prev.incidentId === incidentId
+                        ? { ...prev, formsGenerating: false }
+                        : prev
+                );
+            }
+        },
+        [actingRole]
+    );
+
     const handleStartIncident = useCallback(async () => {
         const currentScenarioId = state.phase === "pre_incident" ? state.scenarioId : DEFAULT_SCENARIO_ID;
         const scenario = getScenarioById(currentScenarioId);
@@ -129,15 +172,19 @@ const IncidentKiosk = () => {
                     actingRole: actingRole ?? "fire-officer",
                     transcript: scenario.transcript
                 });
+                const docIap = projectDocument(doc);
                 setState({
                     phase: "in_incident",
                     incidentId: doc.id,
                     scenarioId: currentScenarioId,
-                    iap: projectDocument(doc),
+                    iap: docIap,
                     revalidating: false,
                     locked: doc.phase !== "response",
-                    persisted: true
+                    persisted: true,
+                    formsGenerating: true
                 });
+                // Forms populate in the background; the dashboard is already interactive.
+                void triggerFormsExtraction(doc.id, currentScenarioId, docIap);
                 return;
             } catch (createErr) {
                 if (createErr instanceof IncidentApiError && createErr.status === 503) {
@@ -159,12 +206,14 @@ const IncidentKiosk = () => {
                 iap,
                 revalidating: false,
                 locked: false,
-                persisted: false
+                persisted: false,
+                formsGenerating: true
             });
+            void triggerFormsExtraction(provisionalIncidentId, currentScenarioId, iap);
         } catch (err) {
             setState({ phase: "error", scenarioId: currentScenarioId, message: formatError(err) });
         }
-    }, [state, actingRole]);
+    }, [state, actingRole, triggerFormsExtraction]);
 
     const handleRevalidate = useCallback(async () => {
         if (state.phase !== "in_incident" || state.locked || state.revalidating) return;
@@ -178,7 +227,12 @@ const IncidentKiosk = () => {
                 transcript: scenario.transcript,
                 actingRole: actingRole ?? "fire-officer"
             });
-            setState({ ...previous, iap, revalidating: false });
+            // Keep the previously-generated forms visible during the gap — the background
+            // extract-forms call below replaces them when the fresh set is ready, so the
+            // tab strip never flickers empty on a Re-Validate.
+            const merged = { ...iap, forms: previous.iap.forms };
+            setState({ ...previous, iap: merged, revalidating: false, formsGenerating: true });
+            void triggerFormsExtraction(previous.incidentId, previous.scenarioId, merged);
         } catch (err) {
             setState({
                 phase: "error",
@@ -186,7 +240,7 @@ const IncidentKiosk = () => {
                 message: `Re-Validate failed: ${formatError(err)}`
             });
         }
-    }, [state, actingRole]);
+    }, [state, actingRole, triggerFormsExtraction]);
 
     const handleLossStop = useCallback(async () => {
         if (state.phase !== "in_incident" || state.locked) return;
@@ -277,7 +331,7 @@ const IncidentKiosk = () => {
     }
 
     if (state.phase === "in_incident") {
-        const { iap, incidentId, locked, revalidating } = state;
+        const { iap, incidentId, locked, revalidating, formsGenerating } = state;
         const items = iap.sceneConditionsAndActions;
 
         return (
@@ -366,7 +420,12 @@ const IncidentKiosk = () => {
                         )}
                     </section>
 
-                    <FormTabStrip forms={iap.forms} currentRole="fire-officer" locked={locked} />
+                    <FormTabStrip
+                        forms={iap.forms}
+                        currentRole="fire-officer"
+                        locked={locked}
+                        generating={formsGenerating}
+                    />
                 </div>
 
                 {!locked && (

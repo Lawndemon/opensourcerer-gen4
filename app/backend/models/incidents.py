@@ -519,3 +519,32 @@ class AddCustomRecommendationRequest(_IncidentBase):
     text: str
     acting_role: str
     user_id: str
+
+
+# === EXTRACT FORMS (5d.1 — decoupled forms extraction) ====================
+
+
+class ExtractFormsRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/extract-forms`.
+
+    Runs the downstream forms extraction off the critical path so the Fire Officer's
+    scene dashboard renders immediately and forms populate in the background.
+
+    Scene source resolution (server-side):
+    - If the incident is persisted in Cosmos, the endpoint reads the authoritative scene
+      state from the persisted document and IGNORES the optional scene fields below.
+    - If the incident is NOT persisted (ephemeral demo path, Cosmos disabled), the
+      endpoint uses `scene_summary` + `scene_conditions_and_actions` from this request.
+      They are required in that case.
+    """
+
+    acting_role: str
+    transcript: str
+    scene_summary: SceneSummary | None = None
+    scene_conditions_and_actions: list[SceneConditionAndAction] = Field(default_factory=list)
+
+
+class ExtractFormsResponse(_IncidentBase):
+    """Response body for `POST /api/incidents/{id}/extract-forms`."""
+
+    forms: list[FormSummary] = Field(default_factory=list)

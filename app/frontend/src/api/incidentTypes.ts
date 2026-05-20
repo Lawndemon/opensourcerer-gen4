@@ -270,3 +270,25 @@ export interface AddCustomRecommendationRequest {
     actingRole: ActingRole | string;
     userId: string;
 }
+
+// ============================================================================
+// REQUEST / RESPONSE — EXTRACT FORMS (5d.1 — decoupled forms extraction)
+// ============================================================================
+
+/**
+ * Request body for `POST /api/incidents/{id}/extract-forms`.
+ *
+ * When the incident is persisted, the backend reads the authoritative scene state from
+ * Cosmos and ignores the scene fields below. For the ephemeral demo path (Cosmos off),
+ * the scene fields are required — the frontend passes what it just got from the scene call.
+ */
+export interface ExtractFormsRequest {
+    actingRole: ActingRole | string;
+    transcript: string;
+    sceneSummary?: SceneSummary | null;
+    sceneConditionsAndActions?: SceneConditionAndAction[];
+}
+
+export interface ExtractFormsResponse {
+    forms: FormSummary[];
+}

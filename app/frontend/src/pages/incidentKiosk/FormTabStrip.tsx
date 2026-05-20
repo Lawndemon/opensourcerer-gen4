@@ -30,6 +30,11 @@ interface FormTabStripProps {
     currentRole?: string | null;
     /** If true, all forms render as locked/read-only (Loss Stop has been pressed). */
     locked?: boolean;
+    /**
+     * True while a background forms-extraction is in flight (5d.1). When there are no
+     * forms to show yet, the empty state reads "Generating forms…" instead of "none".
+     */
+    generating?: boolean;
 }
 
 const renderFormContent = (form: FormSummary) => {
@@ -87,7 +92,7 @@ const renderFormContent = (form: FormSummary) => {
     );
 };
 
-const FormTabStrip = ({ forms, currentRole, locked = false }: FormTabStripProps) => {
+const FormTabStrip = ({ forms, currentRole, locked = false, generating = false }: FormTabStripProps) => {
     const [openFormId, setOpenFormId] = useState<string | null>(null);
 
     const visibleForms = useMemo(
@@ -99,9 +104,11 @@ const FormTabStrip = ({ forms, currentRole, locked = false }: FormTabStripProps)
         return (
             <div className={styles.emptyStrip}>
                 <Caption1>
-                    {currentRole
-                        ? "No forms assigned to this role on this incident yet."
-                        : "No forms attached to this incident yet."}
+                    {generating
+                        ? "Generating forms…"
+                        : currentRole
+                          ? "No forms assigned to this role on this incident yet."
+                          : "No forms attached to this incident yet."}
                 </Caption1>
             </div>
         );

@@ -58,6 +58,8 @@ from models.incidents import (
     ApplyRefinementResponse,
     CreateIncidentRequest,
     DismissRecommendationRequest,
+    ExtractFormsRequest,
+    ExtractFormsResponse,
     GetRecommendationsResponse,
     IncidentDocument,
     LossStopRequest,
@@ -329,47 +331,6 @@ def _incidents_enabled_or_503():
     return None
 
 
-async def _run_validate_iap_with_forms(
-    validate_request: ValidateIAPRequest,
-):
-    """Run the two-stage extraction: primary scene extraction, then downstream forms.
-
-    Phase 1 of the 5d split-prompt architecture (2026-05-19). The primary scene extraction
-    is authoritative for the scene state; the forms extraction takes its result as input
-    and populates 27 role-tagged forms.
-
-    Graceful degradation: if the forms extraction fails (LLM refusal, schema mismatch,
-    upstream error), we log and return the scene result with an empty forms list. Better
-    to ship the dashboard without forms than to fail the whole Validate IAP call.
-
-    Returns the `ValidateIAPResponse` from the primary extraction with `forms` replaced.
-    """
-    primary: ValidateIAPApproach = cast(
-        ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
-    )
-    result = await primary.run(validate_request)
-
-    forms_approach: ExtractFormsApproach = cast(
-        ExtractFormsApproach, current_app.config[CONFIG_EXTRACT_FORMS_APPROACH]
-    )
-    try:
-        result.forms = await forms_approach.run(
-            incident_id=validate_request.incident_id,
-            transcript=validate_request.transcript,
-            scene_summary=result.scene_summary,
-            scene_conditions_and_actions=result.scene_conditions_and_actions,
-        )
-    except Exception as forms_error:
-        logging.getLogger(__name__).exception(
-            "extract_forms failed for incident %s; returning empty forms list. Error: %s",
-            validate_request.incident_id,
-            forms_error,
-        )
-        result.forms = []
-
-    return result
-
-
 # --- Fire Officer kiosk: Validate IAP -------------------------------------------
 #
 # Takes the accumulated transcript, returns structured Scene Summary + Scene Conditions and
@@ -405,7 +366,12 @@ async def validate_iap(auth_claims: dict[str, Any], incident_id: str):
         return jsonify({"error": "request body did not match the ValidateIAPRequest contract", "details": ve.errors()}), 400
 
     try:
-        result = await _run_validate_iap_with_forms(validate_request)
+        # Scene-only extraction (5d.1). Forms are generated separately by the decoupled
+        # extract-forms endpoint so the kiosk never blocks on form generation.
+        approach: ValidateIAPApproach = cast(
+            ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
+        )
+        result = await approach.run(validate_request)
 
         # Persist reconciliation if Cosmos is enabled and an incident record exists.
         # We intentionally only attempt reconciliation when the incident is already
@@ -420,7 +386,6 @@ async def validate_iap(auth_claims: dict[str, Any], incident_id: str):
                     incident_id=incident_id,
                     new_scene_summary=result.scene_summary,
                     new_conditions=result.scene_conditions_and_actions,
-                    new_forms=result.forms,
                 )
                 # Return the reconciled result (removed-flag stickiness already applied).
                 return jsonify({
@@ -440,6 +405,72 @@ async def validate_iap(auth_claims: dict[str, Any], incident_id: str):
         return jsonify(result.model_dump(by_alias=True))
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/validate-iap")
+
+
+# --- Fire Officer kiosk: Extract Forms (decoupled, 5d.1) ------------------------
+#
+# Runs the downstream forms extraction OFF the critical path. The kiosk renders the scene
+# dashboard the moment Validate IAP returns, then fires this endpoint in the background;
+# the 27 role-tagged forms populate when it resolves. Keeping forms off the Validate IAP
+# response is what guarantees the Fire Officer's screen is never locked by form generation.
+#
+# Scene source: when the incident is persisted, the authoritative scene state is read from
+# Cosmos (post-reconciliation). For the ephemeral demo path (Cosmos off / incident not
+# persisted), the scene state is taken from the request body.
+@bp.route("/api/incidents/<incident_id>/extract-forms", methods=["POST"])
+@authenticated
+async def extract_forms(auth_claims: dict[str, Any], incident_id: str):
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = ExtractFormsRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match ExtractFormsRequest", "details": ve.errors()}), 400
+
+    try:
+        # Resolve the scene state the forms will be generated from.
+        persisted_doc = None
+        tenant_id = None
+        if current_app.config.get(CONFIG_INCIDENTS_COSMOS_ENABLED):
+            tenant_id = _tenant_id_from(auth_claims)
+            persisted_doc = await incidents_cosmos.get_incident(tenant_id, incident_id)
+
+        if persisted_doc is not None:
+            scene_summary = persisted_doc.scene_summary
+            scene_conditions = persisted_doc.scene_conditions_and_actions
+        else:
+            # Ephemeral path — the scene state must come from the request body.
+            if body.scene_summary is None:
+                return jsonify({
+                    "error": "scene_summary and scene_conditions_and_actions are required for an unpersisted incident"
+                }), 400
+            scene_summary = body.scene_summary
+            scene_conditions = body.scene_conditions_and_actions
+
+        forms_approach: ExtractFormsApproach = cast(
+            ExtractFormsApproach, current_app.config[CONFIG_EXTRACT_FORMS_APPROACH]
+        )
+        forms = await forms_approach.run(
+            incident_id=incident_id,
+            transcript=body.transcript,
+            scene_summary=scene_summary,
+            scene_conditions_and_actions=scene_conditions,
+        )
+
+        # Persist when the incident is a real Cosmos record; ephemeral incidents just get
+        # the forms back in the response and hold them in frontend state.
+        if persisted_doc is not None and tenant_id is not None:
+            actor = _actor_from(auth_claims, body.acting_role)
+            await incidents_cosmos.apply_extracted_forms(
+                tenant_id=tenant_id,
+                incident_id=incident_id,
+                new_forms=forms,
+                actor=actor,
+            )
+
+        return jsonify(ExtractFormsResponse(forms=forms).model_dump(by_alias=True))
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/extract-forms")
 
 
 # --- Incident lifecycle endpoints (Session 3) -----------------------------------
@@ -494,10 +525,14 @@ async def create_incident(auth_claims: dict[str, Any]):
     try:
         created = await incidents_cosmos.create_incident(initial_doc)
 
-        # Optional inline Validate IAP if a transcript was supplied. Same two-stage flow
-        # (primary scene extraction → downstream forms extraction) as the standalone endpoint.
+        # Optional inline Validate IAP if a transcript was supplied. Scene-only (5d.1) —
+        # the kiosk fires the decoupled extract-forms call in the background once the
+        # dashboard has rendered, so creation never waits on form generation.
         if body.transcript:
-            iap_result = await _run_validate_iap_with_forms(
+            approach: ValidateIAPApproach = cast(
+                ValidateIAPApproach, current_app.config[CONFIG_VALIDATE_IAP_APPROACH]
+            )
+            iap_result = await approach.run(
                 ValidateIAPRequest(
                     incident_id=incident_id,
                     transcript=body.transcript,
@@ -509,7 +544,6 @@ async def create_incident(auth_claims: dict[str, Any]):
                 incident_id=incident_id,
                 new_scene_summary=iap_result.scene_summary,
                 new_conditions=iap_result.scene_conditions_and_actions,
-                new_forms=iap_result.forms,
             )
         return jsonify({"incident": created.model_dump(by_alias=True)}), 201
     except Exception as error:

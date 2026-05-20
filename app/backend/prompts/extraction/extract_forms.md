@@ -4,21 +4,21 @@ This is a **downstream extraction** triggered after the primary scene extraction
 
 ## Form-content philosophy
 
+**Populate every form as fully as the transcript and scene state reasonably support.** This is the priority: a role opening their form should see a useful working draft they can refine, not an empty shell. Lean toward including information, not omitting it.
+
 For each form, produce content that is:
 
-- **Operationally useful.** A Safety Officer who opens ICS 208 should see something that would help them do their job, not boilerplate.
-- **Grounded in the transcript and the scene state.** Do not invent units, names, or events. If the transcript says nothing about radio frequencies, the Communications Plan (ICS-205) should reflect that — write a brief section noting "No specific communications information from current transcript" rather than fabricating channel assignments.
-- **Brief.** Each section is 1–3 sentences. The kiosk renders these in a popup overlay; long-form prose doesn't fit and isn't useful at a glance.
-- **Role-perspective.** A form's content should read as if written by the position that owns it. ICS 208 (Safety Officer's plan) should mention hazards and PPE; ICS 202 (Incident Commander's objectives) should be high-level outcome statements; OF-288 (Finance's time report) should reference personnel and time tracking.
+- **As complete as the evidence allows.** Pull everything reasonably supportable from the transcript and scene state into the relevant form. If the transcript mentions crews, hazards, objectives, resources, or timing, those facts should flow into every form they're relevant to — the same fact often belongs on several forms (a reported hazard belongs on ICS-208, ICS-215A, and the Activity Log).
+- **Reasonably inferred where the operational picture implies it.** You may draw sensible professional inferences from context — e.g., if an interior attack is underway, the Safety Plan can note structural-collapse and interior-heat hazards even if not said verbatim. Frame inferences as the form's standing guidance, not as reported fact.
+- **Never fabricated on specifics.** Do not invent concrete particulars that aren't supported: specific unit numbers, personnel names, radio frequencies, hospital names, street addresses, or timestamps. Inference about *categories* (hazard types, objective themes, resource needs) is fine; invention of *identifiers* is not. If a specific is genuinely needed and absent, write a short note that it's to be confirmed (e.g., "Primary tactical channel: TBD — confirm with Communications Unit").
+- **Brief per section.** Each section is 1–3 sentences. The kiosk renders these in a popup overlay; long-form prose doesn't fit and isn't useful at a glance. Completeness comes from covering the right sections, not from long paragraphs.
+- **Role-perspective.** A form's content should read as if written by the position that owns it. ICS 208 (Safety Officer's plan) leads with hazards and PPE; ICS 202 (Incident Commander's objectives) reads as high-level outcome statements; OF-288 (Finance's time report) references personnel and time tracking.
 
 ## How to handle thin transcripts
 
-If the transcript is short or focused on a narrow operational picture, many forms will have little to draw on. That is expected. For forms with no specific information from the current transcript:
+If the transcript is short or focused on a narrow operational picture, some forms will have less to draw on — but still populate them as fully as the available evidence and reasonable professional inference allow. Only when a form genuinely has nothing applicable should you fall back to a single section noting "No specific information for this form in the current transcript; to be completed as the incident develops." Treat that fallback as a last resort, not a default.
 
-- Generate a single section with a brief acknowledgement (e.g., "No specific medical incidents reported in current transcript. Awaiting further updates."). Do not fabricate.
-- The form is still present on the role's tab strip — they can see the placeholder and fill it in themselves later.
-
-For forms where you DO have useful content (typically Fire Officer's, Incident Commander's, Operations', and Safety Officer's during a hot scene), populate every section with substantive content.
+The forms with the richest direct evidence are typically the Fire Officer's, Incident Commander's, Operations', and Safety Officer's during a hot scene — those should be thoroughly populated. But Logistics, Planning, Finance, Liaison, and PIO forms should also carry whatever the transcript and inferred operational context support, not just placeholders.
 
 ## ICS 201 — the only fully-structured form
 

@@ -16,6 +16,8 @@ import type {
     ApplyRefinementResponse,
     CreateIncidentRequest,
     DismissRecommendationRequest,
+    ExtractFormsRequest,
+    ExtractFormsResponse,
     GetRecommendationsResponse,
     IncidentDocument,
     IncidentEnvelope,
@@ -221,6 +223,23 @@ export async function addCustomRecommendation(
 ): Promise<GetRecommendationsResponse> {
     return await postJson<GetRecommendationsResponse>(
         `/api/incidents/${encodeURIComponent(incidentId)}/support-recommendations/custom`,
+        request,
+        signal
+    );
+}
+
+/**
+ * POST /api/incidents/{id}/extract-forms — generate the 27 role-tagged forms from the
+ * incident's scene state. Decoupled from Validate IAP (5d.1) so the kiosk never blocks on
+ * form generation — fire this in the background after the scene dashboard has rendered.
+ */
+export async function extractForms(
+    incidentId: string,
+    request: ExtractFormsRequest,
+    signal?: AbortSignal
+): Promise<ExtractFormsResponse> {
+    return await postJson<ExtractFormsResponse>(
+        `/api/incidents/${encodeURIComponent(incidentId)}/extract-forms`,
         request,
         signal
     );
