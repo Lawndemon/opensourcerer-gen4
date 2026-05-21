@@ -84,6 +84,26 @@ export const KIOSK_SCENARIOS: KioskScenario[] = [
             "22:14:00 — Captain Walsh: Truck 1 continue ventilation. Engine 1 exterior attack, Bravo flank. Defensive operations only.",
             "22:18:30 — Captain Walsh: Knockdown achieved exterior. Holding defensive posture, no interior operations until structure assessed."
         ].join("\n")
+    },
+    {
+        id: "initial_report_residential_fire",
+        label: "SME — initial radio report (residential fire)",
+        blurb:
+            "SME-provided initial size-up: two-story SFR, smoke and fire showing, family evacuated, offensive, with a 360 follow-up. Short, naturalistic report.",
+        transcript: [
+            "Engine one is on scene at 10002 106 street, we have a two-story single-family residence with smoke and fire showing, family appears to be evacuated on the front lawn. Crews are establishing a water supply and preparing for entry through the front door, we are in offensive mode. Continue to deploy ladder 1 and call mutual aid. Hughes is assuming command. Stand by for follow up report",
+            "360 is complete, fire appears to be in Charlie-delta corner of basement, will remain in offensive strategy. Family has confirmed they are all accounted for. Accountability is alpha side."
+        ].join("\n")
+    },
+    {
+        id: "initial_report_spacely_school_fire",
+        label: "SME — initial radio report (Spacely school)",
+        blurb:
+            "SME-provided initial size-up: Spacely Sprockets high school, nothing showing, investigative mode, then 360 finds fire Charlie side and switches to offensive.",
+        transcript: [
+            "Engine one has arrived at spacely sprockets high school, nothing showing. Crews are preparing for entry through the main entrance, we are in investigative mode. Hold resources at the hall. Hughes is assuming command, standby for 360",
+            "360 is complete, there is fire showing on the Charlie side of the structure, will switch to offensive strategy. Deploy remaining spacely sprockets resources and activate mutual aid. Accountability is alpha side."
+        ].join("\n")
     }
 ];
 

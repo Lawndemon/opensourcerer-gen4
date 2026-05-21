@@ -1,0 +1,23 @@
+{
+  "name": "initial_report_spacely_school_fire",
+  "description": "SME-provided initial radio report (2026-05): Spacely Sprockets high school, nothing showing on arrival, investigative mode, then 360 finds fire Charlie side and the strategy switches to offensive. Tests investigative->offensive transition and resource discipline on a short size-up. SOURCE: SME 'Initial Radio Reports' Scenario 2 — transcript preserved verbatim as the audit-of-record. (Note: 'Spacely Sprockets' aligns with the SpacelySprockets client/tenant placeholder.)",
+  "scenario": {
+    "incident_type": "structure_fire",
+    "occupancy": "institutional_school",
+    "expected_phase": "response",
+    "expected_items_minimum": 4
+  },
+  "expected_outcomes": {
+    "_note": "PROVISIONAL — derived from the transcript, NOT yet confirmed by the SME. Replace with the SME's answer key once received. These are the items a competent reviewer would likely surface.",
+    "conforming_examples": [
+      "Investigative mode declared appropriately for a 'nothing showing' arrival",
+      "360 requested and completed before committing to a strategy",
+      "Strategy correctly escalated to offensive after fire confirmed Charlie side",
+      "Resource discipline — incoming resources held at the hall pending size-up",
+      "Command established (Hughes); accountability established (alpha side); mutual aid activated"
+    ],
+    "deviating_safe_examples": [],
+    "deviating_unsafe_examples": []
+  },
+  "transcript": "Engine one has arrived at spacely sprockets high school, nothing showing. Crews are preparing for entry through the main entrance, we are in investigative mode. Hold resources at the hall. Hughes is assuming command, standby for 360\n360 is complete, there is fire showing on the Charlie side of the structure, will switch to offensive strategy. Deploy remaining spacely sprockets resources and activate mutual aid. Accountability is alpha side."
+}

@@ -237,11 +237,15 @@
 }
 
 .supportRole {
-    display: block;
+    display: inline;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     opacity: 0.6;
-    margin-bottom: 2px;
+    font-weight: 600;
+}
+
+.supportSeparator {
+    opacity: 0.6;
 }
 
 /* Floating Re-Validate IAP button — always within thumb's reach. */

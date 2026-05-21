@@ -205,14 +205,15 @@ def main() -> int:
     parser.add_argument(
         "--fixture",
         type=int,
-        choices=[1, 2, 3],
-        help="Which fixture to run (1=conforming, 2=mixed, 3=life-risk)",
+        choices=[1, 2, 3, 4, 5],
+        help="Which fixture to run, by sorted order: 1=conforming, 2=mixed, 3=life-risk, "
+        "4=SME initial report (residential), 5=SME initial report (Spacely school)",
     )
-    parser.add_argument("--all", action="store_true", help="Run all three fixtures in sequence")
+    parser.add_argument("--all", action="store_true", help="Run all fixtures in sequence")
     args = parser.parse_args()
 
     if not args.fixture and not args.all:
-        parser.error("must specify --fixture <1|2|3> or --all")
+        parser.error("must specify --fixture <1-5> or --all")
 
     token, cookie = _resolve_auth(args)
 
@@ -238,9 +239,12 @@ def main() -> int:
     print("=" * 78)
     if failures == 0:
         print(f"All {len(to_run)} fixture(s) returned 200. Eyeball the output above for the SME criteria:")
-        print("  Fixture 1 (conforming):  mostly green, no red")
-        print("  Fixture 2 (mixed):       at least one yellow (vehicle not chocked)")
-        print("  Fixture 3 (life-risk):   at least one red (RIT not in place / continued offensive)")
+        print("  Fixture 1 (conforming):       mostly green, no red")
+        print("  Fixture 2 (mixed):            at least one yellow (vehicle not chocked)")
+        print("  Fixture 3 (life-risk):        at least one red (RIT not in place / continued offensive)")
+        print("  Fixture 4 (SME residential):  command + 360 + accountability green; short size-up")
+        print("  Fixture 5 (SME school):       investigative->offensive handled; resource discipline green")
+        print("  (Fixtures 4-5 answer keys are PROVISIONAL — confirm against the SME's once received.)")
     else:
         print(f"{failures} of {len(to_run)} fixture(s) FAILED.")
     print("=" * 78)
@@ -249,3 +253,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

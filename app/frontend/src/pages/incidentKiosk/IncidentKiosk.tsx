@@ -412,8 +412,11 @@ const IncidentKiosk = () => {
                             <ul className={styles.supportList}>
                                 {iap.supportContributions.map(c => (
                                     <li key={c.id} className={styles.supportItem}>
-                                        <Caption1 className={styles.supportRole}>{c.addedBy.role}</Caption1>
-                                        <Body1>{c.text}</Body1>
+                                        <Body1>
+                                            <span className={styles.supportRole}>{c.addedBy.role}</span>
+                                            <span className={styles.supportSeparator}> — </span>
+                                            {c.text}
+                                        </Body1>
                                     </li>
                                 ))}
                             </ul>

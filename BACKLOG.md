@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-05-20 (post-Session 5d.1)
+**Last updated:** 2026-05-20 (post-Session 5e)
 
 ---
 
@@ -14,30 +14,59 @@ _Nothing in flight — pick up from "Next up"._
 
 ## Next up
 
-### Session 5e — per-role "Update my forms" + Safety Officer "Close Incident"
+### Multi-phase (N-phase) incident testing — graduating scene-segment control (SME-requested 2026-05-21)
 
-Two pieces queued for the next working session.
+Let a single incident be driven through multiple waves of incoming chatter, so we can test how the scene evolves as new information arrives (and how recommendations track from "going well" to, per the SME, "a complete clusterfuck"). The SME is providing multiple scripts, each split into phases (3 to start, but treat the count as variable).
 
-**1. Per-role "Update my forms" button (the deferred half of the forms work).**
+**UX:** the kiosk's current **End demo** button graduates into a **Run Phase 2 → Run Phase 3 → …** control that advances through the loaded script's phases and then **disappears, leaving only Loss Stop**. Make this **data-driven on the number of phases in the fixture (N phases, not hardcoded to 3)** — the label and the disappear-after-last behavior derive from the fixture length. (Dave's call; agreed 2026-05-21.)
 
-Phase 1 (5d) + the decoupling refactor (5d.1) shipped forms generation off the Fire Officer's critical path: Validate IAP returns the scene immediately, and the kiosk fires a background `extract-forms` call that populates all 27 role-tagged forms. What's still missing is a **role-driven** trigger so a support role can refresh *their* forms without waiting on the Fire Officer:
+**Design decisions agreed 2026-05-21:**
 
-- Add an "Update my forms" affordance on the support-role incident view (`IncidentSupportView`).
-- It calls the existing `POST /api/incidents/{id}/extract-forms` endpoint (persisted path — reads authoritative scene from Cosmos), non-blocking, mirroring the kiosk's background pattern. Show a subtle "Updating…" state; never lock the screen (same constraint as the kiosk).
-- Optional quality lift: split `extract_forms` into per-role or per-form-type prompts so each form gets a focused generator. Do this only if single-prompt quality proves weak against real transcripts — don't pre-build prompts we might throw away.
+- **Phases are cumulative, not replacements.** Each phase's fixture holds *only the new chatter*; the kiosk concatenates phase[0..n] and the Validate pass runs against the union. This is what lets a Phase-1 green condition deteriorate to red by Phase 3, and it exercises the "fire on / fire off / fire back on" sticky-with-resurfacing semantics.
+- **Re-Validate IAP and Loss Stop both remain available throughout.** Only the phase-advance button graduates and vanishes. Run Phase (feed *new* transcript) and Re-Validate (re-analyze *current* transcript) are distinct jobs; Loss Stop must be reachable at any point (the officer can end the active response mid-phase).
+- **Non-blocking, like Re-Validate.** Each phase advance renders the scene immediately and fires forms/recommendations generation in the background — the kiosk-never-blocks rule still holds (see [[Fire Officer kiosk responsiveness]]).
+- **Terminology:** these are *scene segments / updates within the Response phase*, NOT lifecycle phases (Response → Transition to Recovery → Recovery, where Loss Stop is the trigger). Keep the demo button labels as "Run Phase N" but name the code/data-model construct something like "scene segments" so the two meanings don't tangle.
 
-**2. Safety Officer "Close Incident" (NEW — requested 2026-05-20).**
+**Main engineering risk to verify (not the button wiring):** cross-phase **item reconciliation by stable id**. As the transcript grows and we re-extract, scene items must *update in place* rather than duplicate (Phase 3 should not show three copies of "fire showing" — one item should change status). The "clusterfuck" scripts will stress this hardest; treat the stable-id merge holding across an accumulating transcript as the thing to confirm.
 
-The Safety Officer can close an incident, which removes it from the list of incidents support roles can select from. Closing is a lifecycle action, not a delete — the record persists and stays auditable (immutability principle: incidents are never purged).
+**Data model:** `KioskScenario.transcript: string` → a phases array (e.g., `phases: string[]`, each entry = that phase's new chatter); existing single-phase fixtures become length-1. Mirror in the backend JSON fixtures and `scripts/test_validate_iap.py` so the harness can run phase-by-phase. Per [[Don't over-engineer for the SME's short summary transcripts]], don't build per-phase answer keys — the SME's scripts are the test input, and real input will be streaming STT anyway.
 
-Design notes / decisions to lock with the build:
+### Support-role UI refinements — remove dead "Refine" + add refine-with-edit to recommendations (SME-requested 2026-05-21)
 
-- **This resolves open question #2** (the "Transition to Recovery → Recovery transition trigger"). The trigger is a manual **Close Incident** action; the actor is the **Safety Officer** (not the Site Administrator, which the older chat-centric "close-event flow" had assumed — see "Event-level workflow" below). Capturing this here supersedes that assumption for the incident-centric model.
-- **Mechanism:** transition the incident to a terminal closed state. Simplest path that fits existing code: move it to the `recovery` phase (or add a `closed` flag), since `list_incidents(..., exclude_recovery=True)` already excludes recovery-phase incidents from the support-role list. Whichever we choose, the closed incident drops out of `GET /api/incidents` for support roles.
-- **New endpoint:** `POST /api/incidents/{id}/close` — gated on Cosmos persistence, writes a `phase_transitioned` (or new `incident_closed`) audit event recording who closed it and when. Mirror the `loss-stop` endpoint's shape.
-- **Authority question to confirm with Dave/SME:** is close **Safety-Officer-only**, or Safety-Officer-*plus*-admin? And can any incident be closed (Response or Transition), or only post-Loss-Stop (Transition to Recovery)? Reasonable default: closable from Transition to Recovery onward; Safety Officer + Site Administrator both permitted. Confirm before building.
-- **Frontend:** a "Close Incident" button on the Safety Officer's `IncidentSupportView`, with a confirmation guard (closing is consequential). After close, route back to the incident list; the closed incident no longer appears.
-- **Out of scope for 5e:** the full Recovery-phase UI (government/legal reports). This is just the close action + list exclusion + audit. Recovery-phase tooling stays future scope.
+Two SME-requested support-role changes. Item 1 is a trivial standalone quick-win; item 2 is a multi-file feature.
+
+**1. Remove "Refine" from the support-role Scene Conditions list (quick win).** In the support views (`IncidentReadOnlyView` / `IncidentSupportView`), the shared `SceneItemRow` still renders the **Refine** button — disabled, with the tooltip "Refine requires a persisted incident." The SME wants the word gone entirely: refining a scene condition is a Fire-Officer-only action and will never be feasible for support roles. Fix: gate the Refine button block in `SceneItemRow.tsx` on `onRefineClick` being provided (mirror the existing `onRemove` hide-when-undefined pattern), so it renders only on the kiosk and disappears from support views. ~2-line change, no backend.
+
+**2. Add a refine action to support-role Recommendations.** Each pending `RecommendationRow` currently has publish (✓) and dismiss (✕). Add a third action — **refine**, rendered as an ellipsis (… / `MoreHorizontal` icon) — between them. Clicking it opens a popup that (a) offers a few KB-grounded alternative phrasings of that recommendation (same visual pattern as the Fire Officer's `RefineConditionPopup`), and (b) provides an **editable text field** so the role can hand-tweak the wording before publishing.
+
+Design notes / distinction to respect:
+
+- **This is NOT the Fire Officer's refine.** The kiosk's Refine Condition re-evaluates a *scene condition's status* against narrowed KB context (`refine_condition` approach; `getRefinementOptions` / `applyRefinement`; mutates a `SceneConditionAndAction`). A recommendation refine instead produces alternative *phrasings of a support recommendation* and edits the text that will be published — a different backend call and a different apply path. Fork the popup's visuals; do not reuse the scene-condition endpoints.
+- **The AI proposals are the core of refine, not optional** (Dave, 2026-05-21). The KB-grounded suggestion list is the primary value of the feature; the editable text field is layered on top for small human wording adjustments. Both ship together — do not reduce this to an edit-only field. Dave expects the suggestions to get materially better after the planned engine migration (see [[Planned engine migration: OpenAI → Anthropic]]).
+- **Edit-text fits the support role:** they use a keyboard (the no-typing rule is kiosk-only), so free editing is consistent with their interaction model. It is the middle ground between accept-as-is (✓) and write-from-scratch (the existing `CustomAddForm`).
+- **Publish-with-edited-text:** `publishRecommendation` currently publishes by id as-is. Extend it (or add a path) to accept an optional overridden text. Per the immutability/audit principle, the audit event should capture BOTH the original KB suggestion and the edited text so provenance is traceable; consider tagging source as `kb-edited` vs `kb` / `custom`.
+- **Backend:** a "refine recommendation" suggestions endpoint — a small new approach, or a mode on `RecommendActionsApproach` — returning 2-3 KB-grounded rephrasings for a single recommendation.
+- **Frontend:** new `…` action in `RecommendationRow` + a `RefineRecommendationPopup` (forked from `RefineConditionPopup`) with a suggestions list plus an editable field; wire publish-with-text through `RecommendationsPanel`.
+
+### Gate support-role recommendations on scene being parsed (refinement, requested 2026-05-20)
+
+Support roles' recommendations currently auto-populate on `IncidentSupportView` mount even before the scene has been parsed. `RecommendationsPanel` auto-fires a refresh when `lastGeneratedAt === null`, and `RecommendActionsApproach` generates from scene state + already-published + recently-dismissed — so when the scene is empty/sparse (brand-new incident, or the support role opened it before the kiosk's scene extraction landed), the LLM produces premature, low-quality recommendations grounded in nothing.
+
+**Fix:** recommendations are downstream of scene conditions and must not generate until the scene is loaded. Gate both the auto-refresh and (probably) the manual Refresh on the incident actually having scene content — e.g. `incident.sceneConditionsAndActions.length > 0` (or a non-empty `sceneSummary.text`). Until then, show a "Waiting for scene conditions…" placeholder instead of firing the recommendation call. Once scene conditions arrive (via the support view's 10s poll), allow the auto-refresh to proceed.
+
+This is the same dependency shape as forms (recommendations and forms are both *downstream* of the primary scene extraction); keep them consistent. Small frontend change in `RecommendationsPanel` (the gate) plus the placeholder copy. No backend change needed.
+
+### Print/PDF-ready report rendering + "Print report" on each form popup (future)
+
+Eventually each ICS form should render in a **ready-to-print/PDF format that mirrors its real template layout**, not just the current generic sections-in-a-popup view. Each form popup (the `FormTabStrip` overlay) should also carry a **"Print report"** action.
+
+Scope notes for when this is picked up:
+
+- **Per-template layouts.** The structured form content already exists (ICS 201 has named fields; placeholders have sections). The work is rendering each `formType` into a print-faithful layout — ideally matching the official ICS form's field arrangement so emergency personnel recognize it. Likely a per-`formType` rendering component or a print stylesheet keyed off `formType`.
+- **Print/PDF mechanism.** Two paths: (a) browser-native `window.print()` with a print-only CSS layout — cheapest, no new deps, "Save as PDF" via the browser; (b) server-side PDF generation from the structured content (reuse the `pdf` skill / a template engine) for a pixel-faithful, downloadable artifact. Start with (a) for the demo; (b) if SMEs need true-to-form PDFs.
+- **Derived-artifact discipline.** A printed/PDF report is a *derived artifact* per the immutability principle — it must trace back to the incident record (id, timestamp, who generated it). Stamp the incident id + generated-at on the output.
+- **"Print report" button placement.** On the form overlay, alongside the existing tap-to-minimize gesture. Keep it from interfering with the kiosk's single-tap-anywhere-to-close behavior (stopPropagation on the button).
+- Depends on the SME's per-form matrix (open question #3) for which templates matter most; prioritize ICS 201 (already fully structured) as the first print-faithful layout.
 
 ### Make fresh-deploy work with auth on by default
 
@@ -436,6 +465,25 @@ Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azu
 ---
 
 ## Done
+
+### 2026-05-20 — Session 5e: per-role "Update forms" + Safety Officer "Close Incident"
+
+**Outcome:** Support roles can regenerate their forms on demand without waiting on the Fire Officer, and the Safety Officer (or Site Administrator) can close an incident so it drops off the support-role list. Both honor the never-block-the-screen rule.
+
+**Decisions locked (2026-05-20):** close authority = **Safety Officer + Site Administrator** (not Safety-Officer-only — avoids a dead-end if no Safety Officer is signed in). Closable phase = **Transition to Recovery only** (post-Loss-Stop). Close mechanism = **transition to the `recovery` phase** (reuses the existing `list_incidents(exclude_recovery=True)` exclusion; no new flag). This resolved old open question #2.
+
+**What changed:**
+
+- `app/backend/models/incidents.py` — `CloseIncidentRequest`; `ExtractFormsRequest.transcript` made optional.
+- `app/backend/incidents/cosmosdb.py` — `close_incident()` (transition_to_recovery → recovery, locks active forms, `phase_transitioned` audit w/ trigger=close_incident; 409 from any other phase; idempotent if already recovery).
+- `app/backend/app.py` — `POST /api/incidents/{id}/close` (403 unless actingRole ∈ {safety-officer, site-administrator}; 409 on wrong phase). `create_incident` now persists the opening transcript as a `TranscriptChunk`. `extract-forms` derives the transcript from persisted chunks when the body omits it (the support-role path) — so a support role's "Update forms" regenerates from the same source the kiosk used, avoiding form degradation.
+- `app/frontend/src/api/*` — `closeIncident()` client + `CloseIncidentRequest` type; `extractForms` transcript optional.
+- `app/frontend/.../IncidentSupportView.tsx` — "Update forms" button (non-blocking, drives `FormTabStrip` `generating`) + "Close Incident" button (shown only when Safety-Officer/Site-Admin AND phase=transition_to_recovery; two-step inline confirm; routes back to the list on success).
+
+**Trade-offs / notes:**
+
+- **Transcript persistence is a prototype simplification.** Stored as a single chunk from the fixture at create time; real append-only-from-mic STT chunks (with de-noising) are future. The immutability semantics formally apply once STT lands.
+- **Verification gap:** the two large backend files (`app.py` ~1640 lines, `cosmosdb.py` ~900 lines) read as stale-truncated in the Linux sandbox (the recurring Windows→Linux mount issue), so a full `python` parse couldn't run there. My additions were isolate-parsed and are valid; the Windows-side files are intact (Read-confirmed) and are what `azd deploy` reads. Recommend a `python -m py_compile` in the devcontainer before deploy as belt-and-suspenders. Frontend `tsc --noEmit` is clean (the three affected frontend files were heredoc-resynced).
 
 ### 2026-05-20 — Session 5d.1: forms decoupled from the critical path
 

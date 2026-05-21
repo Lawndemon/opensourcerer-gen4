@@ -1,0 +1,25 @@
+{
+  "name": "initial_report_residential_fire",
+  "description": "SME-provided initial radio report (2026-05): two-story single-family residence, smoke and fire showing, family evacuated. Initial size-up transmission plus a 360 follow-up. Tests extraction on a short, naturalistic size-up rather than a full incident transcript. SOURCE: SME 'Initial Radio Reports' Scenario 1 — transcript preserved verbatim as the audit-of-record.",
+  "scenario": {
+    "incident_type": "structure_fire",
+    "occupancy": "single_family_residential",
+    "expected_phase": "response",
+    "expected_items_minimum": 4
+  },
+  "expected_outcomes": {
+    "_note": "PROVISIONAL — derived from the transcript, NOT yet confirmed by the SME. Replace with the SME's answer key once received (see SME-Request follow-up). These are the items a competent reviewer would likely surface.",
+    "conforming_examples": [
+      "Command formally established and named (Hughes assuming command)",
+      "360 walkaround conducted and reported complete before sustained interior operations",
+      "Offensive strategy declared for a working fire with occupants confirmed evacuated",
+      "Personnel accountability established (alpha side)",
+      "Mutual aid requested and ladder company deployed"
+    ],
+    "deviating_safe_examples": [
+      "Offensive mode and entry preparation announced in the initial transmission before the 360 was reported complete (sequencing) — flag only if extraction infers entry began pre-360"
+    ],
+    "deviating_unsafe_examples": []
+  },
+  "transcript": "Engine one is on scene at 10002 106 street, we have a two-story single-family residence with smoke and fire showing, family appears to be evacuated on the front lawn. Crews are establishing a water supply and preparing for entry through the front door, we are in offensive mode. Continue to deploy ladder 1 and call mutual aid. Hughes is assuming command. Stand by for follow up report\n360 is complete, fire appears to be in Charlie-delta corner of basement, will remain in offensive strategy. Family has confirmed they are all accounted for. Accountability is alpha side."
+}
