@@ -18,7 +18,9 @@ _Nothing in flight — pick up from "Next up"._
 
 Let a single incident be driven through multiple waves of incoming chatter, so we can test how the scene evolves as new information arrives (and how recommendations track from "going well" to, per the SME, "a complete clusterfuck"). The SME is providing multiple scripts, each split into phases (3 to start, but treat the count as variable).
 
-**UX:** the kiosk's current **End demo** button graduates into a **Run Phase 2 → Run Phase 3 → …** control that advances through the loaded script's phases and then **disappears, leaving only Loss Stop**. Make this **data-driven on the number of phases in the fixture (N phases, not hardcoded to 3)** — the label and the disappear-after-last behavior derive from the fixture length. (Dave's call; agreed 2026-05-21.)
+**UX:** a **Run Phase 2 → Run Phase 3 → …** control advances through the loaded script's phases and then **disappears once the last phase has run**. Make this **data-driven on the number of phases in the fixture (N phases, not hardcoded to 3)** — the label and the disappear-after-last behavior derive from the fixture length. (Dave's call; agreed 2026-05-21.)
+
+**Placement — distinct floating DEMO cluster, NOT bundled with real controls (Dave, 2026-05-21).** The phase-progression button lives in the dedicated floating demo cluster (`.demoControls`, fixed bottom-left, dashed border + "DEMO" label) alongside **End demo** — deliberately separate from the real production controls (**Loss Stop** pinned top-right in the sticky header; **Re-Validate** floating bottom-right). Rationale: demo-only affordances must not pollute the production UI and must be removable as a unit when streaming STT replaces scripted phases. (`End demo` was moved out of the header into this cluster on 2026-05-21; the Run Phase button joins it.) See [[Segregate demo-only controls from production UI]].
 
 **Design decisions agreed 2026-05-21:**
 
@@ -30,6 +32,23 @@ Let a single incident be driven through multiple waves of incoming chatter, so w
 **Main engineering risk to verify (not the button wiring):** cross-phase **item reconciliation by stable id**. As the transcript grows and we re-extract, scene items must *update in place* rather than duplicate (Phase 3 should not show three copies of "fire showing" — one item should change status). The "clusterfuck" scripts will stress this hardest; treat the stable-id merge holding across an accumulating transcript as the thing to confirm.
 
 **Data model:** `KioskScenario.transcript: string` → a phases array (e.g., `phases: string[]`, each entry = that phase's new chatter); existing single-phase fixtures become length-1. Mirror in the backend JSON fixtures and `scripts/test_validate_iap.py` so the harness can run phase-by-phase. Per [[Don't over-engineer for the SME's short summary transcripts]], don't build per-phase answer keys — the SME's scripts are the test input, and real input will be streaming STT anyway.
+
+### Scene-condition prioritization — order by importance within severity bands (SME-requested 2026-05-21)
+
+The SME asked whether AI can order scene conditions by "importance" — not merely "reds on top," but inferring which conditions are most urgent or most likely to escalate into serious issues. Agreed approach (Dave + assistant, 2026-05-21): a two-tier sort.
+
+**Tier 1 — severity band (deterministic, ship-able alone).** Primary sort by traffic-light status: `deviating_unsafe` (red) → `deviating_safe` (yellow) → `conforming` (green). Removed items stay at the bottom. Zero AI-inference risk — worth shipping on its own as Phase 1.
+
+**Tier 2 — within-band priority (LLM-inferred).** Within each band, order by **escalation potential / trajectory** first, with the fire-service hierarchy **life safety → incident stabilization → property conservation** as the tiebreaker. The key insight: the highest-value signal isn't ranking the reds, it's floating the **yellow that is trending toward red** to the top of the yellows (the early warning) — which directly answers the SME's "potential to lead to serious issues."
+
+- **Mechanism:** the extraction LLM emits a per-item **priority score + one-line rationale** (e.g., "escalation: smoke signature suggests imminent flashover"). Add a priority field + rationale to `SceneConditionAndAction` (contract change), update the extraction prompt, sort in backend/frontend.
+- **Explainability / audit:** the rationale renders in the Analyze popup so ordering is human-checkable and auditable — this stays decision *support*, not an opaque oracle making life-safety calls.
+- **Hard rule:** within-band only — priority NEVER lifts an item across a band (a green never outranks a red).
+- **List stability:** on the fixed kiosk screen mid-incident, items must not thrash on every Re-Validate — use a stable tiebreaker (e.g., id / recency) so positions stay predictable.
+- **Ties to multi-phase:** once a scene accumulates across phases ([[Multi-phase (N-phase) incident testing]]), "this condition worsened phase-over-phase" becomes computable trajectory, not just single-snapshot inference — rising-risk items bubble up.
+- **Post-migration:** Tier 2 leans on exactly the reasoning Claude is stronger at; expect it to sharpen after [[Planned engine migration: OpenAI → Anthropic]].
+
+**Phasing:** Phase 1 = deterministic band sort (low-risk, self-contained). Phase 2 = LLM escalation-priority + rationale within band.
 
 ### Support-role UI refinements — remove dead "Refine" + add refine-with-edit to recommendations (SME-requested 2026-05-21)
 
@@ -56,17 +75,28 @@ Support roles' recommendations currently auto-populate on `IncidentSupportView` 
 
 This is the same dependency shape as forms (recommendations and forms are both *downstream* of the primary scene extraction); keep them consistent. Small frontend change in `RecommendationsPanel` (the gate) plus the placeholder copy. No backend change needed.
 
-### Print/PDF-ready report rendering + "Print report" on each form popup (future)
+### Faithful form/report templates — editable support-role forms + "Save as PDF" (SME-requested 2026-05-21) — BLOCKED on reference forms; do not start until they arrive
 
-Eventually each ICS form should render in a **ready-to-print/PDF format that mirrors its real template layout**, not just the current generic sections-in-a-popup view. Each form popup (the `FormTabStrip` overlay) should also carry a **"Print report"** action.
+Replace the generic sections-in-a-popup form view with rendering that **matches each report's actual source-template layout**, make **support-role forms editable**, and let any report be **saved as a PDF that matches the source template's layout**. **Dave is providing all the real reports/forms as reference** — that is the unblocker; without the actual templates we cannot build faithful layouts, real field schemas, or matching PDFs.
 
-Scope notes for when this is picked up:
+Three parts:
 
-- **Per-template layouts.** The structured form content already exists (ICS 201 has named fields; placeholders have sections). The work is rendering each `formType` into a print-faithful layout — ideally matching the official ICS form's field arrangement so emergency personnel recognize it. Likely a per-`formType` rendering component or a print stylesheet keyed off `formType`.
-- **Print/PDF mechanism.** Two paths: (a) browser-native `window.print()` with a print-only CSS layout — cheapest, no new deps, "Save as PDF" via the browser; (b) server-side PDF generation from the structured content (reuse the `pdf` skill / a template engine) for a pixel-faithful, downloadable artifact. Start with (a) for the demo; (b) if SMEs need true-to-form PDFs.
-- **Derived-artifact discipline.** A printed/PDF report is a *derived artifact* per the immutability principle — it must trace back to the incident record (id, timestamp, who generated it). Stamp the incident id + generated-at on the output.
-- **"Print report" button placement.** On the form overlay, alongside the existing tap-to-minimize gesture. Keep it from interfering with the kiosk's single-tap-anywhere-to-close behavior (stopPropagation on the button).
-- Depends on the SME's per-form matrix (open question #3) for which templates matter most; prioritize ICS 201 (already fully structured) as the first print-faithful layout.
+1. **Faithful per-template rendering.** Each `formType` renders in a layout mirroring its official template (field arrangement, sections, labels) so emergency personnel recognize it — not the current generic sections view. Likely a per-`formType` rendering component (or a template-driven renderer) keyed off the structured content. ICS 201 is already fully structured; the placeholder forms (`PlaceholderFormContent`, generic sections) need their **real per-form field schemas** defined from the SME templates — a data-model expansion of the form-content discriminated union in `models/incidents.py`.
+
+2. **Editable support-role forms.** Support roles can edit form fields directly (today forms are LLM-generated and read-only; the only support action is "Update forms" = regenerate). Adds: per-field edit UI, edit persistence, and phase-gating (Response forms lock at Loss Stop; Transition-to-Recovery forms editable during Transition). Fire Officer forms stay read-only on the kiosk (voice-only; locked at Loss Stop) unless the SME says otherwise.
+   - **Key design tension — edit vs. regenerate.** A later "Update forms" regeneration would clobber manual edits. Need a rule before building: e.g., once a form is human-edited it locks from auto-regeneration (or regeneration only fills untouched fields, or requires explicit confirm). Decide so edits are never silently lost.
+   - **Audit / provenance.** A form is a *derived artifact* (not the immutable record), so editing is permitted — but per the immutability principle each edit must be audit-logged (who / when / which field), and the LLM-generated draft should remain traceable. Edited forms still stamp incident id + generated/edited-at. See [[Chat and transcript immutability is non-negotiable in opensourcerer-gen4]].
+
+3. **"Save as PDF" matching the source template.** Each form/report exports to a PDF whose layout matches the official template. Because matching layout is a hard requirement, favor **server-side PDF generation from the template** (the `pdf` skill / a template engine) over browser `window.print()` — browser print won't reproduce the official form faithfully. Keep the "Save as PDF" action on the form overlay (`stopPropagation` so it doesn't trigger the kiosk's tap-to-close). The PDF is a derived artifact: stamp incident id + timestamp + who generated it.
+
+**Dependencies / blockers:**
+
+- **Blocked on the SME/Dave-provided reference forms** (incoming) — required for faithful layouts, real field schemas, and matching PDFs.
+- The **per-form matrix** (open question #3): which roles edit which forms, and each form's active lifecycle phase.
+
+**Sequencing once references arrive:** start with ICS 201 (already fully structured) as the first faithful layout + PDF; expand `PlaceholderFormContent` into real per-form schemas as each template lands; layer editing onto the support-role forms; wire server-side PDF last.
+
+(Supersedes the earlier "Print/PDF-ready report rendering" note.)
 
 ### Make fresh-deploy work with auth on by default
 
@@ -465,6 +495,12 @@ Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azu
 ---
 
 ## Done
+
+### 2026-05-21 — Incident Commander authorized to close incidents
+
+**Outcome:** Added `incident-commander` to the close-incident authorized set, so the IC can close an incident (locking collateral via the recovery transition and dropping it off the support-role list) — extending the 5e capability. Safety Officer + Site Administrator retained; Transition-to-Recovery-only restriction and two-step confirm unchanged.
+
+**What changed:** `app/backend/app.py` — `_CLOSE_INCIDENT_ROLES = {"incident-commander", "safety-officer", "site-administrator"}`. `app/frontend/.../IncidentSupportView.tsx` — `canClose` gate now includes `incident-commander`. Comments updated in both. No change to `close_incident()` mechanics (recovery transition + form lock + list exclusion already handle "lock all collateral / remove from support list").
 
 ### 2026-05-20 — Session 5e: per-role "Update forms" + Safety Officer "Close Incident"
 

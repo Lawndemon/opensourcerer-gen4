@@ -66,10 +66,13 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     const createdAt = formatTimestamp(incident.createdAt);
     const lossStoppedAt = formatTimestamp(incident.lossStoppedAt);
 
-    // Close Incident is available to the Safety Officer + Site Administrator, only from
-    // Transition to Recovery (decision 2026-05-20). Backend enforces this too.
+    // Close Incident is available to the Incident Commander + Safety Officer + Site
+    // Administrator, only from Transition to Recovery (decision 2026-05-20; IC added
+    // 2026-05-21). Backend enforces this too.
     const canClose =
-        (actingRole === "safety-officer" || actingRole === "site-administrator") &&
+        (actingRole === "incident-commander" ||
+            actingRole === "safety-officer" ||
+            actingRole === "site-administrator") &&
         incident.phase === "transition_to_recovery";
 
     // --- Polling --------------------------------------------------------------

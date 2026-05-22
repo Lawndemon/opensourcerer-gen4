@@ -635,9 +635,10 @@ async def loss_stop(auth_claims: dict[str, Any], incident_id: str):
         return error_response(error, f"/api/incidents/{incident_id}/loss-stop")
 
 
-# Roles permitted to close an incident (decision 2026-05-20). Safety Officer is the
-# operational closer; Site Administrator keeps a broad override.
-_CLOSE_INCIDENT_ROLES = {"safety-officer", "site-administrator"}
+# Roles permitted to close an incident (decision 2026-05-20; Incident Commander added
+# 2026-05-21). Incident Commander is the command-authority closer (owns the incident);
+# Safety Officer is the operational closer; Site Administrator keeps a broad override.
+_CLOSE_INCIDENT_ROLES = {"incident-commander", "safety-officer", "site-administrator"}
 
 
 @bp.route("/api/incidents/<incident_id>/close", methods=["POST"])

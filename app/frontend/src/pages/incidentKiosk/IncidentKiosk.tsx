@@ -358,9 +358,6 @@ const IncidentKiosk = () => {
                             {locked && (
                                 <span className={styles.lockedBadge}>LOCKED — Transition to Recovery</span>
                             )}
-                            <Button appearance="subtle" onClick={handleReset}>
-                                End demo
-                            </Button>
                         </div>
                     </div>
 
@@ -443,6 +440,17 @@ const IncidentKiosk = () => {
                         {revalidating ? "Re-Validating…" : "Re-Validate IAP"}
                     </Button>
                 )}
+
+                {/* Demo-only controls — deliberately a DISTINCT floating cluster, kept apart from
+                    the real app controls (Loss Stop in the header, Re-Validate bottom-right) so the
+                    production UI isn't polluted with demo affordances and they can be removed as a
+                    unit once streaming STT lands. The phase-progression button (backlogged) joins here. */}
+                <div className={styles.demoControls}>
+                    <Caption1 className={styles.demoLabel}>DEMO</Caption1>
+                    <Button appearance="subtle" size="small" onClick={handleReset}>
+                        End demo
+                    </Button>
+                </div>
 
                 <AnalyzePopup
                     item={analyzeItem}

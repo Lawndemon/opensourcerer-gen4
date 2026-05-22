@@ -85,17 +85,27 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 16px 24px 0;
+    /* Bottom padding clears the position:fixed FormTabStrip + floating Re-Validate button. */
+    padding: 16px 24px 88px;
     gap: 12px;
-    overflow: hidden;
+    /* Single scroll region for the whole incident view — panes below size to their content
+       and the view scrolls as one page, rather than each pane having its own ("iframe") scroll. */
+    overflow-y: auto;
     min-height: 0;
 }
 
+/* Pinned to the top of the scrolling incident view so its right-side controls
+   (Loss Stop, and the phase-progression button) stay reachable while the panes scroll. */
 .incidentHeaderRow {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background-color: #0a0e14;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 16px;
+    padding-top: 8px;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex-shrink: 0;
@@ -149,7 +159,8 @@
     opacity: 0.6;
 }
 
-/* Each pane is bordered + rounded, has its own scroll for overflow. */
+/* Each pane is bordered + rounded and sizes to its content. No internal scroll —
+   the .inIncident wrapper scrolls the whole view as one (no per-pane "iframe" scroll). */
 .pane {
     background-color: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -158,8 +169,6 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-height: 0;
-    overflow-y: auto;
 }
 
 /* Pane 1 — Scene Summary. Compact, doesn't grow. Max 3 sentences. */
@@ -167,14 +176,14 @@
     flex: 0 0 auto;
 }
 
-/* Pane 2 — Scene Conditions, the thing the Fire Officer watches. Largest. */
+/* Pane 2 — Scene Conditions, the thing the Fire Officer watches. Grows with its content. */
 .scenePane {
-    flex: 2 1 0;
+    flex: 0 0 auto;
 }
 
-/* Pane 3 — Support Contributions, supplementary info from other roles. */
+/* Pane 3 — Support Contributions, supplementary info from other roles. Grows with content. */
 .supportPane {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-height: 120px;
 }
 
@@ -260,6 +269,31 @@
     border-radius: 999px !important;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     z-index: 50;
+}
+
+/* Demo-only control cluster — fixed bottom-left, deliberately separate from the real
+   floating controls (Re-Validate bottom-right, Loss Stop pinned in the header) so demo
+   affordances don't pollute the production UI and can be lifted out as a unit once
+   streaming STT replaces scripted phases. The phase-progression button joins here. */
+.demoControls {
+    position: fixed;
+    left: 24px;
+    bottom: 60px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    z-index: 50;
+}
+
+.demoLabel {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    font-size: 10px;
 }
 
 /* ------------------------------------------------------------------------ */
