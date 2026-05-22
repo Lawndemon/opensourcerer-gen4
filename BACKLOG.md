@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-05-20 (post-Session 5e)
+**Last updated:** 2026-05-22 (SME requests: scene-type triage, recommendation auto-population, AI/HIC provenance)
 
 ---
 
@@ -50,6 +50,82 @@ The SME asked whether AI can order scene conditions by "importance" — not mere
 
 **Phasing:** Phase 1 = deterministic band sort (low-risk, self-contained). Phase 2 = LLM escalation-priority + rationale within band.
 
+### ICS Scene Type triage detection + Fire Officer confirmation control (SME-requested 2026-05-22)
+
+Add ICS Canada incident **Type** (5 → 1) detection to the initial triage. The initial scene extraction estimates the applicable Type from the chatter; the Fire Officer confirms it (or overrides) on the kiosk. **Confirming the Type is a downstream trigger** — it fires support-recommendation auto-population (see [[Auto-populate support recommendations on scene-type confirm]]).
+
+**Source (federal-tier, ICS Canada — consistent with the doc cascade):** Type 5 (lowest; 1–2 single resources, ≤6 personnel, Command/General Staff not activated) → Type 4 (some staff if needed; contained within hours) → Type 3 (capabilities exceed initial response; most staff activated; Type 3 IMTs) → Type 2 (beyond local jurisdiction; regional/provincial; most/all staff filled; multi-operational-period) → Type 1 (most complex; national/international resources; Unified Command; extensive logistics/planning).
+
+**UX (Dave, 2026-05-22):**
+
+- Five circles, rendered **left-to-right as 1 → 5 to conform to the ICS standard ordering** (NOT re-sorted by severity). Trained personnel read the tiering natively; **no `HIGH ◄──► LOW` gradient label for now** — parked as an optional future affordance for less-trained users.
+- Positioned above or below the Scene Summary pane.
+- A **check/confirm circle** sits to the right. Initial triage pre-selects the AI-estimated Type; the Fire Officer either taps the check to confirm the estimate, or taps a different number and then confirms.
+- **Mind the inversion:** Type 5 = mildest, Type 1 = most severe — the *opposite* direction from the traffic-light severity bands (red/yellow/green). This is deliberate ICS convention; keep the Type control isolated from the severity colour channel so the two don't read as one scale.
+
+**Trigger semantics:** treat "Type confirmed" as a first-class incident state change and audit event (`scene_type_confirmed` — who/when, AI-estimate → confirmed value). Confirming the Type kicks off **two** downstream jobs (both off the critical path per [[Fire Officer kiosk responsiveness]]): (1) support-recommendation auto-population (below), and (2) **populating all downstream forms** (Dave, 2026-05-22). **IAP validation is NOT triggered by Type-confirm** — it still runs only when the Fire Officer presses **Re-Validate IAP** (deliberate: validation stays an explicit, on-demand action).
+
+**Scene type is mutable — the Fire Officer can change it on escalation (Dave, 2026-05-22).** The Type is not locked after the first confirm; the Fire Officer can raise (or lower) it as the scene evolves — e.g. a Type 4 that becomes a Type 2. **Changing the Type re-triggers the same downstream jobs as the initial confirm** — recommendation auto-population *and* forms population, both still off the critical path. (Confirmed by Dave 2026-05-22: a change re-fires BOTH forms and recommendations, exactly mirroring the initial confirm.)
+
+**Logging is append-only (Dave, 2026-05-22; see [[Chat & transcript immutability principle]]).** Each Type change appends a **new** `scene_type_confirmed` audit event (from → to, who, when) — it never edits or overwrites the prior one. The incident's *current* Type is derived from the latest event; the full progression (Type 4 → Type 2 → …) stays visible in the immutable history. Same append-only discipline as the rest of the event log.
+
+**Open questions:**
+
+- Could the AI *also* proactively re-estimate the Type as the scene accumulates across phases ([[Multi-phase (N-phase) incident testing]]) and prompt the Fire Officer to re-confirm? (Manual FO change is the decided baseline; AI-suggested re-typing would be a future layer on top.)
+- Per [[Don't over-engineer for the SME's short summary transcripts]], the AI Type estimate must work off streaming STT chatter, not the SME's tidy summary paragraphs — don't tune it to the placeholder shape.
+
+### Auto-populate support recommendations on scene-type confirm — ICS-urgency ordering, role bubbles, AI/HIC provenance (SME-requested 2026-05-22)
+
+When the Fire Officer confirms the scene Type (see [[ICS Scene Type triage detection]]), **all support roles automatically generate recommendations** into the Fire Officer's Scene Support pane — no per-role manual fetch.
+
+**Grouping — three ICS urgency headers (Dave, 2026-05-22).** The Support pane groups recommendations under three section headers, in standard ICS priority order: **Life Safety (most urgent) → Incident Stabilization (mid) → Property Conservation (least)**. This is *text-header grouping*, NOT a severity-coloured sort — see the colour decision below. The same hierarchy is used as the within-band tiebreaker in [[Scene-condition prioritization]] — keep the two consistent (one shared enum/constant, not two parallel definitions).
+
+**Category filter.** Only recommendations that map to one of those three categories auto-surface to the pane. The recommendation LLM tags its own output with the category; anything it cannot categorize into Life Safety / Incident Stabilization / Property Conservation is **filtered out of auto-surfacing** (not shown automatically).
+
+**Role bubbles — acronym + vest colour.** Each recommendation carries a coloured bubble showing the role's official ICS **acronym**, the bubble **colour matching that role's official Canadian ICS vest colour**. E.g. an `SO` recommendation renders as an `SO` bubble in Safety-Officer red.
+
+Authoritative mapping (SME-provided 2026-05-22; B.C. gov acronyms + Government of Canada vest colours):
+
+| Role | Acronym | Vest colour |
+|---|---|---|
+| Incident Commander | IC | Green |
+| Safety Officer | SO | Red (Command Staff) |
+| Public Information Officer | PIO | Red (Command Staff) |
+| Liaison Officer | LNO | Red (Command Staff) |
+| Operations Section Chief | OSC | Orange |
+| Planning Section Chief | PSC | Blue |
+| Logistics Section Chief | LSC | Yellow |
+| Finance/Administration Section Chief | FSC | Grey |
+| Intelligence/Investigations Section Chief | I/I SC | Brown |
+
+These are **net-new fields on the role model** — neither acronym nor vest colour exists in `roles.ts` today. Add `acronym` and `vestColor` to `RoleDefinition`.
+
+**Colour decision (Dave, 2026-05-22) — severity colour stays out of the Support pane.** Traffic-light severity colouring (`deviating_unsafe` / `deviating_safe` / `conforming`) is confined to the **Scene Conditions** pane only. The **Support pane** uses the three plain-text urgency headers above (Life Safety / Incident Stabilization / Property Conservation) for grouping — no severity colour channel at all. This **dissolves the vest-vs-severity collision by design**: with no red/yellow/green severity present in the Support pane, a red SO bubble can't be misread as a "critical" severity flag. Vest colour is therefore free to live on the role bubble.
+
+**One caution still stands — Command Staff share red.** SO, PIO, and LNO all wear the same red vest, so colour *cannot* disambiguate them — the **acronym text must always render**; never rely on colour alone to identify the role.
+
+**AI / HIC provenance (SME-requested 2026-05-22).** Every recommendation bubble carries a provenance suffix: `{ACRONYM} - AI` when machine-generated, flipping to `{ACRONYM} - HIC` (Human In Charge) once the actual human in that role logs in and confirms it. Human-typed recommendations are born `HIC`. The acronym is constant; only the suffix flips.
+
+- This is a **human-attestation layer**: the tool proposes (AI), a named human accepts accountability (HIC) — reinforces "decision *support*, not an oracle."
+- New field on the recommendation (`provenance: "ai" | "hic"`) plus confirming-user + confirmed-at.
+- **Confirm is per-recommendation (Dave, 2026-05-22).** The human ticks each item they agree with, and only those flip to HIC — faithful to "this named human agreed with *this specific* recommendation." Each flip is its own `support_recommendation_attested` audit event (below).
+
+**Audit (log screen-facing deltas, not AI thought process — Dave, 2026-05-22; see [[Chat and transcript immutability is non-negotiable in opensourcerer-gen4]]).** *Add* and *remove* are already logged (`support_contribution_added`, `support_recommendation_dismissed`). The two "change" deltas need new event types:
+
+- `support_recommendation_edited` — captures old → new text (also covers the refine-with-edit feature in [[Support-role UI refinements]]).
+- `support_recommendation_attested` — the AI → HIC flip (which recommendation, which human, when).
+
+Mechanically trivial: extend the `AuditEventType` literal + `event_log.append(make_audit_event(...))` at each handler; Cosmos is schemaless, so no migration. **The logging is the easy last mile; the *features* it rides on (inline edit UI, attestation state) are the real work.** Per Dave: do **not** log AI generation/regeneration churn — that's thought process, not a screen-facing delta.
+
+**Dependencies / sequencing:**
+
+- **Triggered by** [[ICS Scene Type triage detection]] (Type-confirm fires this auto-population; a later Fire-Officer Type *change* re-fires it).
+- Shares the Life Safety → Stabilization → Property hierarchy with [[Scene-condition prioritization]] — one shared constant.
+- Builds on the existing recommendation pipeline (`RecommendActionsApproach`, `RoleRecommendations` / `SupportContribution`, `RecommendationsPanel`). Category tag + provenance are new fields on those models.
+- Honors [[Fire Officer kiosk responsiveness]]: auto-population on Type-confirm runs **off the critical path** (background, like Re-Validate) — never blocks the on-scene screen.
+
+**I/I SC scope — reserved for later, NOT in scope now (SME + Dave, 2026-05-22).** The SME does not want the Intelligence/Investigations role included for now. Keep its acronym (`I/I SC`) and vest colour (Brown) reserved in the mapping so the data is ready, but **do not** add it as a ninth `ActingRole` / `IMT_ROLE_CHOICES` entry yet — the eight existing roles are the in-scope set. (Dave is personally interested in building richer support for this role down the line; parked as a future enhancement, not current scope.)
+
 ### Support-role UI refinements — remove dead "Refine" + add refine-with-edit to recommendations (SME-requested 2026-05-21)
 
 Two SME-requested support-role changes. Item 1 is a trivial standalone quick-win; item 2 is a multi-file feature.
@@ -63,7 +139,7 @@ Design notes / distinction to respect:
 - **This is NOT the Fire Officer's refine.** The kiosk's Refine Condition re-evaluates a *scene condition's status* against narrowed KB context (`refine_condition` approach; `getRefinementOptions` / `applyRefinement`; mutates a `SceneConditionAndAction`). A recommendation refine instead produces alternative *phrasings of a support recommendation* and edits the text that will be published — a different backend call and a different apply path. Fork the popup's visuals; do not reuse the scene-condition endpoints.
 - **The AI proposals are the core of refine, not optional** (Dave, 2026-05-21). The KB-grounded suggestion list is the primary value of the feature; the editable text field is layered on top for small human wording adjustments. Both ship together — do not reduce this to an edit-only field. Dave expects the suggestions to get materially better after the planned engine migration (see [[Planned engine migration: OpenAI → Anthropic]]).
 - **Edit-text fits the support role:** they use a keyboard (the no-typing rule is kiosk-only), so free editing is consistent with their interaction model. It is the middle ground between accept-as-is (✓) and write-from-scratch (the existing `CustomAddForm`).
-- **Publish-with-edited-text:** `publishRecommendation` currently publishes by id as-is. Extend it (or add a path) to accept an optional overridden text. Per the immutability/audit principle, the audit event should capture BOTH the original KB suggestion and the edited text so provenance is traceable; consider tagging source as `kb-edited` vs `kb` / `custom`.
+- **Publish-with-edited-text:** `publishRecommendation` currently publishes by id as-is. Extend it (or add a path) to accept an optional overridden text. Per the immutability/audit principle, the audit event should capture BOTH the original KB suggestion and the edited text so provenance is traceable; consider tagging source as `kb-edited` vs `kb` / `custom`. The edit emits the new `support_recommendation_edited` audit event (old → new text) defined in [[Auto-populate support recommendations on scene-type confirm]].
 - **Backend:** a "refine recommendation" suggestions endpoint — a small new approach, or a mode on `RecommendActionsApproach` — returning 2-3 KB-grounded rephrasings for a single recommendation.
 - **Frontend:** new `…` action in `RecommendationRow` + a `RefineRecommendationPopup` (forked from `RefineConditionPopup`) with a suggestions list plus an editable field; wire publish-with-text through `RecommendationsPanel`.
 
@@ -97,6 +173,8 @@ Three parts:
 **Sequencing once references arrive:** start with ICS 201 (already fully structured) as the first faithful layout + PDF; expand `PlaceholderFormContent` into real per-form schemas as each template lands; layer editing onto the support-role forms; wire server-side PDF last.
 
 (Supersedes the earlier "Print/PDF-ready report rendering" note.)
+
+**Future enhancement (Dave, 2026-05-22) — per-form "Final Validation" before approval.** Each form gets a **Final Validation** button that runs one last scan of the incident log / event history before the human is allowed to **approve** the form. This is the human-approval gate on a derived artifact: the AI does a final consistency pass against the immutable record, then a named human approves — a HIC-style attestation (cf. the AI → HIC provenance in [[Auto-populate support recommendations on scene-type confirm]]). Likely reuses the existing validation machinery (cf. the `validate_iap` approach) pointed at a form + the event log. The approval itself is an append-only audit event. Not scheduled — captured here so it isn't lost.
 
 ### Make fresh-deploy work with auth on by default
 
