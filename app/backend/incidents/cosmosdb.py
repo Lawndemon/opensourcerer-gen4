@@ -42,6 +42,7 @@ from models.incidents import (
     AuditEventType,
     IncidentDocument,
     SceneConditionAndAction,
+    SceneType,
 )
 
 
@@ -661,6 +662,48 @@ async def apply_refinement(
                 "new_status": target.status,
                 "delta_note": delta_note,
             },
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def confirm_scene_type(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    new_type: SceneType,
+    actor: Actor,
+) -> IncidentDocument:
+    """Confirm or change the incident's ICS scene Type (1–5). Append-only, audit-logged.
+
+    The Fire Officer can change the Type as the scene escalates (e.g. Type 4 → Type 2). Each
+    change appends a new `scene_type_confirmed` event (from → to) — the prior value is never
+    overwritten in the log — and updates the derived `scene_type` field to the latest value.
+    The full progression stays visible in the append-only history.
+
+    Idempotent: re-confirming the Type already on record is a no-op (no duplicate event), so
+    a double-tap of the same circle won't pollute the log.
+
+    NOTE: re-triggering downstream jobs (recommendation auto-population + forms population) on
+    a change is the *caller's* responsibility — that wiring lives in the app-layer handler,
+    not here. See BACKLOG.md → "Auto-populate support recommendations on scene-type confirm".
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    previous_type = doc.scene_type
+    if previous_type == new_type:
+        # Re-confirming the current Type shouldn't duplicate audit events.
+        return doc
+
+    doc.scene_type = new_type
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="scene_type_confirmed",
+            actor=actor,
+            payload={"from": previous_type, "to": new_type},
         )
     )
     return await replace_incident(doc)

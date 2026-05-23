@@ -68,6 +68,7 @@ from models.incidents import (
     RefineConditionResponse,
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
+    SetSceneTypeRequest,
     SceneSummary,
     TranscriptChunk,
     ValidateIAPRequest,
@@ -633,6 +634,42 @@ async def loss_stop(auth_claims: dict[str, Any], incident_id: str):
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/loss-stop")
+
+
+@bp.route("/api/incidents/<incident_id>/scene-type", methods=["POST"])
+@authenticated
+async def set_scene_type(auth_claims: dict[str, Any], incident_id: str):
+    """Confirm or change the incident's ICS scene Type (1–5). Append-only, audit-logged.
+
+    The Fire Officer confirms the AI-estimated Type or changes it as the scene escalates.
+    Each change appends a `scene_type_confirmed` event; `confirm_scene_type` is idempotent on
+    a no-op re-confirm (double-tapping the same circle won't duplicate events).
+
+    TODO (slice 4 — see BACKLOG.md "Auto-populate support recommendations on scene-type
+    confirm"): on a confirm/change, re-trigger the downstream jobs OFF THE CRITICAL PATH —
+    support-recommendation auto-population AND forms population — mirroring the initial
+    confirm. IAP validation is intentionally NOT triggered here (stays manual via Re-Validate).
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = SetSceneTypeRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match SetSceneTypeRequest", "details": ve.errors()}), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.confirm_scene_type(
+            tenant_id=tenant_id, incident_id=incident_id, new_type=body.scene_type, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/scene-type")
 
 
 # Roles permitted to close an incident (decision 2026-05-20; Incident Commander added

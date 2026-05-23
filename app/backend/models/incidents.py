@@ -67,6 +67,21 @@ IncidentPhase = Literal["response", "transition_to_recovery", "recovery"]
 CitationTier = Literal["client", "region", "federal", "domain"]
 """Document precedence tier. Client > Region > Federal > Domain."""
 
+SceneType = Literal[1, 2, 3, 4, 5]
+"""
+ICS Canada incident complexity Type. Stored as an integer 1–5.
+
+NOTE the inversion vs. the traffic-light severity bands: **1 = most complex / most severe**
+(national/international resources, Unified Command), **5 = least complex** (1–2 single
+resources, ≤6 personnel, no Command/General Staff). The kiosk renders these left-to-right as
+1 → 5 to conform to the ICS standard ordering — the integer is just data; the human-readable
+"Type N" labels live in the frontend.
+
+`IncidentDocument.scene_type` is the *confirmed* current Type (None until the Fire Officer
+first confirms). It is derived-but-persisted; the append-only `scene_type_confirmed` events in
+the event log are the source of truth for the full Type progression as a scene escalates.
+"""
+
 
 # === ACTOR ===
 
@@ -231,6 +246,7 @@ AuditEventType = Literal[
     "form_generated",
     "form_locked",
     "phase_transitioned",
+    "scene_type_confirmed",
 ]
 
 
@@ -396,6 +412,8 @@ class IncidentDocument(_IncidentBase):
     id: str  # = incident_id; second level of the hierarchical partition key.
     tenant_id: str = "default"  # first level of the hierarchical partition key.
     phase: IncidentPhase
+    scene_type: SceneType | None = None  # confirmed ICS Type (1–5); None until first confirm.
+    # Derived-but-persisted; append-only `scene_type_confirmed` events are the source of truth.
     created_by: Actor
     created_at: str
     loss_stopped_at: str | None = None
@@ -456,6 +474,20 @@ class LossStopRequest(_IncidentBase):
     will tighten as the role system matures.
     """
 
+    acting_role: str
+    user_id: str
+
+
+class SetSceneTypeRequest(_IncidentBase):
+    """
+    Request body for `POST /api/incidents/{id}/scene-type`.
+
+    `scene_type` is the ICS Type the Fire Officer is confirming or changing to (1–5). Pydantic
+    rejects anything outside that range. `acting_role` and `user_id` are recorded on the
+    resulting `scene_type_confirmed` audit event.
+    """
+
+    scene_type: SceneType
     acting_role: str
     user_id: str
 
