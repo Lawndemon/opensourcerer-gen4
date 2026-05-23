@@ -23,7 +23,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Subtitle1, Title1, Title3 } from "@fluentui/react-components";
 import { ArrowClockwise24Regular, Stop24Filled } from "@fluentui/react-icons";
 
-import type { IncidentDocument, SceneConditionAndAction, ValidateIAPResponse } from "../../api/incidentTypes";
+import type { IncidentDocument, SceneConditionAndAction, SceneType, ValidateIAPResponse } from "../../api/incidentTypes";
 import {
     createIncident,
     extractForms,
@@ -32,6 +32,7 @@ import {
     IncidentApiError,
     lossStop as lossStopRequest,
     removeCondition,
+    setSceneType as setSceneTypeRequest,
     validateIAP
 } from "../../api/incidents";
 import { useRole } from "../../roleContext";
@@ -40,6 +41,7 @@ import AnalyzePopup from "./AnalyzePopup";
 import FormTabStrip from "./FormTabStrip";
 import RefineConditionPopup from "./RefineConditionPopup";
 import SceneItemRow from "./SceneItemRow";
+import SceneTypeSelector from "./SceneTypeSelector";
 import { DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, getScenarioById } from "./fixtures";
 import styles from "./IncidentKiosk.module.css";
 
@@ -51,6 +53,7 @@ type KioskState =
           incidentId: string;
           scenarioId: string;
           iap: ValidateIAPResponse;
+          sceneType: SceneType | null;
           revalidating: boolean;
           locked: boolean;
           persisted: boolean;
@@ -178,6 +181,7 @@ const IncidentKiosk = () => {
                     incidentId: doc.id,
                     scenarioId: currentScenarioId,
                     iap: docIap,
+                    sceneType: doc.sceneType ?? null,
                     revalidating: false,
                     locked: doc.phase !== "response",
                     persisted: true,
@@ -204,6 +208,7 @@ const IncidentKiosk = () => {
                 incidentId: provisionalIncidentId,
                 scenarioId: currentScenarioId,
                 iap,
+                sceneType: null,
                 revalidating: false,
                 locked: false,
                 persisted: false,
@@ -260,6 +265,33 @@ const IncidentKiosk = () => {
             });
         }
     }, [state, actingRole]);
+
+    const handleConfirmSceneType = useCallback(
+        async (sceneType: SceneType) => {
+            if (state.phase !== "in_incident" || state.locked) return;
+            const previous = state;
+            // Optimistic: reflect the confirmed Type immediately. The kiosk never blocks on
+            // the network (Fire Officer kiosk responsiveness). Ephemeral incidents (Cosmos
+            // disabled) just keep the local value; persisted ones POST to the backend, which
+            // appends the scene_type_confirmed audit event.
+            setState({ ...previous, sceneType });
+            if (!previous.persisted) return;
+            try {
+                await setSceneTypeRequest(previous.incidentId, {
+                    sceneType,
+                    actingRole: actingRole ?? "fire-officer",
+                    userId: "kiosk"
+                });
+            } catch (err) {
+                setState({
+                    phase: "error",
+                    scenarioId: previous.scenarioId,
+                    message: `Set scene type failed: ${formatError(err)}`
+                });
+            }
+        },
+        [state, actingRole]
+    );
 
     const handleRemoveCondition = useCallback(
         async (item: SceneConditionAndAction) => {
@@ -331,7 +363,7 @@ const IncidentKiosk = () => {
     }
 
     if (state.phase === "in_incident") {
-        const { iap, incidentId, locked, revalidating, formsGenerating } = state;
+        const { iap, incidentId, locked, revalidating, formsGenerating, sceneType } = state;
         const items = iap.sceneConditionsAndActions;
 
         return (
@@ -360,6 +392,12 @@ const IncidentKiosk = () => {
                             )}
                         </div>
                     </div>
+
+                    <SceneTypeSelector
+                        value={sceneType}
+                        onConfirm={handleConfirmSceneType}
+                        disabled={locked}
+                    />
 
                     <section className={`${styles.pane} ${styles.summaryPane}`}>
                         <div className={styles.paneHeader}>

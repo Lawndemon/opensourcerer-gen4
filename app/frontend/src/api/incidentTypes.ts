@@ -122,7 +122,15 @@ export type AuditEventType =
     | "support_recommendation_dismissed"
     | "form_generated"
     | "form_locked"
-    | "phase_transitioned";
+    | "phase_transitioned"
+    | "scene_type_confirmed";
+
+/**
+ * ICS Canada incident complexity Type, 1–5. NOTE the inversion vs. the traffic-light
+ * severity bands: 1 = most complex/severe, 5 = least. The kiosk renders these left-to-right
+ * as 1 → 5 to conform to the ICS standard ordering.
+ */
+export type SceneType = 1 | 2 | 3 | 4 | 5;
 
 export interface AuditEvent {
     id: string;
@@ -144,6 +152,8 @@ export interface IncidentDocument {
     id: string;
     tenantId: string;
     phase: IncidentPhase;
+    /** Confirmed ICS Type (1–5); null until the Fire Officer first confirms. */
+    sceneType: SceneType | null;
     createdBy: Actor;
     createdAt: string;
     lossStoppedAt: string | null;
@@ -180,6 +190,12 @@ export interface IncidentListResponse {
 }
 
 export interface LossStopRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface SetSceneTypeRequest {
+    sceneType: SceneType;
     actingRole: ActingRole | string;
     userId: string;
 }
