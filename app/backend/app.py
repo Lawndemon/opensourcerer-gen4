@@ -950,7 +950,7 @@ async def refresh_support_recommendations(auth_claims: dict[str, Any], incident_
             tenant_id=tenant_id,
             incident_id=incident_id,
             role=body.acting_role,
-            new_items_text=new_items,
+            new_items_with_category=[(it.text, it.category) for it in new_items],
             actor=actor,
         )
         entry = _find_role_recommendations(updated_doc, body.acting_role)

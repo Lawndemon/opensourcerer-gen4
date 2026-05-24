@@ -26,16 +26,24 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
-from models.incidents import SceneConditionAndAction, SupportContribution
+from models.incidents import RecommendationCategory, SceneConditionAndAction, SupportContribution
 
 logger = logging.getLogger(__name__)
 
 
-class _LLMRecommendationsResponse(BaseModel):
-    """LLM-output shape; 3-5 short role-appropriate action strings."""
+class _LLMRecommendation(BaseModel):
+    """One LLM-produced recommendation: the action text plus its ICS urgency category."""
 
     model_config = {"alias_generator": to_camel, "populate_by_name": True, "extra": "forbid"}
-    recommended_actions: list[str] = Field(min_length=3, max_length=5)
+    text: str
+    category: RecommendationCategory
+
+
+class _LLMRecommendationsResponse(BaseModel):
+    """LLM-output shape; 3-5 short role-appropriate recommendations, each categorized."""
+
+    model_config = {"alias_generator": to_camel, "populate_by_name": True, "extra": "forbid"}
+    recommended_actions: list[_LLMRecommendation] = Field(min_length=3, max_length=5)
 
 
 class RecommendActionsApproach:
@@ -82,8 +90,8 @@ class RecommendActionsApproach:
         scene_conditions: list[SceneConditionAndAction],
         already_published: list[SupportContribution],
         recently_dismissed: list[str],
-    ) -> list[str]:
-        """Generate 3-5 recommended actions for the role."""
+    ) -> list[_LLMRecommendation]:
+        """Generate 3-5 categorized recommended actions for the role."""
 
         # Compact scene conditions for the prompt — text + status only; the LLM doesn't
         # need the full citation/refinement metadata for this call.

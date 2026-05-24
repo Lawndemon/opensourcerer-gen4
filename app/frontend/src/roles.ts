@@ -38,11 +38,27 @@ export type ActingRole =
 
 export type RoleCategory = "field" | "ics-command" | "ics-command-staff" | "ics-section-chief" | "admin";
 
+export interface VestColour {
+    /** ICS vest colour name as specified by the SME (B.C. gov / Government of Canada). */
+    name: string;
+    /** Bubble background colour. */
+    background: string;
+    /** Text colour with sufficient contrast on `background`. */
+    text: string;
+}
+
 export interface RoleDefinition {
     id: ActingRole;
     displayName: string;
     description: string;
     category: RoleCategory;
+    /** Official ICS acronym (e.g. "SO"). Present for ICS roles; omitted for field/admin. */
+    acronym?: string;
+    /**
+     * Official ICS vest colour for the role bubble. NOTE: Command Staff (SO, PIO, LNO) all
+     * share Red, so the acronym — not the colour — disambiguates them.
+     */
+    vestColour?: VestColour;
 }
 
 export const ACTING_ROLES: RoleDefinition[] = [
@@ -56,49 +72,65 @@ export const ACTING_ROLES: RoleDefinition[] = [
         id: "incident-commander",
         displayName: "Incident Commander",
         description: "Overall authority and responsibility for the incident.",
-        category: "ics-command"
+        category: "ics-command",
+        acronym: "IC",
+        vestColour: { name: "Green", background: "#2e7d32", text: "#ffffff" }
     },
     {
         id: "safety-officer",
         displayName: "Safety Officer",
         description: "Monitors hazardous conditions and develops measures for responder safety.",
-        category: "ics-command-staff"
+        category: "ics-command-staff",
+        acronym: "SO",
+        vestColour: { name: "Red", background: "#c50f1f", text: "#ffffff" }
     },
     {
         id: "liaison-officer",
         displayName: "Liaison Officer",
         description: "Primary contact for representatives of cooperating and assisting agencies.",
-        category: "ics-command-staff"
+        category: "ics-command-staff",
+        acronym: "LNO",
+        vestColour: { name: "Red", background: "#c50f1f", text: "#ffffff" }
     },
     {
         id: "information-officer",
         displayName: "Information Officer (PIO)",
         description: "Interfaces with media and public; manages information release.",
-        category: "ics-command-staff"
+        category: "ics-command-staff",
+        acronym: "PIO",
+        vestColour: { name: "Red", background: "#c50f1f", text: "#ffffff" }
     },
     {
         id: "section-chief-operations",
         displayName: "Section Chief — Operations",
         description: "Directs tactical operations carrying out the incident action plan.",
-        category: "ics-section-chief"
+        category: "ics-section-chief",
+        acronym: "OSC",
+        vestColour: { name: "Orange", background: "#d83b01", text: "#ffffff" }
     },
     {
         id: "section-chief-planning",
         displayName: "Section Chief — Planning",
         description: "Collects and disseminates incident information; maintains resource status.",
-        category: "ics-section-chief"
+        category: "ics-section-chief",
+        acronym: "PSC",
+        vestColour: { name: "Blue", background: "#0f6cbd", text: "#ffffff" }
     },
     {
         id: "section-chief-logistics",
         displayName: "Section Chief — Logistics",
         description: "Provides facilities, services, and materials required for the incident.",
-        category: "ics-section-chief"
+        category: "ics-section-chief",
+        acronym: "LSC",
+        vestColour: { name: "Yellow", background: "#f5d300", text: "#242424" }
     },
     {
         id: "section-chief-finance",
         displayName: "Section Chief — Finance/Admin",
         description: "Tracks incident-related costs; handles procurement and compensation.",
-        category: "ics-section-chief"
+        category: "ics-section-chief",
+        acronym: "FSC",
+        vestColour: { name: "Grey", background: "#5d5a58", text: "#ffffff" }
     },
     {
         id: "site-administrator",

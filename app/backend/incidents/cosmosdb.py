@@ -41,6 +41,7 @@ from models.incidents import (
     AuditEvent,
     AuditEventType,
     IncidentDocument,
+    RecommendationCategory,
     SceneConditionAndAction,
     SceneType,
 )
@@ -385,13 +386,13 @@ async def refresh_role_recommendations(
     tenant_id: str,
     incident_id: str,
     role: str,
-    new_items_text: list[str],
+    new_items_with_category: list[tuple[str, "RecommendationCategory | None"]],
     actor: Actor,
 ):
     """Replace the role's pending recommendations with a freshly-generated list.
 
-    `new_items_text` is the raw LLM output (list of strings); we mint ids and timestamps
-    server-side so the role's view has stable identifiers for publish/dismiss calls.
+    `new_items_with_category` is the LLM output as (text, category) pairs; we mint ids and
+    timestamps server-side so the role's view has stable identifiers for publish/dismiss calls.
 
     Writes one audit event recording the refresh. Items themselves do not get individual
     "created" events — that would be noisy. Each subsequent publish/dismiss IS audited
@@ -410,10 +411,11 @@ async def refresh_role_recommendations(
             id=str(uuid.uuid4()),
             text=text,
             source="kb",
+            category=category,
             created_at=now,
             created_by=actor,
         )
-        for text in new_items_text
+        for (text, category) in new_items_with_category
     ]
 
     # Find existing role entry or insert a new one.
@@ -516,6 +518,7 @@ async def publish_recommendation(
         id=str(uuid.uuid4()),
         text=item.text,
         source="recommended" if item.source == "kb" else "custom",
+        category=item.category,
         added_by=actor,
         added_at=_now_iso(),
     )

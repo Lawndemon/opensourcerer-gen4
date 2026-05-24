@@ -82,6 +82,15 @@ first confirms). It is derived-but-persisted; the append-only `scene_type_confir
 the event log are the source of truth for the full Type progression as a scene escalates.
 """
 
+RecommendationCategory = Literal["life_safety", "incident_stabilization", "property_conservation"]
+"""
+ICS resource-priority category for a support recommendation, in urgency order:
+life safety (most urgent) > incident stabilization > property conservation. Groups
+recommendations under section headers in the support pane. `None` = uncategorized (e.g. a
+human-typed custom item not yet categorized); uncategorized items are excluded from the Fire
+Officer's auto-surfaced grouping.
+"""
+
 
 # === ACTOR ===
 
@@ -154,6 +163,7 @@ class SupportContribution(_IncidentBase):
     id: str
     text: str
     source: Literal["recommended", "custom"]
+    category: RecommendationCategory | None = None
     added_by: Actor
     added_at: str
 
@@ -375,6 +385,7 @@ class PendingRecommendation(_IncidentBase):
     id: str
     text: str
     source: Literal["kb", "custom"]
+    category: RecommendationCategory | None = None
     created_at: str
     created_by: Actor
 
