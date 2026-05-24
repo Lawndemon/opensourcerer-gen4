@@ -67,6 +67,7 @@ function projectDocument(doc: IncidentDocument): ValidateIAPResponse {
     return {
         incidentId: doc.id,
         phase: doc.phase,
+        sceneTypeEstimate: doc.sceneTypeEstimate,
         sceneSummary: doc.sceneSummary,
         sceneConditionsAndActions: doc.sceneConditionsAndActions,
         supportContributions: doc.supportContributions,
@@ -395,6 +396,7 @@ const IncidentKiosk = () => {
 
                     <SceneTypeSelector
                         value={sceneType}
+                        estimated={iap.sceneTypeEstimate}
                         onConfirm={handleConfirmSceneType}
                         disabled={locked}
                     />

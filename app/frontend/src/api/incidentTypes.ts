@@ -102,6 +102,8 @@ export interface ValidateIAPRequest {
 export interface ValidateIAPResponse {
     incidentId: string;
     phase: IncidentPhase;
+    /** AI-estimated ICS Type (1–5); null if none. Pre-selects the kiosk control. */
+    sceneTypeEstimate: SceneType | null;
     sceneSummary: SceneSummary;
     sceneConditionsAndActions: SceneConditionAndAction[];
     supportContributions: SupportContribution[];
@@ -154,6 +156,8 @@ export interface IncidentDocument {
     phase: IncidentPhase;
     /** Confirmed ICS Type (1–5); null until the Fire Officer first confirms. */
     sceneType: SceneType | null;
+    /** AI's latest estimated Type (pre-selects the kiosk control); null if none yet. */
+    sceneTypeEstimate: SceneType | null;
     createdBy: Actor;
     createdAt: string;
     lossStoppedAt: string | null;

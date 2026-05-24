@@ -251,6 +251,7 @@ async def apply_validate_iap_result(
     incident_id: str,
     new_scene_summary,
     new_conditions: list[SceneConditionAndAction],
+    new_scene_type_estimate: SceneType | None = None,
     actor: Actor | str = "system",
 ) -> IncidentDocument:
     """Persist the result of a Validate IAP pass (scene state only).
@@ -293,6 +294,10 @@ async def apply_validate_iap_result(
 
     doc.scene_summary = new_scene_summary
     doc.scene_conditions_and_actions = reconciled
+    # Persist the AI's Type estimate so the kiosk can pre-select even on the persisted path.
+    # Only overwrite when present, so a re-extraction that omits it won't wipe a prior estimate.
+    if new_scene_type_estimate is not None:
+        doc.scene_type_estimate = new_scene_type_estimate
 
     doc.event_log.append(
         make_audit_event(

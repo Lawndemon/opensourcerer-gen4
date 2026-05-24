@@ -569,6 +569,7 @@ async def create_incident(auth_claims: dict[str, Any]):
                 incident_id=incident_id,
                 new_scene_summary=iap_result.scene_summary,
                 new_conditions=iap_result.scene_conditions_and_actions,
+                new_scene_type_estimate=iap_result.scene_type_estimate,
             )
         return jsonify({"incident": created.model_dump(by_alias=True)}), 201
     except Exception as error:

@@ -312,6 +312,9 @@ class ValidateIAPResponse(_IncidentBase):
 
     incident_id: str
     phase: IncidentPhase
+    scene_type_estimate: SceneType | None = None  # AI's estimated ICS Type (1–5). The Fire
+    # Officer confirms/overrides on the kiosk; NOT the confirmed value (that's
+    # IncidentDocument.scene_type, set only on explicit confirm).
     scene_summary: SceneSummary
     scene_conditions_and_actions: list[SceneConditionAndAction] = Field(default_factory=list)
     support_contributions: list[SupportContribution] = Field(default_factory=list)
@@ -414,6 +417,8 @@ class IncidentDocument(_IncidentBase):
     phase: IncidentPhase
     scene_type: SceneType | None = None  # confirmed ICS Type (1–5); None until first confirm.
     # Derived-but-persisted; append-only `scene_type_confirmed` events are the source of truth.
+    scene_type_estimate: SceneType | None = None  # AI's latest estimate; pre-selects the kiosk
+    # control. Distinct from the confirmed scene_type above and not itself an audited decision.
     created_by: Actor
     created_at: str
     loss_stopped_at: str | None = None
