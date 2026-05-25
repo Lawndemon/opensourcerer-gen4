@@ -33,6 +33,8 @@ export interface RecommendationRowData {
     category: RecommendationCategory | null;
     /** Owning role id — renders the vest-colour bubble. */
     role: string;
+    /** Provenance for published contributions: "ai" (machine) or "hic" (human-confirmed). */
+    provenance?: "ai" | "hic";
 }
 
 interface RecommendationRowProps {
@@ -48,6 +50,8 @@ interface RecommendationRowProps {
     onDismiss?: (id: string) => Promise<void> | void;
     /** When true, render a spinner instead of the action buttons (in-flight). */
     busy?: boolean;
+    /** Confirm handler for AI published rows — flips provenance AI -> HIC. */
+    onConfirm?: (id: string) => Promise<void> | void;
 }
 
 const STATUS_BADGE: Record<RowStatus, { label: string; color: "warning" | "success" | "subtle" }> = {
@@ -62,7 +66,7 @@ const SOURCE_BADGE: Record<RowSource, { label: string; color: "informative" | "b
     unknown: { label: "—", color: "subtle" }
 };
 
-const RecommendationRow = ({ row, onPublish, onDismiss, busy }: RecommendationRowProps) => {
+const RecommendationRow = ({ row, onPublish, onDismiss, onConfirm, busy }: RecommendationRowProps) => {
     const statusBadge = STATUS_BADGE[row.status];
     const sourceBadge = SOURCE_BADGE[row.source];
     const isPending = row.status === "pending";
@@ -71,7 +75,7 @@ const RecommendationRow = ({ row, onPublish, onDismiss, busy }: RecommendationRo
     return (
         <div className={`${styles.row} ${isDismissed ? styles.rowDismissed : ""}`}>
             <div className={styles.badges}>
-                <RoleBubble role={row.role} />
+                <RoleBubble role={row.role} suffix={row.provenance ? row.provenance.toUpperCase() : undefined} />
                 <Badge size="small" appearance="filled" color={statusBadge.color}>
                     {statusBadge.label}
                 </Badge>
@@ -81,8 +85,19 @@ const RecommendationRow = ({ row, onPublish, onDismiss, busy }: RecommendationRo
             </div>
             <Body1 className={styles.text}>{row.text}</Body1>
             <div className={styles.actions}>
-                {busy && isPending ? (
+                {busy ? (
                     <Spinner size="tiny" />
+                ) : row.status === "published" && row.provenance === "ai" && onConfirm ? (
+                    <Tooltip content="Confirm — you take ownership (AI → HIC)" relationship="label">
+                        <Button
+                            appearance="subtle"
+                            size="small"
+                            icon={<Checkmark24Regular />}
+                            className={styles.publishButton}
+                            aria-label={`Confirm: ${row.text}`}
+                            onClick={() => void onConfirm(row.id)}
+                        />
+                    </Tooltip>
                 ) : isPending && (onPublish || onDismiss) ? (
                     <>
                         {onPublish && (

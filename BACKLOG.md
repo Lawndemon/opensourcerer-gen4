@@ -553,6 +553,18 @@ Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azu
 
 ---
 
+### Codebase cleanup — dead-code purge + de-clutter inherited template (LOW PRIORITY, bottom of list — Dave, 2026-05-22)
+
+opensourcerer-gen4 began as a fork of `azure-search-openai-demo`. The project has since pivoted hard toward the incident-centric Fire Officer / IMT direction, so much of the original AI-Search/RAG scaffolding is now clutter. Two cleanup passes, both explicitly **bottom-of-the-list — do not let this displace feature work**:
+
+1. **Purge dead code.** Remove code that does nothing: unused functions, components, endpoints, imports, fixtures, config flags, and assets with no live references. Likely hunting grounds: leftover upstream chat/ask UI, unused approaches, the upstream `tests/` covering template features we no longer ship, dead config. Use a reference checker before deleting (grep for usages; `ts-prune`/`tsc` for the frontend, `vulture`/`pyflakes` for the backend) — confirm zero references, don't delete on a hunch.
+
+2. **Refactor / optimize the inherited template code.** Tidy and streamline the `azure-search-openai-demo`-inherited code that remains relevant but carries template baggage from the original architecture. Goal: shrink surface area and make what's left coherent with the incident-centric design.
+
+**Hard caveat — preserve the RAG retrieval the incident pipeline will need.** The KB retrieval machinery (search, embeddings, the planned Client > Region > Federal > Domain cascade) is *still load-bearing* for the incident pipeline even though it is currently unbuilt across that pipeline (see [[SME reference-document list]]). Cleanup must NOT rip out retrieval wholesale — distinguish "overtaken template UI/glue" (safe to cut) from "RAG retrieval we'll wire into incidents later" (keep). When in doubt, keep and flag rather than delete.
+
+**Sequencing.** Strictly after the in-flight incident features stabilize (cleanup is lower-risk once the feature surface has settled). Note the engine migration ([[Planned engine migration: OpenAI → Anthropic]]) will itself touch/replace some of this code — decide whether to fold parts of the cleanup into that migration rather than doing the work twice.
+
 ## Notes on the deploy / template
 
 - Template is upstream `azure-samples/azure-search-openai-demo`. Merges from upstream may conflict with:
@@ -695,101 +707,4 @@ Replace the chat-completion path in `app/backend/approaches/*.py` (currently Azu
 - **No KB retrieval in v1 refine.** Same call to the chat-completion LLM, no Azure Search hop. The "knowledgebase-generated" narrowing statements are LLM-generated for now; real KB grounding lands with the role-based retrieval cascade.
 - **Temperature split.** Narrowing is creative (0.45) so the three options actually differ; apply is near-deterministic (0.15) so the same inputs yield the same re-evaluation. Considered making this configurable but it's not worth a knob until we see real evals.
 
-**ICS 201 verification finding:** the existing extraction prompt already produces fully-populated ICS 201 content in all three smoke-test fixtures (incident name, situation summary, current objectives, actions, resources, prepared-by). Only known cosmetic quirk: `dateTimeInitiated` invents a 2024 year because transcripts have no year context. Fixable later by server-injecting the request-time date; not on the critical path.
-
-**Deploy:** code-only (no Bicep), goes out via `azd deploy` (~10 min). No new env vars.
-
-### 2026-05-12 — Kiosk UI structural restructure (mid-Session)
-
-**Outcome:** Kiosk layout matches Dave's structural spec — three vertical panes stacked top-to-bottom (Scene Summary → Scene Conditions bullets → Support Contributions) with Excel-style form tabs along the bottom. Pre-incident page now fills the viewport properly.
-
-**What changed:**
-
-- `IncidentKiosk.module.css` — `.container` got `flex: 1; width: 100%` so the Start Incident screen actually centers (was left-justified because the parent `.main` is a flex row with no width on children). Replaced the two-column `.twoColumn` grid with three vertical `.pane`-styled sections (`.summaryPane`, `.scenePane`, `.supportPane`) using flex-grow ratios 0/2/1.
-- `SceneItemRow.tsx` + CSS — stripped card chrome to read as a bulleted list. Traffic-light icon serves as the bullet glyph. Refine / Remove buttons kept but de-emphasized.
-- `FormTabStrip.tsx` + CSS — Excel-sheet-tab paradigm: thin tab strip pinned to the bottom, narrow tabs with top-only rounded corners, active tab lifts 2px. Tapping a tab opens a near-full-screen overlay (max 1100px wide, 90vh tall) with the form content; tap anywhere on the overlay to minimize. No close button — single-tap-anywhere is the kiosk-friendly close gesture.
-
-**Trade-off:** the overlay's tap-anywhere-to-close means accidentally tapping inside the form content also closes it. Acceptable for a read-only viewer; if forms become editable later, the inner card will need to stopPropagation. Hint text at the bottom of the overlay tells the user what to expect.
-
-### 2026-05-12 — Session 3 of Fire Officer prototype: Cosmos persistence, Loss Stop, condition removal
-
-**Outcome:** Incidents persist across kiosk reloads. Start Incident creates a real document in Cosmos with an embedded append-only audit log. Loss Stop transitions the phase server-side and locks Response-phase forms. Fire Officer's Remove button flag-flips conditions with an audit entry. Re-Validate IAP reconciles new extraction against the persisted state (sticky-removal semantics).
-
-**What changed:**
-
-- `infra/main.bicep` — added an `incidents` container alongside the existing chat-history container. Hierarchical partition key `[/tenantId, /id]` for forward-compatibility with the multi-tenant Entra goal. Same Cosmos account, same database — one infra footprint, two containers. New `incidentsContainerName` parameter (default `incidents`), new `AZURE_INCIDENTS_CONTAINER` env var on the Container App.
-- `app/backend/incidents/cosmosdb.py` (new) — CRUD layer with the audit-log-on-every-write pattern. Exposes `create_incident`, `get_incident`, `replace_incident`, `apply_validate_iap_result` (sticky-removal reconciliation built in), `remove_condition`, `transition_to_loss_stopped`, `append_audit_event`, and a `setup_incidents_cosmos()` helper that installs the container proxy into Quart app config alongside the chat-history one. Gated by `USE_CHAT_HISTORY_COSMOS=true`.
-- `app/backend/app.py` — four new endpoints (`POST /api/incidents`, `GET /api/incidents/{id}`, `POST /api/incidents/{id}/loss-stop`, `DELETE /api/incidents/{id}/conditions/{conditionId}`). Existing `POST /api/incidents/{id}/validate-iap` extended: when the incident exists in Cosmos, the LLM result is reconciled with the persisted state (removed-flag stickiness) and a `condition_extracted` audit event is appended. When Cosmos isn't enabled it falls back to the Session-1 behavior (pure LLM extraction, no persistence) for the unpersisted-incident path.
-- `app/backend/models/incidents.py` — added `CreateIncidentRequest`, `LossStopRequest`, `RemoveConditionRequest`. Expanded docstring on `IncidentDocument` reflecting the hierarchical partition key.
-- `app/backend/config.py` — `CONFIG_INCIDENTS_COSMOS_ENABLED`, `CONFIG_COSMOS_INCIDENTS_CONTAINER`.
-- Frontend `app/frontend/src/api/incidents.ts` + `incidentTypes.ts` — new functions (`createIncident`, `getIncident`, `lossStop`, `removeCondition`), new types (`IncidentDocument`, `AuditEvent`, `TranscriptChunk`, request/response shapes).
-- Frontend `app/frontend/src/pages/incidentKiosk/IncidentKiosk.tsx` — Start Incident hits `POST /api/incidents`; on 503 the kiosk gracefully falls back to the ephemeral flow so the demo path keeps working without Cosmos. Loss Stop and condition removal call the server when the incident is persisted; optimistic UI updates with rollback on error. New `persisted` flag in state distinguishes the two modes.
-- Frontend `app/frontend/src/pages/incidentKiosk/SceneItemRow.tsx` — new optional `onRemove` prop; trash button rendered only when supplied (Fire Officer, not locked).
-
-**Trade-offs accepted:**
-
-- **No optimistic concurrency on Cosmos writes.** v1 has a single writer per incident (Fire Officer); multi-writer support roles in Session 5+ will need ETag-based replace. Documented in the CRUD module.
-- **Read-then-write pattern for audit-event append.** Each state change does `read_item` + `replace_item`. Fine for the v1 throughput profile (handful of curation events per incident, one Fire Officer). Patch-operations path is the optimization when contention warrants it.
-- **`userId` falls back to `auth_claims.oid`.** Frontend hardcodes `"kiosk"` as a placeholder string — backend overrides with the real Entra OID when auth is in front. Acceptable because the OID is authoritative for audit purposes.
-- **Resurface detection is deferred.** The reconciliation in `apply_validate_iap_result` currently honors sticky-removal but doesn't emit `condition_resurfaced` events. The audit type exists in the contract; the wiring lands when the extraction prompt is tuned to mint fresh ids for materially new evidence.
-
-**Deploy:**
-
-- `azd env set USE_CHAT_HISTORY_COSMOS true` (flips both chat-history Cosmos and the new incidents container on).
-- `azd up` — provisions the Cosmos account, both containers, role assignments. ~1hr end-to-end. Subsequent code-only changes go via `azd deploy`.
-
-**Verified:** `npx tsc --noEmit` clean. Python AST parse clean on all modified files. Bicep follows the existing AVM module pattern. Not yet smoke-tested against live deploy — that's the post-`azd up` step.
-
-### 2026-04-30 — Session 2 of Fire Officer prototype: kiosk dashboard UI
-
-**Outcome:** Validate IAP backend results now render as a live kiosk dashboard. Traffic-light scene items, Analyze popup, ICS 201 form preview, Re-Validate IAP button, and Loss Stop (local-only at this stage) all work end-to-end against the deployed backend.
-
-**What changed:**
-
-- `app/frontend/src/pages/incidentKiosk/SceneItemRow.tsx` + CSS — single-line scene item row with traffic-light icon (green check / yellow ! / red X), Condition/Action badge, click-to-Analyze, disabled Refine placeholder.
-- `app/frontend/src/pages/incidentKiosk/AnalyzePopup.tsx` + CSS — modal showing publishedPlanContext, clientPlanContext, delta. Citations gated by `showCitations` prop (hidden for Fire Officer per MAD framework simplicity-under-chaos rule).
-- `app/frontend/src/pages/incidentKiosk/FormTabStrip.tsx` + CSS — bottom-of-screen form tabs with pop-up preview panel; ICS 201 renders structured fields.
-- `app/frontend/src/pages/incidentKiosk/IncidentKiosk.tsx` — full in-incident dashboard layout (Scene Summary / Scene Conditions and Actions / Support Contributions / form tabs), floating Re-Validate IAP button, Loss Stop button (locked badge after press).
-
-**Trade-offs accepted:**
-
-- Refine Condition button was a placeholder this session — full popup + endpoints land in Session 4 per the plan.
-- Loss Stop was local-only at this stage (no Cosmos persistence); real persistence landed in Session 3 (above).
-
-**Verified:** `npx tsc --noEmit` clean against the deployed Container App backend.
-
-### 2026-04-21 — Locked down public access with Entra authentication
-
-**Outcome:** Container App no longer accepts anonymous traffic; all requests redirect to `login.microsoftonline.com` and require a valid Entra sign-in from the `emc1.ca` tenant.
-
-**What changed:**
-
-- `infra/main.parameters.json` — flipped `useAuthentication` default to `true`, set `authTenantId` default to `dc701977-419d-4e3d-87c0-d53cf7ef56a0`. Dynamic auth values (server/client app IDs, server secret) intentionally left sourced from azd env because they're produced at runtime by `scripts/auth_init.py`.
-- `.azure/emergencyresponse/.env` — `AZURE_USE_AUTHENTICATION=true`, `AZURE_AUTH_TENANT_ID=<tenant>` set via `azd env set` (needed to beat the existing `"false"` value and kick `auth_init` into action).
-- Two Entra app registrations created in the Evolve Management Consulting tenant by `auth_init` during `azd provision`:
-  - Client (SPA): `e5ae100b-7372-4edb-a043-e5036e48ec05`
-  - Server (API): `f313726c-e3b9-4b51-a096-d5239c1eabf1`
-- Server app secret stored in azd env as `AZURE_SERVER_APP_SECRET`; Bicep wires it to the Container App as a secret reference.
-- Container App revision rolled with new auth env vars; new search reader role assigned to backend identity (part of `useAuthentication=true` Bicep branch).
-
-**Verified:** anonymous incognito request redirected to Microsoft sign-in; `dhewlett@emc1.ca` signed in successfully and saw the chat UI.
-
-**Known gaps:** fresh-deploy on a different machine would still hit the `auth_init`-skips-on-empty-env footgun until the "next up" item is done.
-
-### 2026-04-21 — Created lab test user cohort + tightened MFA to admins only
-
-**Outcome:** Tenant now has 11 test users representing the ICS-based role taxonomy plus a generic user, created without first-login friction for fast iteration. MFA is still enforced on the admin accounts that matter, not on test users.
-
-**What changed:**
-
-- `scripts/create_lab_users_test.sh` / `.ps1` — creates 11 test users with `--force-change-password-next-sign-in false`.
-- `scripts/create_lab_users_prod.sh` / `.ps1` — parallel variant for production-style validation (forced password change, security defaults assumed on).
-- Tenant security defaults **disabled** via portal (Microsoft Entra ID → Properties → Manage security defaults → Disabled). Side-effect: MFA no longer auto-enforced on every account.
-- Admin accounts manually re-enforced via legacy per-user MFA portal (https://account.activedirectory.windowsazure.com/UserManagement/MultifactorVerification.aspx), transitioned through Enabled → Enforced.
-
-**Trade-offs accepted:**
-
-- Legacy per-user MFA is deprecated. Microsoft will eventually retire the UI and API. Revisit if/when that happens or if real users warrant P1/Conditional Access.
-- Security defaults off means the tenant loses its baseline blanket protection; we're now relying on per-user MFA for admins and password-only for test users. OK for a personal lab with a handful of accounts.
-
-**Verified:** admin MFA prompt on sign-in still works; test users sign in password-only.
+**ICS 201 verification finding:** the existing extraction prompt already produces fully-populated ICS 201 content in all three smoke-test fixtures (incident nam

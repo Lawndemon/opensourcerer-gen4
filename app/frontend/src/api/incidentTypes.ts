@@ -53,6 +53,8 @@ export interface SupportContribution {
     source: "recommended" | "custom";
     /** ICS urgency category; null = uncategorized (groups under "Other"). */
     category: RecommendationCategory | null;
+    /** "ai" = machine-suggested, not yet human-confirmed; "hic" = Human In Charge owns it. */
+    provenance: "ai" | "hic";
     addedBy: Actor;
     addedAt: string;
 }
@@ -204,6 +206,11 @@ export interface LossStopRequest {
 
 export interface SetSceneTypeRequest {
     sceneType: SceneType;
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface AttestContributionRequest {
     actingRole: ActingRole | string;
     userId: string;
 }

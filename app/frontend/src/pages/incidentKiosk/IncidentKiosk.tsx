@@ -459,7 +459,7 @@ const IncidentKiosk = () => {
                                             <ul className={styles.supportList}>
                                                 {group.map(c => (
                                                     <li key={c.id} className={styles.supportItem}>
-                                                        <RoleBubble role={c.addedBy.role} />
+                                                        <RoleBubble role={c.addedBy.role} suffix={c.provenance === "ai" ? "AI" : "HIC"} />
                                                         <Body1 className={styles.supportText}>{c.text}</Body1>
                                                     </li>
                                                 ))}

@@ -26,6 +26,7 @@ import { ArrowSync24Regular, Warning24Filled } from "@fluentui/react-icons";
 
 import {
     addCustomRecommendation,
+    attestContribution,
     dismissRecommendation,
     getSupportRecommendations,
     publishRecommendation,
@@ -206,6 +207,23 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
         [actingRole, incident.id, locked, onIncidentRefresh, userId]
     );
 
+    const handleConfirm = useCallback(
+        async (contributionId: string) => {
+            if (locked) return;
+            markBusy(contributionId, true);
+            setError(null);
+            try {
+                await attestContribution(incident.id, contributionId, { actingRole, userId });
+                onIncidentRefresh();
+            } catch (err) {
+                setError(err instanceof Error ? err.message : "Confirm failed");
+            } finally {
+                markBusy(contributionId, false);
+            }
+        },
+        [actingRole, incident.id, locked, onIncidentRefresh, userId]
+    );
+
     const handleAddCustom = useCallback(
         async (text: string) => {
             const response = await addCustomRecommendation(incident.id, { text, actingRole, userId });
@@ -236,7 +254,8 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                 source: c.source === "custom" ? "custom" : "kb",
                 timestamp: c.addedAt,
                 category: c.category ?? null,
-                role: c.addedBy.role
+                role: c.addedBy.role,
+                provenance: c.provenance
             }));
         const dismissed: RecommendationRowData[] = incident.eventLog
             .filter(e => {
@@ -338,6 +357,7 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                                         row={row}
                                         onPublish={!locked && row.status === "pending" ? handlePublish : undefined}
                                         onDismiss={!locked && row.status === "pending" ? handleDismiss : undefined}
+                                        onConfirm={!locked && row.status === "published" && row.provenance === "ai" ? handleConfirm : undefined}
                                         busy={busyIds.has(row.id)}
                                     />
                                 ))}

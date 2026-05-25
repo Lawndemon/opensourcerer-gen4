@@ -12,6 +12,7 @@
 
 import type {
     AddCustomRecommendationRequest,
+    AttestContributionRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
     CloseIncidentRequest,
@@ -129,6 +130,15 @@ export async function lossStop(incidentId: string, request: LossStopRequest, sig
  */
 export async function setSceneType(incidentId: string, request: SetSceneTypeRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/scene-type`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/support-contributions/{contributionId}/attest — confirm an
+ * AI-suggested contribution, flipping its provenance AI -> HIC. Returns the updated incident.
+ */
+export async function attestContribution(incidentId: string, contributionId: string, request: AttestContributionRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/support-contributions/${encodeURIComponent(contributionId)}/attest`, request, signal);
     return envelope.incident;
 }
 
