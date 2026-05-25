@@ -164,6 +164,9 @@ class SupportContribution(_IncidentBase):
     text: str
     source: Literal["recommended", "custom"]
     category: RecommendationCategory | None = None
+    provenance: Literal["ai", "hic"] = "hic"  # "ai" = machine-suggested, not yet human-confirmed;
+    # "hic" = Human In Charge has taken ownership. Defaults "hic" because every human publish is
+    # an act of ownership; auto-generated contributions set "ai" explicitly.
     added_by: Actor
     added_at: str
 
@@ -253,6 +256,7 @@ AuditEventType = Literal[
     "condition_refined",
     "support_contribution_added",
     "support_recommendation_dismissed",
+    "support_recommendation_attested",
     "form_generated",
     "form_locked",
     "phase_transitioned",
@@ -504,6 +508,18 @@ class SetSceneTypeRequest(_IncidentBase):
     """
 
     scene_type: SceneType
+    acting_role: str
+    user_id: str
+
+
+class AttestContributionRequest(_IncidentBase):
+    """
+    Request body for `POST /api/incidents/{id}/support-contributions/{contributionId}/attest`.
+
+    `acting_role` and `user_id` are the human confirming an AI-suggested recommendation;
+    recorded on the resulting `support_recommendation_attested` audit event (the AI -> HIC flip).
+    """
+
     acting_role: str
     user_id: str
 

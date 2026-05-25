@@ -66,6 +66,7 @@ from models.incidents import (
     LossStopRequest,
     PublishRecommendationRequest,
     RefineConditionResponse,
+    AttestContributionRequest,
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
     SetSceneTypeRequest,
@@ -671,6 +672,36 @@ async def set_scene_type(auth_claims: dict[str, Any], incident_id: str):
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/scene-type")
+
+
+@bp.route("/api/incidents/<incident_id>/support-contributions/<contribution_id>/attest", methods=["POST"])
+@authenticated
+async def attest_contribution(auth_claims: dict[str, Any], incident_id: str, contribution_id: str):
+    """Confirm an AI-suggested support contribution — flips its provenance AI -> HIC.
+
+    The named human in the support role takes ownership of the recommendation. Append-only,
+    audit-logged (`support_recommendation_attested`). Idempotent on an already-HIC item.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = AttestContributionRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match AttestContributionRequest", "details": ve.errors()}), 400
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.attest_support_contribution(
+            tenant_id=tenant_id, incident_id=incident_id, contribution_id=contribution_id, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/support-contributions/{contribution_id}/attest")
 
 
 # Roles permitted to close an incident (decision 2026-05-20; Incident Commander added

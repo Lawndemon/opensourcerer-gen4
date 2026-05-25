@@ -519,6 +519,7 @@ async def publish_recommendation(
         text=item.text,
         source="recommended" if item.source == "kb" else "custom",
         category=item.category,
+        provenance="hic",  # a human publish is itself an act of ownership.
         added_by=actor,
         added_at=_now_iso(),
     )
@@ -536,6 +537,48 @@ async def publish_recommendation(
                 "source": contribution.source,
                 "text": contribution.text,
                 "pending_id": recommendation_id,
+            },
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def attest_support_contribution(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    contribution_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Flip a support contribution's provenance AI -> HIC: a named human confirms it.
+
+    This is the human-attestation event the immutability principle calls for — a real person
+    takes ownership of an AI-suggested recommendation. Appends a `support_recommendation_attested`
+    audit event (who/when, ai -> hic) and sets the contribution's `provenance` to "hic".
+    Idempotent: re-confirming an already-HIC item is a no-op (no duplicate event).
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    target = next((c for c in doc.support_contributions if c.id == contribution_id), None)
+    if target is None:
+        raise ValueError(f"Support contribution not found: {contribution_id}")
+    if target.provenance == "hic":
+        return doc  # already attested; don't duplicate the event.
+
+    target.provenance = "hic"
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="support_recommendation_attested",
+            actor=actor,
+            payload={
+                "contribution_id": contribution_id,
+                "role": target.added_by.role,
+                "from": "ai",
+                "to": "hic",
+                "text": target.text,
             },
         )
     )
