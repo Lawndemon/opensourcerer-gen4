@@ -45,10 +45,14 @@ export interface SceneConditionAndAction {
     lastConfirmedAt: string;
 }
 
+export type RecommendationCategory = "life_safety" | "incident_stabilization" | "property_conservation";
+
 export interface SupportContribution {
     id: string;
     text: string;
     source: "recommended" | "custom";
+    /** ICS urgency category; null = uncategorized (groups under "Other"). */
+    category: RecommendationCategory | null;
     addedBy: Actor;
     addedAt: string;
 }
@@ -243,6 +247,8 @@ export interface PendingRecommendation {
     id: string;
     text: string;
     source: "kb" | "custom";
+    /** ICS urgency category; null = uncategorized. */
+    category: RecommendationCategory | null;
     createdAt: string;
     createdBy: Actor;
 }

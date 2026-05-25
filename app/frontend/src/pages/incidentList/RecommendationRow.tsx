@@ -14,6 +14,8 @@
 import { Badge, Body1, Button, Caption1, Spinner, Tooltip } from "@fluentui/react-components";
 import { Checkmark24Regular, Dismiss24Regular } from "@fluentui/react-icons";
 
+import type { RecommendationCategory } from "../../api/incidentTypes";
+import RoleBubble from "../../components/RoleBubble";
 import styles from "./RecommendationRow.module.css";
 
 export type RowStatus = "pending" | "published" | "dismissed";
@@ -27,6 +29,10 @@ export interface RecommendationRowData {
     source: RowSource;
     /** ISO timestamp for sorting (createdAt, addedAt, or audit event timestamp). */
     timestamp: string;
+    /** ICS urgency category; null = uncategorized. Drives section grouping. */
+    category: RecommendationCategory | null;
+    /** Owning role id — renders the vest-colour bubble. */
+    role: string;
 }
 
 interface RecommendationRowProps {
@@ -65,6 +71,7 @@ const RecommendationRow = ({ row, onPublish, onDismiss, busy }: RecommendationRo
     return (
         <div className={`${styles.row} ${isDismissed ? styles.rowDismissed : ""}`}>
             <div className={styles.badges}>
+                <RoleBubble role={row.role} />
                 <Badge size="small" appearance="filled" color={statusBadge.color}>
                     {statusBadge.label}
                 </Badge>

@@ -320,3 +320,43 @@
     gap: 16px;
     opacity: 0.85;
 }
+
+
+/* Support Contributions — category grouping + role bubbles (slice C) */
+.supportGroups {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.supportGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.supportGroupHeading {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(230, 237, 243, 0.6);
+    font-weight: 700;
+}
+
+.supportList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.supportItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.supportText {
+    color: #e6edf3;
+}

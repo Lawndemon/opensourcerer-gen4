@@ -1,0 +1,18 @@
+.bubble {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    line-height: 1.6;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.fallback {
+    background-color: rgba(127, 127, 127, 0.25);
+    color: inherit;
+    font-weight: 600;
+}

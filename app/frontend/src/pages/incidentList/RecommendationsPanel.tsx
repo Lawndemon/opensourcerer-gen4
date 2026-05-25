@@ -31,10 +31,11 @@ import {
     publishRecommendation,
     refreshSupportRecommendations
 } from "../../api/incidents";
-import type { GetRecommendationsResponse, IncidentDocument, PendingRecommendation } from "../../api/incidentTypes";
+import type { GetRecommendationsResponse, IncidentDocument, PendingRecommendation, RecommendationCategory } from "../../api/incidentTypes";
 
 import CustomAddForm from "./CustomAddForm";
 import RecommendationRow, { RecommendationRowData } from "./RecommendationRow";
+import { RECOMMENDATION_CATEGORY_LABEL, RECOMMENDATION_CATEGORY_ORDER } from "../../recommendationCategories";
 import styles from "./RecommendationsPanel.module.css";
 
 interface RecommendationsPanelProps {
@@ -222,7 +223,9 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
             text: it.text,
             status: "pending",
             source: it.source === "kb" ? "kb" : "custom",
-            timestamp: it.createdAt
+            timestamp: it.createdAt,
+            category: it.category ?? null,
+            role: actingRole
         }));
         const published: RecommendationRowData[] = incident.supportContributions
             .filter(c => c.addedBy.role === actingRole)
@@ -231,7 +234,9 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                 text: c.text,
                 status: "published",
                 source: c.source === "custom" ? "custom" : "kb",
-                timestamp: c.addedAt
+                timestamp: c.addedAt,
+                category: c.category ?? null,
+                role: c.addedBy.role
             }));
         const dismissed: RecommendationRowData[] = incident.eventLog
             .filter(e => {
@@ -240,14 +245,16 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                 return e.actor.role === actingRole;
             })
             .map(e => {
-                const payload = e.payload as { text?: string; source?: string };
+                const payload = e.payload as { text?: string; source?: string; category?: RecommendationCategory };
                 const sourceVal = payload.source === "kb" || payload.source === "custom" ? payload.source : "unknown";
                 return {
                     id: e.id,
                     text: payload.text ?? "(dismissed item)",
                     status: "dismissed" as const,
                     source: sourceVal,
-                    timestamp: e.timestamp
+                    timestamp: e.timestamp,
+                    category: payload.category ?? null,
+                    role: actingRole
                 };
             });
         // Within each status group, newest first. Then concatenate in priority order:
@@ -318,15 +325,25 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                 </Body1>
             ) : (
                 <div className={styles.list}>
-                    {rows.map(row => (
-                        <RecommendationRow
-                            key={`${row.status}-${row.id}`}
-                            row={row}
-                            onPublish={!locked && row.status === "pending" ? handlePublish : undefined}
-                            onDismiss={!locked && row.status === "pending" ? handleDismiss : undefined}
-                            busy={busyIds.has(row.id)}
-                        />
-                    ))}
+                    {[...RECOMMENDATION_CATEGORY_ORDER, null].map(cat => {
+                        const group = rows.filter(r => (r.category ?? null) === cat);
+                        if (group.length === 0) return null;
+                        const heading = cat ? RECOMMENDATION_CATEGORY_LABEL[cat] : "Other";
+                        return (
+                            <div key={heading} className={styles.categoryGroup}>
+                                <Caption1 className={styles.categoryHeading}>{heading}</Caption1>
+                                {group.map(row => (
+                                    <RecommendationRow
+                                        key={`${row.status}-${row.id}`}
+                                        row={row}
+                                        onPublish={!locked && row.status === "pending" ? handlePublish : undefined}
+                                        onDismiss={!locked && row.status === "pending" ? handleDismiss : undefined}
+                                        busy={busyIds.has(row.id)}
+                                    />
+                                ))}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>

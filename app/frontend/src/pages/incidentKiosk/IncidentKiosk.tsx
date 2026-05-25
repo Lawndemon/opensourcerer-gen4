@@ -42,6 +42,8 @@ import FormTabStrip from "./FormTabStrip";
 import RefineConditionPopup from "./RefineConditionPopup";
 import SceneItemRow from "./SceneItemRow";
 import SceneTypeSelector from "./SceneTypeSelector";
+import RoleBubble from "../../components/RoleBubble";
+import { RECOMMENDATION_CATEGORY_LABEL, RECOMMENDATION_CATEGORY_ORDER } from "../../recommendationCategories";
 import { DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, getScenarioById } from "./fixtures";
 import styles from "./IncidentKiosk.module.css";
 
@@ -446,17 +448,26 @@ const IncidentKiosk = () => {
                         {iap.supportContributions.length === 0 ? (
                             <Body1 className={styles.empty}>No support contributions yet.</Body1>
                         ) : (
-                            <ul className={styles.supportList}>
-                                {iap.supportContributions.map(c => (
-                                    <li key={c.id} className={styles.supportItem}>
-                                        <Body1>
-                                            <span className={styles.supportRole}>{c.addedBy.role}</span>
-                                            <span className={styles.supportSeparator}> — </span>
-                                            {c.text}
-                                        </Body1>
-                                    </li>
-                                ))}
-                            </ul>
+                            <div className={styles.supportGroups}>
+                                {[...RECOMMENDATION_CATEGORY_ORDER, null].map(cat => {
+                                    const group = iap.supportContributions.filter(c => (c.category ?? null) === cat);
+                                    if (group.length === 0) return null;
+                                    const heading = cat ? RECOMMENDATION_CATEGORY_LABEL[cat] : "Other";
+                                    return (
+                                        <div key={heading} className={styles.supportGroup}>
+                                            <Caption1 className={styles.supportGroupHeading}>{heading}</Caption1>
+                                            <ul className={styles.supportList}>
+                                                {group.map(c => (
+                                                    <li key={c.id} className={styles.supportItem}>
+                                                        <RoleBubble role={c.addedBy.role} />
+                                                        <Body1 className={styles.supportText}>{c.text}</Body1>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         )}
                     </section>
 
