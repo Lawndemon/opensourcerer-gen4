@@ -13,6 +13,7 @@
 import type {
     AddCustomRecommendationRequest,
     AttestContributionRequest,
+    AutoPopulateRecommendationsRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
     CloseIncidentRequest,
@@ -139,6 +140,16 @@ export async function setSceneType(incidentId: string, request: SetSceneTypeRequ
  */
 export async function attestContribution(incidentId: string, contributionId: string, request: AttestContributionRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/support-contributions/${encodeURIComponent(contributionId)}/attest`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/auto-populate-recommendations — generate recommendations for ALL
+ * support roles and surface them on the FO pane tagged AI. Fired in the background by the
+ * kiosk after the Fire Officer confirms the scene Type. Returns the updated incident.
+ */
+export async function autoPopulateRecommendations(incidentId: string, request: AutoPopulateRecommendationsRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/auto-populate-recommendations`, request, signal);
     return envelope.incident;
 }
 

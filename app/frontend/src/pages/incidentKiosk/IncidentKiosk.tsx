@@ -31,6 +31,7 @@ import {
     getIncident,
     IncidentApiError,
     lossStop as lossStopRequest,
+    autoPopulateRecommendations,
     removeCondition,
     setSceneType as setSceneTypeRequest,
     validateIAP
@@ -285,6 +286,24 @@ const IncidentKiosk = () => {
                     actingRole: actingRole ?? "fire-officer",
                     userId: "kiosk"
                 });
+                // Off the critical path (kiosk never blocks): regenerate AI recommendations for
+                // all support roles and refresh forms. The returned doc (and the 10s incident
+                // poll as backstop) updates the Support Contributions pane when ready.
+                void autoPopulateRecommendations(previous.incidentId, {
+                    actingRole: actingRole ?? "fire-officer",
+                    userId: "kiosk"
+                })
+                    .then(doc =>
+                        setState(prev =>
+                            prev.phase === "in_incident" && prev.incidentId === doc.id
+                                ? { ...prev, iap: { ...prev.iap, supportContributions: doc.supportContributions } }
+                                : prev
+                        )
+                    )
+                    .catch(() => {
+                        /* non-fatal: the 10s incident poll backstops the update */
+                    });
+                void triggerFormsExtraction(previous.incidentId, previous.scenarioId, previous.iap);
             } catch (err) {
                 setState({
                     phase: "error",
@@ -293,7 +312,7 @@ const IncidentKiosk = () => {
                 });
             }
         },
-        [state, actingRole]
+        [state, actingRole, triggerFormsExtraction]
     );
 
     const handleRemoveCondition = useCallback(

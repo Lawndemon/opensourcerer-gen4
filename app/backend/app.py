@@ -67,6 +67,7 @@ from models.incidents import (
     PublishRecommendationRequest,
     RefineConditionResponse,
     AttestContributionRequest,
+    AutoPopulateRecommendationsRequest,
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
     SetSceneTypeRequest,
@@ -702,6 +703,72 @@ async def attest_contribution(auth_claims: dict[str, Any], incident_id: str, con
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/support-contributions/{contribution_id}/attest")
+
+
+# Support roles auto-populated on scene-type confirm (slice E): the eight ICS IMT roles.
+# Excludes fire-officer (the kiosk operator) and site-administrator (not an on-scene support role).
+_AUTO_POPULATE_ROLES = [
+    "incident-commander",
+    "safety-officer",
+    "liaison-officer",
+    "information-officer",
+    "section-chief-operations",
+    "section-chief-planning",
+    "section-chief-logistics",
+    "section-chief-finance",
+]
+
+
+@bp.route("/api/incidents/<incident_id>/auto-populate-recommendations", methods=["POST"])
+@authenticated
+async def auto_populate_recommendations(auth_claims: dict[str, Any], incident_id: str):
+    """Generate recommendations for ALL support roles and surface them on the FO pane tagged AI.
+
+    Fired in the background by the kiosk after the Fire Officer confirms (or changes) the scene
+    Type — never on the critical path. Regenerates the AI set, preserving items a human already
+    confirmed to HIC (re-fire behavior pending SME final confirmation). Loops roles sequentially
+    for v1; can be parallelized later if latency matters.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = AutoPopulateRecommendationsRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match AutoPopulateRecommendationsRequest", "details": ve.errors()}), 400
+
+    _ = body  # actor identity not needed downstream; generated items are tagged per support role.
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        doc = await incidents_cosmos.get_incident(tenant_id, incident_id)
+        if doc is None:
+            return jsonify({"error": f"Incident not found: {incident_id}"}), 404
+        approach: RecommendActionsApproach = cast(
+            RecommendActionsApproach, current_app.config[CONFIG_RECOMMEND_ACTIONS_APPROACH]
+        )
+        scene_summary_text = doc.scene_summary.text if doc.scene_summary else ""
+        # Don't re-suggest what a human already owns (HIC) — pass those as already-published.
+        already_hic = [c for c in doc.support_contributions if c.provenance == "hic"]
+        role_items: list[tuple[str, str, Any]] = []
+        for role in _AUTO_POPULATE_ROLES:
+            recently_dismissed = incidents_cosmos.get_recent_dismissed_texts(doc, role)
+            items = await approach.run(
+                role=role,
+                scene_summary_text=scene_summary_text,
+                scene_conditions=doc.scene_conditions_and_actions,
+                already_published=already_hic,
+                recently_dismissed=recently_dismissed,
+            )
+            role_items.extend((role, it.text, it.category) for it in items)
+        updated = await incidents_cosmos.apply_auto_populated_ai_contributions(
+            tenant_id=tenant_id, incident_id=incident_id, role_items=role_items
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/auto-populate-recommendations")
 
 
 # Roles permitted to close an incident (decision 2026-05-20; Incident Commander added

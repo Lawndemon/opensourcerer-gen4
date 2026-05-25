@@ -547,6 +547,19 @@ class RefreshRecommendationsRequest(_IncidentBase):
     user_id: str
 
 
+class AutoPopulateRecommendationsRequest(_IncidentBase):
+    """
+    Request body for `POST /api/incidents/{id}/auto-populate-recommendations`.
+
+    `acting_role` / `user_id` identify the human (Fire Officer) who triggered auto-population
+    by confirming the scene Type. Generated items are tagged to each support role; the actor
+    here is just the triggerer.
+    """
+
+    acting_role: str
+    user_id: str
+
+
 class GetRecommendationsResponse(_IncidentBase):
     """Response body for the GET and refresh endpoints. Returns the role's current list."""
 

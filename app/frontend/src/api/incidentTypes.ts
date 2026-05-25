@@ -215,6 +215,11 @@ export interface AttestContributionRequest {
     userId: string;
 }
 
+export interface AutoPopulateRecommendationsRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
 export interface RemoveConditionRequest {
     actingRole: ActingRole | string;
     userId: string;

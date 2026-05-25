@@ -585,6 +585,51 @@ async def attest_support_contribution(
     return await replace_incident(doc)
 
 
+async def apply_auto_populated_ai_contributions(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    role_items: list[tuple[str, str, "RecommendationCategory | None"]],
+) -> IncidentDocument:
+    """Replace the un-attested AI support contributions with a freshly-generated set.
+
+    Called off the critical path after the Fire Officer confirms/changes the scene Type.
+    `role_items` is (role, text, category) per generated recommendation across all support
+    roles; each is written as a SupportContribution tagged provenance="ai".
+
+    Re-fire behavior (Dave 2026-05-22, SME to confirm): existing AI items are cleared and
+    regenerated, but items a human already confirmed to HIC are PRESERVED — re-typing the scene
+    refreshes the machine suggestions without wiping human-owned decisions.
+
+    No per-item audit event: auto-generated suggestions are AI generation churn, not a
+    screen-facing human decision. The triggering `scene_type_confirmed` event already records
+    the human action; human attestation/dismissal of these items is audited when it happens.
+    """
+    from models.incidents import SupportContribution
+    import uuid
+
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    now = _now_iso()
+    # Preserve human-owned (HIC) and custom items; drop the prior un-attested AI set.
+    doc.support_contributions = [c for c in doc.support_contributions if c.provenance != "ai"]
+    for (role, text, category) in role_items:
+        doc.support_contributions.append(
+            SupportContribution(
+                id=str(uuid.uuid4()),
+                text=text,
+                source="recommended",
+                category=category,
+                provenance="ai",
+                added_by=Actor(role=role, user_id="ai"),
+                added_at=now,
+            )
+        )
+    return await replace_incident(doc)
+
+
 async def dismiss_recommendation(
     *,
     tenant_id: str,
