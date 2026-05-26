@@ -3,9 +3,9 @@ RecommendActionsApproach — LLM-generated support actions per role per incident
 
 Used by the support-role view (Session 5b/5c): when a support role opens an incident or
 taps Refresh, this approach is called with (role, scene state, already-published items,
-recently-dismissed items) and returns 3-5 short recommended actions. The support role
-curates the list (check / X / Add Custom) and the curated/published subset flows to the
-Fire Officer's kiosk Support Contributions pane.
+recently-dismissed items) and returns only the recommended actions the scene warrants
+(0-5). The support role curates the list (check / X / Add Custom) and the curated/published
+subset flows to the Fire Officer's kiosk Support Contributions pane.
 
 Pattern matches `ValidateIAPApproach` and `RefineConditionApproach`: load prompt from file,
 OpenAI JSON-mode, parse into a local Pydantic shape, hand structured strings back to the
@@ -26,7 +26,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
-from models.incidents import RecommendationCategory, SceneConditionAndAction, SupportContribution
+from models.incidents import RecommendationCategory, SceneConditionAndAction, SceneType, SupportContribution
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +40,20 @@ class _LLMRecommendation(BaseModel):
 
 
 class _LLMRecommendationsResponse(BaseModel):
-    """LLM-output shape; 3-5 short role-appropriate recommendations, each categorized."""
+    """LLM-output shape; only the recommendations the scene genuinely warrants for the role.
+
+    No minimum — an empty list is a valid, expected answer when nothing this role would
+    add is relevant to the current scene type and conditions (SME 2026-05-25: support roles
+    must be selective, not exhaustive). Capped at 5 to keep the list scannable under pressure.
+    """
 
     model_config = {"alias_generator": to_camel, "populate_by_name": True, "extra": "forbid"}
-    recommended_actions: list[_LLMRecommendation] = Field(min_length=3, max_length=5)
+    recommended_actions: list[_LLMRecommendation] = Field(default_factory=list, max_length=5)
 
 
 class RecommendActionsApproach:
     """
-    One LLM call producing 3-5 recommended actions tailored to a support role.
+    One LLM call producing the support-role recommendations the scene warrants (0-5).
 
     Constructor injects OpenAI client + model deployment; the singleton is registered as
     `CONFIG_RECOMMEND_ACTIONS_APPROACH` in `setup_clients()` and pulled out by the route
@@ -68,8 +73,10 @@ class RecommendActionsApproach:
         openai_client: AsyncOpenAI,
         chatgpt_model: str,
         chatgpt_deployment: Optional[str] = None,
-        # Moderate temperature — we want variety across the 3-5 items without going off-piste.
-        temperature: float = 0.4,
+        # Low temperature — selectivity and stability matter more than variety here. We want
+        # only the genuinely-warranted items, returned consistently across re-validations so the
+        # support list doesn't thrash mid-incident.
+        temperature: float = 0.2,
     ):
         self.openai_client = openai_client
         self.chatgpt_model = chatgpt_model
@@ -90,8 +97,17 @@ class RecommendActionsApproach:
         scene_conditions: list[SceneConditionAndAction],
         already_published: list[SupportContribution],
         recently_dismissed: list[str],
+        scene_type: SceneType | None = None,
+        scene_type_estimate: SceneType | None = None,
     ) -> list[_LLMRecommendation]:
-        """Generate 3-5 categorized recommended actions for the role."""
+        """Generate the role-appropriate recommended actions the scene warrants (0-5).
+
+        `scene_type` is the Fire Officer's confirmed ICS Type (1-5), or None if not yet
+        confirmed; `scene_type_estimate` is the AI's latest estimate, used as a fallback so
+        the model can still scale its suggestions before the type is confirmed. The model is
+        expected to return fewer (or no) items when the type/conditions don't warrant this
+        role weighing in.
+        """
 
         # Compact scene conditions for the prompt — text + status only; the LLM doesn't
         # need the full citation/refinement metadata for this call.
@@ -107,6 +123,8 @@ class RecommendActionsApproach:
         user_message = json.dumps(
             {
                 "role": role,
+                "sceneType": scene_type,
+                "sceneTypeEstimate": scene_type_estimate,
                 "sceneSummary": scene_summary_text,
                 "sceneConditionsAndActions": compact_conditions,
                 "alreadyPublished": compact_published,

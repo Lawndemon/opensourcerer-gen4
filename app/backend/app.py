@@ -750,6 +750,8 @@ async def auto_populate_recommendations(auth_claims: dict[str, Any], incident_id
                 role=role,
                 scene_summary_text=scene_summary_text,
                 scene_conditions=doc.scene_conditions_and_actions,
+                scene_type=doc.scene_type,
+                scene_type_estimate=doc.scene_type_estimate,
                 already_published=already_hic,
                 recently_dismissed=recently_dismissed,
             )
@@ -1034,6 +1036,8 @@ async def refresh_support_recommendations(auth_claims: dict[str, Any], incident_
             role=body.acting_role,
             scene_summary_text=doc.scene_summary.text if doc.scene_summary else "",
             scene_conditions=doc.scene_conditions_and_actions,
+            scene_type=doc.scene_type,
+            scene_type_estimate=doc.scene_type_estimate,
             already_published=doc.support_contributions,
             recently_dismissed=recently_dismissed,
         )
