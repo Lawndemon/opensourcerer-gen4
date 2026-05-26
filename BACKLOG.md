@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-05-22 (SME requests: scene-type triage, recommendation auto-population, AI/HIC provenance)
+**Last updated:** 2026-05-25 (Microsoft-template decoupling plan documented; not running GitHub CI per Dave)
 
 ---
 
@@ -564,6 +564,41 @@ opensourcerer-gen4 began as a fork of `azure-search-openai-demo`. The project ha
 **Hard caveat — preserve the RAG retrieval the incident pipeline will need.** The KB retrieval machinery (search, embeddings, the planned Client > Region > Federal > Domain cascade) is *still load-bearing* for the incident pipeline even though it is currently unbuilt across that pipeline (see [[SME reference-document list]]). Cleanup must NOT rip out retrieval wholesale — distinguish "overtaken template UI/glue" (safe to cut) from "RAG retrieval we'll wire into incidents later" (keep). When in doubt, keep and flag rather than delete.
 
 **Sequencing.** Strictly after the in-flight incident features stabilize (cleanup is lower-risk once the feature surface has settled). Note the engine migration ([[Planned engine migration: OpenAI → Anthropic]]) will itself touch/replace some of this code — decide whether to fold parts of the cleanup into that migration rather than doing the work twice.
+
+### Decouple from the `azure-search-openai-demo` template — go-to-market as a non-profit (strategic; mapped 2026-05-25)
+
+Strip the upstream template's *identity and cruft* so opensourcerer-gen4 can ship as an independent non-profit product. This is distinct from the [[#Codebase cleanup — dead-code purge + de-clutter inherited template]] entry above: that one is about dead/overtaken *code*; this one is about template *branding, docs, machinery, and licensing*. **Azure-the-platform stays** — we deploy to Azure Container Apps, so the `infra/`/bicep is how the thing runs, not noise to remove.
+
+Six workstreams, mapped from a full recon of the actual footprint:
+
+**1. License & attribution — the one legal must-do (do this first).**
+`LICENSE` is MIT, "Copyright (c) 2023 Azure Samples." MIT lets us commercialize, run as a non-profit, rebrand, and rewrite freely — we owe Microsoft nothing and need no permission. The *single* obligation: retain the original copyright + license text somewhere as long as substantial portions of the original code remain. So **do not delete the attribution** — relocate it into a `THIRD-PARTY-NOTICES` file, and put the non-profit's own `LICENSE` (our copyright) at the repo root. Deleting the attribution outright is the one step with actual compliance weight. (Not legal advice — if the non-profit gets any legal review, worth a 5-minute confirm.)
+
+**2. Inherited documentation — safe to remove (~25 of 31).**
+`docs/` is mostly upstream Azure RAG guides (`customization.md`, `data_ingestion.md`, `deploy_*.md`, `azure_container_apps.md`, etc.). **Keep ours:** `persona_prompts_plan`, `persona_prompts_sme_review`, `prototype_plan`, `role_based_retrieval_plan`. Keep `login_and_acl` and `monitoring` as reference until rewritten (they still describe live behavior). Remove the rest.
+
+**3. `.github/` template machinery — mostly remove.**
+Upstream issue-triage bots (`agents/fixer`, `agents/triager`), `stale-bot.yml`, `nightly-jobs.yaml`, `lint-markdown.yml`/`validate-markdown.yml`, `evaluate.yaml`, `azure-dev*.y*ml`, `ISSUE_TEMPLATE.md`, `PULL_REQUEST_TEMPLATE.md`, `CODE_OF_CONDUCT.md`, `dependabot.yaml`, `instructions/`, `prompts/`, `skills/` all point at `Azure-Samples/azure-search-openai-demo`. **CI decision (Dave, 2026-05-25): not running any GitHub workflows today.** `python-test.yaml` and `frontend.yaml` look useful but are tuned to the *upstream* suite — `python-test` enforces `--cov-fail-under=90` and runs the upstream pytest + Playwright E2E that the cleanup pass is set to purge, so it would fail immediately on the pivoted codebase; `frontend.yaml` is a trivial prettier check. Recommendation: **remove the lot now**, and if CI is wanted later, add a small purpose-built workflow (ruff/black + `tsc`/prettier + our own tests) rather than resurrecting upstream's.
+
+**4. Naming / branding — replace.**
+`azure.yaml` still declares `name: azure-search-openai-demo` and `template: azure-search-openai-demo@0.0.3`; that name propagates into the deployed image path. UI is already rebranded ("Emergency Response Assistant"). Rename the azd project + drop the template ref. Minor azd-redeploy implication, nothing risky.
+
+**5. Telemetry / phone-home — remove (lower urgency than it looks).**
+App Insights / OpenTelemetry wiring in `app.py` is **gated on the `APPLICATIONINSIGHTS_CONNECTION_STRING` env var** — it does nothing unless that's set, so it is not actively leaking today. Full removal = delete that block plus the ~15 `opentelemetry`/`azure-monitor` packages from requirements. Worth doing for a clean conscience; not an open tap.
+
+**6. Inherited code vs. our code — the big one; scope separately.**
+Ours: `validate_iap`, `recommend_actions`, `extract_forms`, `refine_condition`, `incidents/`, `models/incidents`, the Fire Officer/IMT frontend. Inherited: `chatreadretrieveread`, `approach.py`, `promptmanager`, the whole `prepdocslib/` RAG ingestion + retrieval stack, the Chat page. **Wrap/rename the RAG retrieval stack — do not rewrite from scratch (it's load-bearing for the incident pipeline; see the Codebase cleanup caveat and [[SME reference-document list]]).** This overlaps the Codebase cleanup entry above and is large/vague enough to plan as its own effort rather than fold into the cosmetic passes.
+
+**Suggested sequence:** License (1) → docs (2) → `.github` (3) → naming (4) → telemetry (5), each a reviewable commit; items 1–5 are low-risk and could land in a day. Then treat the code rewrite (6) as its own planned effort. Work happens on the `decoupled` branch (four prep cuts already landed there: removed `extractCitationDetails`, deleted orphaned `i18n/index.tsx`, dropped `rollup-plugin-visualizer`, removed `CONFIG_OPENAI_TOKEN`).
+
+**Status — WS1–5 landed on `decoupled` (2026-05-25, uncommitted; Dave to review + commit):**
+
+- **WS1 ✓** — root `LICENSE` replaced with **Apache 2.0, "Copyright 2026 EMC1"**; new `NOTICE` (EMC1 + MIT-derivation note); Azure Samples MIT notice relocated to `THIRD-PARTY-NOTICES`.
+- **WS2 ✓** — `docs/` cut from 31 files to 6 (kept: persona_prompts_plan, persona_prompts_sme_review, prototype_plan, role_based_retrieval_plan, login_and_acl, monitoring; `docs/images/` pruned to the 2 still referenced). *Loose end:* `login_and_acl.md` still has upstream project name + a dead `/README.md` link — fix on rewrite.
+- **WS3 ✓** — entire `.github/` removed (bots, workflows, issue/PR templates, CoC, dependabot, instructions/prompts/skills) + root Microsoft `SECURITY.md` removed. No GitHub CI is running (Dave, 2026-05-25); add a small purpose-built workflow later if wanted.
+- **WS4 ✓** — `azure.yaml` renamed `azure-search-openai-demo` → `emergency-response-assistant`; `metadata.template` ref dropped. Resource naming in this template is driven by env-name + resourceToken, so this is effectively cosmetic for the deploy.
+- **WS5 ✓ (app + deps)** — App Insights/OpenTelemetry imports + the `APPLICATIONINSIGHTS_CONNECTION_STRING`-gated block removed from `app.py`; 5 telemetry deps removed from `requirements.in`; lockfile recompiled (119 → 96 packages). Residual `opentelemetry-api/sdk` are benign transitive deps of `msgraph-sdk` with no exporter. **Follow-up (not done):** the infra App Insights wiring in `infra/main.bicep` is gated behind `useApplicationInsights = false` and threads through ~10 modules — left in place to avoid destabilizing the deploy; remove carefully in a dedicated infra pass.
+- **WS6 (item 6 — inherited-code rewrite)** — not started; remains its own scoped effort (wrap/rename the RAG stack, don't rewrite). The four earlier prep cuts (`extractCitationDetails`, `i18n/index.tsx`, `rollup-plugin-visualizer`, `CONFIG_OPENAI_TOKEN`) are also still uncommitted on this branch.
 
 ## Notes on the deploy / template
 

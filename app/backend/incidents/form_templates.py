@@ -98,7 +98,3 @@ def stable_form_id(role: str, form_type: str) -> str:
     )
     return f"f-{role}-{slug}"
 
-
-def templates_by_role(role: str) -> list[FormTemplate]:
-    """Return the 3 form templates assigned to `role`. Empty list if role isn't recognized."""
-    return [t for t in FORM_TEMPLATES if t.role == role]

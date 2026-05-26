@@ -1,4 +1,3 @@
-CONFIG_OPENAI_TOKEN = "openai_token"
 CONFIG_CREDENTIAL = "azure_credential"
 CONFIG_CHAT_APPROACH = "chat_approach"
 CONFIG_VALIDATE_IAP_APPROACH = "validate_iap_approach"

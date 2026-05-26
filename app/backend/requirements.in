@@ -13,11 +13,6 @@ azure-storage-blob
 azure-storage-file-datalake
 uvicorn
 aiohttp
-azure-monitor-opentelemetry
-opentelemetry-instrumentation-asgi
-opentelemetry-instrumentation-httpx
-opentelemetry-instrumentation-aiohttp-client
-opentelemetry-instrumentation-openai
 msal
 cryptography
 PyJWT

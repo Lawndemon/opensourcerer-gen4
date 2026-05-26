@@ -212,7 +212,3 @@ export function parseAnswerToHtml(answer: ChatAppResponse, isStreaming: boolean,
         citations
     };
 }
-
-export function extractCitationDetails(answer: ChatAppResponse, isStreaming = false): CitationDetail[] {
-    return collectCitations(answer, isStreaming).citations;
-}

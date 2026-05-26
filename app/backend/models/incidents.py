@@ -467,24 +467,6 @@ class CreateIncidentRequest(_IncidentBase):
     tenant_id: str | None = None  # overridable for testing; falls back to "default" or auth tid.
 
 
-class CreateIncidentResponse(_IncidentBase):
-    """
-    Response body for `POST /api/incidents`.
-
-    Returns the full incident document so the kiosk can immediately render the dashboard
-    without a follow-up GET. If `transcript` was supplied, Validate IAP has already run
-    against it and the scene state is populated.
-    """
-
-    incident: IncidentDocument
-
-
-class GetIncidentResponse(_IncidentBase):
-    """Response body for `GET /api/incidents/{id}`. Returns the full persisted incident."""
-
-    incident: IncidentDocument
-
-
 class LossStopRequest(_IncidentBase):
     """
     Request body for `POST /api/incidents/{id}/loss-stop`.
