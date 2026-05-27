@@ -429,34 +429,6 @@ const IncidentKiosk = () => {
                         <Body1 className={styles.summaryText}>{iap.sceneSummary.text}</Body1>
                     </section>
 
-                    <section className={`${styles.pane} ${styles.scenePane}`}>
-                        <div className={styles.paneHeader}>
-                            <Title3>Scene Conditions</Title3>
-                            <Caption1 className={styles.panelSubheading}>
-                                From transcript · compared to published IAP
-                            </Caption1>
-                        </div>
-                        {items.length === 0 ? (
-                            <Body1 className={styles.empty}>
-                                No conditions extracted yet. Press Re-Validate IAP after more transcript arrives.
-                            </Body1>
-                        ) : (
-                            <div className={styles.itemList}>
-                                {items.map(item => (
-                                    <SceneItemRow
-                                        key={item.id}
-                                        item={item}
-                                        onAnalyze={setAnalyzeItem}
-                                        onRemove={locked ? undefined : handleRemoveCondition}
-                                        onRefineClick={
-                                            locked || !state.persisted ? undefined : setRefineItem
-                                        }
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
                     <section className={`${styles.pane} ${styles.supportPane}`}>
                         <div className={styles.paneHeader}>
                             <Title3>Support Contributions</Title3>
@@ -486,6 +458,34 @@ const IncidentKiosk = () => {
                                         </div>
                                     );
                                 })}
+                            </div>
+                        )}
+                    </section>
+
+                    <section className={`${styles.pane} ${styles.scenePane}`}>
+                        <div className={styles.paneHeader}>
+                            <Title3>Scene Conditions</Title3>
+                            <Caption1 className={styles.panelSubheading}>
+                                From transcript · compared to published IAP
+                            </Caption1>
+                        </div>
+                        {items.length === 0 ? (
+                            <Body1 className={styles.empty}>
+                                No conditions extracted yet. Press Re-Validate IAP after more transcript arrives.
+                            </Body1>
+                        ) : (
+                            <div className={styles.itemList}>
+                                {items.map(item => (
+                                    <SceneItemRow
+                                        key={item.id}
+                                        item={item}
+                                        onAnalyze={setAnalyzeItem}
+                                        onRemove={locked ? undefined : handleRemoveCondition}
+                                        onRefineClick={
+                                            locked || !state.persisted ? undefined : setRefineItem
+                                        }
+                                    />
+                                ))}
                             </div>
                         )}
                     </section>
