@@ -105,18 +105,39 @@ const IncidentKiosk = () => {
                 setState(prev => {
                     if (prev.phase !== "in_incident") return prev;
                     if (prev.incidentId !== incidentId) return prev;
-                    const a = prev.iap.supportContributions;
                     const b = fresh.supportContributions;
                     const freshCommand = fresh.commandTransferredAt != null;
-                    const sameContribs =
-                        a.length === b.length && a.every((x, i) => x.id === b[i].id && x.icStatus === b[i].icStatus);
-                    if (sameContribs && (prev.commandTransferred ?? false) === freshCommand) {
+                    // Sync scene fields too (not just contributions): an IC changing the Scene
+                    // Type or an auto Re-Validate must surface on the FO kiosk. Signature guard
+                    // avoids needless re-renders when nothing the kiosk shows has moved.
+                    const prevSig = JSON.stringify([
+                        prev.sceneType ?? null,
+                        prev.commandTransferred ?? false,
+                        prev.iap.sceneSummary.lastUpdated,
+                        prev.iap.sceneConditionsAndActions.map(c => [c.id, c.status, c.removed]),
+                        prev.iap.supportContributions.map(c => [c.id, c.icStatus])
+                    ]);
+                    const freshSig = JSON.stringify([
+                        fresh.sceneType ?? null,
+                        freshCommand,
+                        fresh.sceneSummary.lastUpdated,
+                        fresh.sceneConditionsAndActions.map(c => [c.id, c.status, c.removed]),
+                        fresh.supportContributions.map(c => [c.id, c.icStatus])
+                    ]);
+                    if (prevSig === freshSig) {
                         return prev;
                     }
                     return {
                         ...prev,
+                        sceneType: fresh.sceneType ?? null,
                         commandTransferred: freshCommand,
-                        iap: { ...prev.iap, supportContributions: b }
+                        iap: {
+                            ...prev.iap,
+                            sceneTypeEstimate: fresh.sceneTypeEstimate,
+                            sceneSummary: fresh.sceneSummary,
+                            sceneConditionsAndActions: fresh.sceneConditionsAndActions,
+                            supportContributions: b
+                        }
                     };
                 });
             } catch {
@@ -310,6 +331,33 @@ const IncidentKiosk = () => {
                     .catch(() => {
                         /* non-fatal: the 10s incident poll backstops the update */
                     });
+                // SME 2026-05-27: a Scene-Type change auto-triggers Re-Validate IAP (off the
+                // critical path) so scene conditions/summary refresh against the transcript.
+                const revalidateScenario = getScenarioById(previous.scenarioId);
+                if (revalidateScenario) {
+                    void validateIAP({
+                        incidentId: previous.incidentId,
+                        transcript: revalidateScenario.transcript,
+                        actingRole: actingRole ?? "fire-officer"
+                    })
+                        .then(fresh =>
+                            setState(prev =>
+                                prev.phase === "in_incident" && prev.incidentId === previous.incidentId
+                                    ? {
+                                          ...prev,
+                                          iap: {
+                                              ...prev.iap,
+                                              sceneSummary: fresh.sceneSummary,
+                                              sceneConditionsAndActions: fresh.sceneConditionsAndActions
+                                          }
+                                      }
+                                    : prev
+                            )
+                        )
+                        .catch(() => {
+                            /* non-fatal: the 10s incident poll backstops the refresh */
+                        });
+                }
                 void triggerFormsExtraction(previous.incidentId, previous.scenarioId, previous.iap);
             } catch (err) {
                 setState({

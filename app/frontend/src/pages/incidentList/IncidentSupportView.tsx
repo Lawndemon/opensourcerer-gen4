@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { closeIncident, extractForms, getIncident, icDecision, setSceneType, transferOfCommand } from "../../api/incidents";
+import { closeIncident, extractForms, getIncident, icDecision, setSceneType, transferOfCommand, validateIAP } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction, SceneType } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
@@ -194,6 +194,13 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
             try {
                 const updated = await setSceneType(incident.id, { sceneType, actingRole, userId: "support-view" });
                 setIncident(updated);
+                // SME 2026-05-27: auto Re-Validate IAP when the IC changes the Scene Type (off the
+                // critical path). The 10s poll backstops the refreshed conditions for this page and
+                // the Fire Officer kiosk.
+                const transcriptText = updated.transcript.map(ch => ch.deNoised ?? ch.text).join("\n");
+                void validateIAP({ incidentId: updated.id, transcript: transcriptText, actingRole }).catch(() => {
+                    /* non-fatal: poll backstops the refresh */
+                });
             } catch (e) {
                 setActionError(e instanceof Error ? e.message : "Could not change scene Type.");
             }
