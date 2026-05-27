@@ -614,7 +614,7 @@ Derived from the SME's EM Assistant workflow deck (three-mode model: Officer / S
 
 **Orthogonal axes:** "command status" (org structure: FO-in-charge → IC) is distinct from "lifecycle phase" (Response → Recovery via Loss Stop). They do not interact in v1.
 
-**Build status (2026-05-27):** backend foundation landed — `command_transferred_at` + `command_transferred` event, `transition_command_to_ic` cosmos fn, `POST /api/incidents/{id}/transfer-of-command` (IC-only), scene-type authority enforcement. REMAINING: content-gate routing (gate field on SupportContribution + Safety bypass + IC approve/reject endpoint), IC-page UI (ToC button, scene-type control, pending-approval surface), kiosk UI (status line, scene-type lock, gated-content filter), end-to-end verification.
+**Build status (2026-05-27):** COMPLETE at code level (backend `compileall` + frontend `tsc --noEmit` clean; not yet runtime-tested on a deploy). Backend: `command_transferred_at` + `command_transferred` event, `transition_command_to_ic`, IC-only `POST /transfer-of-command`, scene-type authority enforcement, `ic_status` gate on `SupportContribution` set in both publish + auto-populate paths (Safety→`safety_bypass`, others→`pending` post-ToC), `decide_gated_contribution` + IC-only `POST .../ic-decision`. Frontend: kiosk status line under Scene Type + scene-type lock + visible-content filter (Safety flagged); IC page Transfer-of-Command button + scene-type control (post-ToC only) + pending-approval queue. REMAINING: runtime/deploy testing with a real IC login; revisit one-way → reversible command handback later.
 
 ## Notes on the deploy / template
 

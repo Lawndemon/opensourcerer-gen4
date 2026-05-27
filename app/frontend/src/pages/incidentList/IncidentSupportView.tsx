@@ -23,13 +23,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { closeIncident, extractForms, getIncident } from "../../api/incidents";
-import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
+import { closeIncident, extractForms, getIncident, icDecision, setSceneType, transferOfCommand } from "../../api/incidents";
+import type { IncidentDocument, SceneConditionAndAction, SceneType } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "../incidentKiosk/AnalyzePopup";
 import FormTabStrip from "../incidentKiosk/FormTabStrip";
 import SceneItemRow from "../incidentKiosk/SceneItemRow";
+import SceneTypeSelector from "../incidentKiosk/SceneTypeSelector";
 import kioskStyles from "../incidentKiosk/IncidentKiosk.module.css";
 import RecommendationsPanel from "./RecommendationsPanel";
 import styles from "./IncidentSupportView.module.css";
@@ -74,6 +75,13 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
             actingRole === "safety-officer" ||
             actingRole === "site-administrator") &&
         incident.phase === "transition_to_recovery";
+
+    // Transfer of Command / IC content gate (one-way v1). Only the Incident Commander sees
+    // these controls; once command is transferred the IC gates content to the Fire Officer.
+    const isIncidentCommander = actingRole === "incident-commander";
+    const commandTransferred = incident.commandTransferredAt != null;
+    const pendingForIc = incident.supportContributions.filter(c => c.icStatus === "pending");
+    const [tocBusy, setTocBusy] = useState(false);
 
     // --- Polling --------------------------------------------------------------
     // While the incident is in Response or Transition to Recovery, refresh the
@@ -165,6 +173,48 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         }
     }, [actingRole, closing, incident.id, onBack]);
 
+    const handleTransferOfCommand = useCallback(async () => {
+        if (!actingRole || tocBusy) return;
+        setTocBusy(true);
+        setActionError(null);
+        try {
+            const updated = await transferOfCommand(incident.id, { actingRole, userId: "support-view" });
+            setIncident(updated);
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : "Transfer of Command failed.");
+        } finally {
+            setTocBusy(false);
+        }
+    }, [actingRole, tocBusy, incident.id]);
+
+    const handleIcSetSceneType = useCallback(
+        async (sceneType: SceneType) => {
+            if (!actingRole) return;
+            setActionError(null);
+            try {
+                const updated = await setSceneType(incident.id, { sceneType, actingRole, userId: "support-view" });
+                setIncident(updated);
+            } catch (e) {
+                setActionError(e instanceof Error ? e.message : "Could not change scene Type.");
+            }
+        },
+        [actingRole, incident.id]
+    );
+
+    const handleIcDecision = useCallback(
+        async (contributionId: string, decision: "approved" | "rejected") => {
+            if (!actingRole) return;
+            setActionError(null);
+            try {
+                const updated = await icDecision(incident.id, contributionId, { decision, actingRole, userId: "support-view" });
+                setIncident(updated);
+            } catch (e) {
+                setActionError(e instanceof Error ? e.message : "Could not record decision.");
+            }
+        },
+        [actingRole, incident.id]
+    );
+
     return (
         <div className={kioskStyles.container}>
             <div className={kioskStyles.inIncident}>
@@ -249,6 +299,71 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                     </div>
                 </div>
                 {actionError && <div className={styles.actionError}>{actionError}</div>}
+
+                {/* ----- IC Command pane (Incident Commander only) ----- */}
+                {isIncidentCommander && (
+                    <section className={kioskStyles.pane}>
+                        <div className={kioskStyles.paneHeader}>
+                            <Title3>Command</Title3>
+                            <Caption1 className={kioskStyles.panelSubheading}>
+                                {commandTransferred
+                                    ? "You hold command. Recommendations route through you before the Fire Officer sees them; Safety items bypass automatically."
+                                    : "The Fire Officer currently holds command. Take command to gate content and own the scene Type."}
+                            </Caption1>
+                        </div>
+                        {!commandTransferred ? (
+                            <Button appearance="primary" disabled={tocBusy} onClick={handleTransferOfCommand}>
+                                {tocBusy ? "Transferring…" : "Transfer of Command"}
+                            </Button>
+                        ) : (
+                            <Body1>Transfer of Command initiated.</Body1>
+                        )}
+                        <div style={{ marginTop: 12 }}>
+                            <SceneTypeSelector
+                                value={incident.sceneType}
+                                estimated={incident.sceneTypeEstimate}
+                                onConfirm={handleIcSetSceneType}
+                                disabled={!commandTransferred}
+                            />
+                            {!commandTransferred && (
+                                <Caption1 className={kioskStyles.panelSubheading}>
+                                    Scene Type is owned by the Fire Officer until you Transfer Command.
+                                </Caption1>
+                            )}
+                        </div>
+                    </section>
+                )}
+
+                {/* ----- IC pending-approval queue (after Transfer of Command) ----- */}
+                {isIncidentCommander && commandTransferred && (
+                    <section className={kioskStyles.pane}>
+                        <div className={kioskStyles.paneHeader}>
+                            <Title3>Pending your approval</Title3>
+                            <Caption1 className={kioskStyles.panelSubheading}>
+                                Recommendations awaiting your decision before reaching the Fire Officer kiosk.
+                            </Caption1>
+                        </div>
+                        {pendingForIc.length === 0 ? (
+                            <Body1 className={kioskStyles.empty}>Nothing waiting on you.</Body1>
+                        ) : (
+                            <div className={kioskStyles.itemList}>
+                                {pendingForIc.map(c => (
+                                    <div key={c.id} className={styles.pendingRow} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
+                                        <Body1 style={{ flex: 1 }}>
+                                            <strong>[{c.addedBy.role}]</strong> {c.text}
+                                        </Body1>
+                                        <Button size="small" appearance="primary" onClick={() => handleIcDecision(c.id, "approved")}>
+                                            Approve
+                                        </Button>
+                                        <Button size="small" onClick={() => handleIcDecision(c.id, "rejected")}>
+                                            Reject
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                )}
 
                 {/* ----- Pane 1: Scene Summary ----- */}
                 <section className={`${kioskStyles.pane} ${kioskStyles.summaryPane}`}>

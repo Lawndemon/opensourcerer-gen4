@@ -65,6 +65,7 @@ from models.incidents import (
     RemoveConditionRequest,
     SetSceneTypeRequest,
     TransferOfCommandRequest,
+    ICDecisionRequest,
     SceneSummary,
     TranscriptChunk,
     ValidateIAPRequest,
@@ -702,6 +703,36 @@ async def set_scene_type(auth_claims: dict[str, Any], incident_id: str):
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/scene-type")
+
+
+@bp.route("/api/incidents/<incident_id>/support-contributions/<contribution_id>/ic-decision", methods=["POST"])
+@authenticated
+async def ic_decision(auth_claims: dict[str, Any], incident_id: str, contribution_id: str):
+    """IC approves or rejects a gated support contribution. Active only after Transfer of Command."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = ICDecisionRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match ICDecisionRequest", "details": ve.errors()}), 400
+
+    if body.acting_role != "incident-commander":
+        return jsonify({"error": "Only the Incident Commander can approve or reject gated contributions."}), 403
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.decide_gated_contribution(
+            tenant_id=tenant_id, incident_id=incident_id, contribution_id=contribution_id,
+            decision=body.decision, actor=actor,
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/support-contributions/{contribution_id}/ic-decision")
 
 
 @bp.route("/api/incidents/<incident_id>/support-contributions/<contribution_id>/attest", methods=["POST"])

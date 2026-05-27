@@ -152,6 +152,9 @@ class SceneConditionAndAction(_IncidentBase):
     last_confirmed_at: str
 
 
+ContributionICStatus = Literal["not_gated", "pending", "approved", "rejected", "safety_bypass"]
+
+
 class SupportContribution(_IncidentBase):
     """
     A single entry in the Support Contributions panel.
@@ -169,6 +172,9 @@ class SupportContribution(_IncidentBase):
     # an act of ownership; auto-generated contributions set "ai" explicitly.
     added_by: Actor
     added_at: str
+    ic_status: ContributionICStatus = "not_gated"  # IC content gate: not_gated (pre-ToC,
+    # visible), pending (awaiting IC), approved/rejected (IC decided), safety_bypass (Safety
+    # Officer items go direct to the FO kiosk flagged, even with the gate active).
 
 
 # === SCENE SUMMARY ===
@@ -262,6 +268,7 @@ AuditEventType = Literal[
     "phase_transitioned",
     "scene_type_confirmed",
     "command_transferred",
+    "support_contribution_ic_decided",
 ]
 
 
@@ -506,6 +513,14 @@ class TransferOfCommandRequest(_IncidentBase):
     audit event.
     """
 
+    acting_role: str
+    user_id: str
+
+
+class ICDecisionRequest(_IncidentBase):
+    """Request body for the IC approve/reject of a gated support contribution (post-ToC)."""
+
+    decision: Literal["approved", "rejected"]
     acting_role: str
     user_id: str
 

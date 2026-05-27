@@ -60,6 +60,8 @@ type KioskState =
           revalidating: boolean;
           locked: boolean;
           persisted: boolean;
+          // Transfer of Command (IC content gate): true once an IC has taken command.
+          commandTransferred?: boolean;
           // 5d.1: true while the decoupled extract-forms call is in flight. Never blocks
           // the screen — drives a subtle "Generating forms…" hint on the form tab strip.
           formsGenerating: boolean;
@@ -105,11 +107,15 @@ const IncidentKiosk = () => {
                     if (prev.incidentId !== incidentId) return prev;
                     const a = prev.iap.supportContributions;
                     const b = fresh.supportContributions;
-                    if (a.length === b.length && a.every((x, i) => x.id === b[i].id)) {
+                    const freshCommand = fresh.commandTransferredAt != null;
+                    const sameContribs =
+                        a.length === b.length && a.every((x, i) => x.id === b[i].id && x.icStatus === b[i].icStatus);
+                    if (sameContribs && (prev.commandTransferred ?? false) === freshCommand) {
                         return prev;
                     }
                     return {
                         ...prev,
+                        commandTransferred: freshCommand,
                         iap: { ...prev.iap, supportContributions: b }
                     };
                 });
@@ -189,6 +195,7 @@ const IncidentKiosk = () => {
                     revalidating: false,
                     locked: doc.phase !== "response",
                     persisted: true,
+                    commandTransferred: doc.commandTransferredAt != null,
                     formsGenerating: true
                 });
                 // Forms populate in the background; the dashboard is already interactive.
@@ -385,7 +392,7 @@ const IncidentKiosk = () => {
     }
 
     if (state.phase === "in_incident") {
-        const { iap, incidentId, locked, revalidating, formsGenerating, sceneType } = state;
+        const { iap, incidentId, locked, revalidating, formsGenerating, sceneType, commandTransferred } = state;
         const items = iap.sceneConditionsAndActions;
 
         return (
@@ -419,8 +426,18 @@ const IncidentKiosk = () => {
                         value={sceneType}
                         estimated={iap.sceneTypeEstimate}
                         onConfirm={handleConfirmSceneType}
-                        disabled={locked}
+                        disabled={locked || !!commandTransferred}
                     />
+                    <div
+                        style={{
+                            padding: "4px 2px 8px",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                            color: commandTransferred ? "#B58B00" : "#555"
+                        }}
+                    >
+                        {commandTransferred ? "Transfer of Command Initiated" : "Fire Officer in Charge"}
+                    </div>
 
                     <section className={`${styles.pane} ${styles.summaryPane}`}>
                         <div className={styles.paneHeader}>
@@ -436,12 +453,14 @@ const IncidentKiosk = () => {
                                 Added by support roles from their pages
                             </Caption1>
                         </div>
-                        {iap.supportContributions.length === 0 ? (
-                            <Body1 className={styles.empty}>No support contributions yet.</Body1>
+                        {iap.supportContributions.filter(c => c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass").length === 0 ? (
+                            <Body1 className={styles.empty}>
+                                {commandTransferred ? "No IC-approved contributions yet." : "No support contributions yet."}
+                            </Body1>
                         ) : (
                             <div className={styles.supportGroups}>
                                 {[...RECOMMENDATION_CATEGORY_ORDER, null].map(cat => {
-                                    const group = iap.supportContributions.filter(c => (c.category ?? null) === cat);
+                                    const group = iap.supportContributions.filter(c => (c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass") && (c.category ?? null) === cat);
                                     if (group.length === 0) return null;
                                     const heading = cat ? RECOMMENDATION_CATEGORY_LABEL[cat] : "Other";
                                     return (
@@ -452,6 +471,9 @@ const IncidentKiosk = () => {
                                                     <li key={c.id} className={styles.supportItem}>
                                                         <RoleBubble role={c.addedBy.role} suffix={c.provenance === "ai" ? "AI" : "HIC"} />
                                                         <Body1 className={styles.supportText}>{c.text}</Body1>
+                                                        {c.icStatus === "safety_bypass" && (
+                                                            <span style={{ marginLeft: 6, fontSize: "0.7rem", fontWeight: 700, color: "#C62828" }}>⚑ SAFETY</span>
+                                                        )}
                                                     </li>
                                                 ))}
                                             </ul>

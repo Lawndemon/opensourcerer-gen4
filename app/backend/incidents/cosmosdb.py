@@ -484,6 +484,20 @@ async def add_custom_recommendation(
     return await replace_incident(doc)
 
 
+def _initial_ic_status(doc: "IncidentDocument", role: str) -> str:
+    """Gate state for a newly-surfaced contribution given command status + originating role.
+
+    Before Transfer of Command everything is ungated (current behavior). After ToC the IC gates
+    content to the Fire Officer — except Safety Officer items, which bypass straight to the kiosk
+    (flagged), because life-safety must not wait on an approval queue.
+    """
+    if doc.command_transferred_at is None:
+        return "not_gated"
+    if role == "safety-officer":
+        return "safety_bypass"
+    return "pending"
+
+
 async def publish_recommendation(
     *,
     tenant_id: str,
@@ -520,6 +534,7 @@ async def publish_recommendation(
         source="recommended" if item.source == "kb" else "custom",
         category=item.category,
         provenance="hic",  # a human publish is itself an act of ownership.
+        ic_status=_initial_ic_status(doc, role),
         added_by=actor,
         added_at=_now_iso(),
     )
@@ -623,10 +638,43 @@ async def apply_auto_populated_ai_contributions(
                 source="recommended",
                 category=category,
                 provenance="ai",
+                ic_status=_initial_ic_status(doc, role),
                 added_by=Actor(role=role, user_id="ai"),
                 added_at=now,
             )
         )
+    return await replace_incident(doc)
+
+
+async def decide_gated_contribution(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    contribution_id: str,
+    decision: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """IC approve/reject of a gated (pending) support contribution. Append-only, audit-logged.
+
+    `approved` makes the item visible on the Fire Officer kiosk; `rejected` keeps it off the
+    kiosk (retained in the record for audit). Only meaningful after Transfer of Command.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    contribution = next((c for c in doc.support_contributions if c.id == contribution_id), None)
+    if contribution is None:
+        raise ValueError(f"Contribution not found: {contribution_id}")
+
+    contribution.ic_status = "approved" if decision == "approved" else "rejected"
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="support_contribution_ic_decided",
+            actor=actor,
+            payload={"contribution_id": contribution_id, "decision": decision},
+        )
+    )
     return await replace_incident(doc)
 
 

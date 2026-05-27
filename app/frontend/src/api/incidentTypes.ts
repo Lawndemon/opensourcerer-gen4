@@ -47,6 +47,8 @@ export interface SceneConditionAndAction {
 
 export type RecommendationCategory = "life_safety" | "incident_stabilization" | "property_conservation";
 
+export type ContributionICStatus = "not_gated" | "pending" | "approved" | "rejected" | "safety_bypass";
+
 export interface SupportContribution {
     id: string;
     text: string;
@@ -55,6 +57,8 @@ export interface SupportContribution {
     category: RecommendationCategory | null;
     /** "ai" = machine-suggested, not yet human-confirmed; "hic" = Human In Charge owns it. */
     provenance: "ai" | "hic";
+    /** IC content gate state. Shown on the FO kiosk when not_gated / approved / safety_bypass. */
+    icStatus: ContributionICStatus;
     addedBy: Actor;
     addedAt: string;
 }
@@ -167,6 +171,8 @@ export interface IncidentDocument {
     createdBy: Actor;
     createdAt: string;
     lossStoppedAt: string | null;
+    /** null = Fire Officer in charge; set = IC has taken command (Transfer of Command, one-way v1). */
+    commandTransferredAt: string | null;
     closedAt: string | null;
     transcript: TranscriptChunk[];
     sceneSummary: SceneSummary;
@@ -206,6 +212,17 @@ export interface LossStopRequest {
 
 export interface SetSceneTypeRequest {
     sceneType: SceneType;
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface TransferOfCommandRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface ICDecisionRequest {
+    decision: "approved" | "rejected";
     actingRole: ActingRole | string;
     userId: string;
 }

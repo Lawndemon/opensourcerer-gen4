@@ -13,6 +13,8 @@
 import type {
     AddCustomRecommendationRequest,
     AttestContributionRequest,
+    TransferOfCommandRequest,
+    ICDecisionRequest,
     AutoPopulateRecommendationsRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
@@ -131,6 +133,24 @@ export async function lossStop(incidentId: string, request: LossStopRequest, sig
  */
 export async function setSceneType(incidentId: string, request: SetSceneTypeRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/scene-type`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/transfer-of-command — the Incident Commander assumes command
+ * (the gatekeeper workflow). One-way in v1. Returns the updated incident.
+ */
+export async function transferOfCommand(incidentId: string, request: TransferOfCommandRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/transfer-of-command`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/support-contributions/{cid}/ic-decision — IC approves or rejects a
+ * gated contribution (active after Transfer of Command). Returns the updated incident.
+ */
+export async function icDecision(incidentId: string, contributionId: string, request: ICDecisionRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/support-contributions/${encodeURIComponent(contributionId)}/ic-decision`, request, signal);
     return envelope.incident;
 }
 
