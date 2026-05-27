@@ -64,6 +64,7 @@ from models.incidents import (
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
     SetSceneTypeRequest,
+    TransferOfCommandRequest,
     SceneSummary,
     TranscriptChunk,
     ValidateIAPRequest,
@@ -632,6 +633,39 @@ async def loss_stop(auth_claims: dict[str, Any], incident_id: str):
         return error_response(error, f"/api/incidents/{incident_id}/loss-stop")
 
 
+@bp.route("/api/incidents/<incident_id>/transfer-of-command", methods=["POST"])
+@authenticated
+async def transfer_of_command(auth_claims: dict[str, Any], incident_id: str):
+    """The Incident Commander assumes command (the gatekeeper workflow). One-way in v1.
+
+    Engages the IC content gate and flips scene-type authority to the IC. Only the
+    incident-commander acting role may initiate.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = TransferOfCommandRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match TransferOfCommandRequest", "details": ve.errors()}), 400
+
+    if body.acting_role != "incident-commander":
+        return jsonify({"error": "Only the Incident Commander can initiate Transfer of Command."}), 403
+
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.transition_command_to_ic(
+            tenant_id=tenant_id, incident_id=incident_id, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/transfer-of-command")
+
+
 @bp.route("/api/incidents/<incident_id>/scene-type", methods=["POST"])
 @authenticated
 async def set_scene_type(auth_claims: dict[str, Any], incident_id: str):
@@ -662,6 +696,8 @@ async def set_scene_type(auth_claims: dict[str, Any], incident_id: str):
             tenant_id=tenant_id, incident_id=incident_id, new_type=body.scene_type, actor=actor
         )
         return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404
     except Exception as error:

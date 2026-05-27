@@ -763,6 +763,41 @@ async def apply_refinement(
     return await replace_incident(doc)
 
 
+async def transition_command_to_ic(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Transfer of Command: the Incident Commander deliberately assumes command.
+
+    One-way in v1 — once command transfers to the IC it stays there until the incident closes.
+    Sets the derived `command_transferred_at` flag and appends an append-only
+    `command_transferred` event (the source of truth). Idempotent: re-initiating after command
+    is already with the IC is a no-op and won't duplicate events.
+
+    Engaging command transfer flips scene-type authority to the IC and (caller-side) activates
+    the IC content gate — support/AI recommendations route through the IC before the kiosk.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    if doc.command_transferred_at is not None:
+        # Idempotent — command already with the IC.
+        return doc
+
+    doc.command_transferred_at = _now_iso()
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="command_transferred",
+            actor=actor,
+            payload={"from": "fire-officer", "to": actor.role},
+        )
+    )
+    return await replace_incident(doc)
+
+
 async def confirm_scene_type(
     *,
     tenant_id: str,
@@ -787,6 +822,14 @@ async def confirm_scene_type(
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
         raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+
+    # Scene-type authority depends on command status. Before Transfer of Command the Fire
+    # Officer owns the Type; after it, only the Incident Commander may change it.
+    ic_in_command = doc.command_transferred_at is not None
+    if ic_in_command and actor.role != "incident-commander":
+        raise PermissionError("Command has been transferred — only the Incident Commander can change the scene Type.")
+    if not ic_in_command and actor.role == "incident-commander":
+        raise PermissionError("The Incident Commander must initiate Transfer of Command before changing the scene Type.")
 
     previous_type = doc.scene_type
     if previous_type == new_type:

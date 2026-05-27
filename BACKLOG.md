@@ -600,6 +600,22 @@ Ours: `validate_iap`, `recommend_actions`, `extract_forms`, `refine_condition`, 
 - **WS5 ✓ (app + deps)** — App Insights/OpenTelemetry imports + the `APPLICATIONINSIGHTS_CONNECTION_STRING`-gated block removed from `app.py`; 5 telemetry deps removed from `requirements.in`; lockfile recompiled (119 → 96 packages). Residual `opentelemetry-api/sdk` are benign transitive deps of `msgraph-sdk` with no exporter. **Follow-up (not done):** the infra App Insights wiring in `infra/main.bicep` is gated behind `useApplicationInsights = false` and threads through ~10 modules — left in place to avoid destabilizing the deploy; remove carefully in a dedicated infra pass.
 - **WS6 (item 6 — inherited-code rewrite)** — not started; remains its own scoped effort (wrap/rename the RAG stack, don't rewrite). The four earlier prep cuts (`extractCitationDetails`, `i18n/index.tsx`, `rollup-plugin-visualizer`, `CONFIG_OPENAI_TOKEN`) are also still uncommitted on this branch.
 
+### Transfer of Command + IC content gate (SME-requested 2026-05-25, building 2026-05-27)
+
+Derived from the SME's EM Assistant workflow deck (three-mode model: Officer / Supervisor / Command). This implements the **Supervisor-Mode gatekeeper** via an explicit, IC-initiated Transfer of Command rather than a full mode state machine — incremental progress that stays flexible toward the full model.
+
+**Trigger — deliberate, not implicit.** The IC page gets a **"Transfer of Command"** button. Pressing it (NOT mere login) engages the workflow. **One-way in v1:** once command transfers to the IC it stays there until the incident closes (no relinquish — revisit later; the deck's doctrine is bidirectional). Modelled append-only like Loss Stop / scene-type: a derived `command_transferred_at` flag on `IncidentDocument` + a `command_transferred` audit event as source of truth.
+
+**What engaging ToC does:**
+
+1. **FO kiosk status line** — a line directly under Scene Type reads **"Fire Officer in Charge"** by default and flips to **"Transfer of Command Initiated"** once the IC takes over.
+2. **Scene-type authority flips.** Before ToC the Fire Officer owns the Scene Type; after ToC **only the Incident Commander** may change it, and the **FO kiosk scene-type control locks**. Scene Type is shown on the IC page and becomes editable there only after ToC. Enforced server-side in `confirm_scene_type` (authority by `actor.role` + command status; PermissionError → 403).
+3. **Content gate (Supervisor-Mode gatekeeper).** While command is with the IC, support-role and AI-simulated recommendations no longer auto-surface on the FO kiosk — they route to the IC for **approve / reject** first; only IC-approved items cross to the kiosk. **Safety bypass:** items from the Safety Officer go **direct to the FO kiosk, flagged separately** (life-safety must not wait on an approval queue — consistent with the recommendation life-safety guardrail). Implemented as a gate state on `SupportContribution` set at creation time (in `publish_recommendation` + `apply_auto_populated_ai_contributions`) based on command status + originating role; FO kiosk filters to visible (ungated / IC-approved / Safety-bypass); IC page surfaces the pending queue.
+
+**Orthogonal axes:** "command status" (org structure: FO-in-charge → IC) is distinct from "lifecycle phase" (Response → Recovery via Loss Stop). They do not interact in v1.
+
+**Build status (2026-05-27):** backend foundation landed — `command_transferred_at` + `command_transferred` event, `transition_command_to_ic` cosmos fn, `POST /api/incidents/{id}/transfer-of-command` (IC-only), scene-type authority enforcement. REMAINING: content-gate routing (gate field on SupportContribution + Safety bypass + IC approve/reject endpoint), IC-page UI (ToC button, scene-type control, pending-approval surface), kiosk UI (status line, scene-type lock, gated-content filter), end-to-end verification.
+
 ## Notes on the deploy / template
 
 - Template is upstream `azure-samples/azure-search-openai-demo`. Merges from upstream may conflict with:

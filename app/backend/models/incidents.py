@@ -261,6 +261,7 @@ AuditEventType = Literal[
     "form_locked",
     "phase_transitioned",
     "scene_type_confirmed",
+    "command_transferred",
 ]
 
 
@@ -437,6 +438,8 @@ class IncidentDocument(_IncidentBase):
     created_by: Actor
     created_at: str
     loss_stopped_at: str | None = None
+    command_transferred_at: str | None = None  # None = Fire Officer in charge; set = IC has
+    # taken command (one-way v1). Append-only `command_transferred` event is the source of truth.
     closed_at: str | None = None
     transcript: list[TranscriptChunk] = Field(default_factory=list)
     scene_summary: SceneSummary
@@ -490,6 +493,19 @@ class SetSceneTypeRequest(_IncidentBase):
     """
 
     scene_type: SceneType
+    acting_role: str
+    user_id: str
+
+
+class TransferOfCommandRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/transfer-of-command`.
+
+    The Incident Commander deliberately assumes command (the gatekeeper workflow), distinct
+    from merely being logged in. One-way in v1: command stays with the IC until the incident
+    closes. `acting_role` must be the IC; `user_id` is recorded on the `command_transferred`
+    audit event.
+    """
+
     acting_role: str
     user_id: str
 
