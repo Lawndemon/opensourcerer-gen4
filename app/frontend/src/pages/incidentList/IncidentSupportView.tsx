@@ -104,6 +104,10 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
             }
         };
         const handle = window.setInterval(tick, POLL_INTERVAL_MS);
+        // Fetch immediately on mount/refresh too — without this, a page load shows the
+        // incident object we mounted with and won't pull fresh data (e.g. recs a support role
+        // just submitted for IC approval) until the first 10s tick.
+        void tick();
         return () => {
             cancelled = true;
             window.clearInterval(handle);
