@@ -51,7 +51,17 @@ def authenticated(route_fn: _C) -> _C:
         auth_helper = current_app.config[CONFIG_AUTH_CLIENT]
         try:
             auth_claims = await auth_helper.get_auth_claims_if_enabled(request.headers)
-        except AuthError:
+        except AuthError as auth_err:
+            # Diagnostic (2026-05-27): capture the actual AuthError text so we can pin down
+            # the source of attest 403s in Container Apps logs. Remove once the cause is
+            # identified and the underlying issue is fixed (likely retry-on-OBO-error in
+            # core/authentication.py:get_auth_claims_if_enabled).
+            current_app.logger.warning(
+                "@authenticated rejected %s %s: %s",
+                request.method,
+                request.path,
+                auth_err,
+            )
             abort(403)
 
         return await route_fn(auth_claims, *args, **kwargs)

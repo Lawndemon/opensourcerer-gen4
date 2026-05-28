@@ -172,7 +172,9 @@ class SupportContribution(_IncidentBase):
     # an act of ownership; auto-generated contributions set "ai" explicitly.
     added_by: Actor
     added_at: str
-    ic_status: ContributionICStatus = "not_gated"  # IC content gate: not_gated (pre-ToC,
+    ic_status: ContributionICStatus = "not_gated"
+    withdrawn: bool = False  # Soft-deleted by a support role (or IC) — hidden from kiosk but
+    # retained for audit. Only AI-published items (provenance="ai") are withdrawable in v1.  # IC content gate: not_gated (pre-ToC,
     # visible), pending (awaiting IC), approved/rejected (IC decided), safety_bypass (Safety
     # Officer items go direct to the FO kiosk flagged, even with the gate active).
 
@@ -271,6 +273,7 @@ AuditEventType = Literal[
     "support_contribution_ic_decided",
     "incident_locked",
     "form_content_edited",
+    "support_contribution_withdrawn",
 ]
 
 
@@ -548,6 +551,17 @@ class SaveFormContentRequest(_IncidentBase):
     """Request body for `POST /api/incidents/{id}/forms/{formId}/content` — manual edit of a form's content during cleanup."""
 
     content: FormContent
+    acting_role: str
+    user_id: str
+
+
+class WithdrawContributionRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/support-contributions/{cid}/withdraw`.
+
+    A human user (the role that originally owns the AI item, or the IC as override) pulls
+    back an AI-published recommendation. Hides it from the kiosk; retained for audit.
+    """
+
     acting_role: str
     user_id: str
 

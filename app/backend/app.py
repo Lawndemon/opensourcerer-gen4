@@ -68,6 +68,7 @@ from models.incidents import (
     ICDecisionRequest,
     LockIncidentRequest,
     SaveFormContentRequest,
+    WithdrawContributionRequest,
     SceneSummary,
     TranscriptChunk,
     ValidateIAPRequest,
@@ -705,6 +706,33 @@ async def set_scene_type(auth_claims: dict[str, Any], incident_id: str):
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/scene-type")
+
+
+@bp.route("/api/incidents/<incident_id>/support-contributions/<contribution_id>/withdraw", methods=["POST"])
+@authenticated
+async def withdraw_support_contribution(auth_claims: dict[str, Any], incident_id: str, contribution_id: str):
+    """Pull back an AI-published recommendation. Owning role OR the IC."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = WithdrawContributionRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match WithdrawContributionRequest", "details": ve.errors()}), 400
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.withdraw_support_contribution(
+            tenant_id=tenant_id, incident_id=incident_id, contribution_id=contribution_id, actor=actor,
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/support-contributions/{contribution_id}/withdraw")
 
 
 @bp.route("/api/incidents/<incident_id>/support-contributions/<contribution_id>/ic-decision", methods=["POST"])

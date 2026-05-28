@@ -17,6 +17,7 @@ import type {
     ICDecisionRequest,
     LockIncidentRequest,
     SaveFormContentRequest,
+    WithdrawContributionRequest,
     AutoPopulateRecommendationsRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
@@ -171,6 +172,15 @@ export async function lockIncident(incidentId: string, request: LockIncidentRequ
  */
 export async function saveFormContent(incidentId: string, formId: string, request: SaveFormContentRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/forms/${encodeURIComponent(formId)}/content`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/support-contributions/{cid}/withdraw — pull back an AI-published
+ * recommendation. Authorized for the owning support role (added_by.role match) or the IC.
+ */
+export async function withdrawSupportContribution(incidentId: string, contributionId: string, request: WithdrawContributionRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/support-contributions/${encodeURIComponent(contributionId)}/withdraw`, request, signal);
     return envelope.incident;
 }
 

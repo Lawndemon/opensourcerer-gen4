@@ -59,6 +59,8 @@ export interface SupportContribution {
     provenance: "ai" | "hic";
     /** IC content gate state. Shown on the FO kiosk when not_gated / approved / safety_bypass. */
     icStatus: ContributionICStatus;
+    /** Soft-deleted by the owning support role or the IC. Hidden from the kiosk; retained for audit. */
+    withdrawn: boolean;
     addedBy: Actor;
     addedAt: string;
 }
@@ -237,6 +239,11 @@ export interface LockIncidentRequest {
 
 export interface SaveFormContentRequest {
     content: FormContent;
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface WithdrawContributionRequest {
     actingRole: ActingRole | string;
     userId: string;
 }

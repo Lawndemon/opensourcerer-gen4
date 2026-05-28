@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { autoPopulateRecommendations, closeIncident, extractForms, getIncident, icDecision, setSceneType, transferOfCommand, validateIAP } from "../../api/incidents";
+import { closeIncident, extractForms, getIncident, icDecision, setSceneType, transferOfCommand, validateIAP } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction, SceneType } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
@@ -84,7 +84,7 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     // these controls; once command is transferred the IC gates content to the Fire Officer.
     const isIncidentCommander = actingRole === "incident-commander";
     const commandTransferred = incident.commandTransferredAt != null;
-    const pendingForIc = incident.supportContributions.filter(c => c.icStatus === "pending");
+    const pendingForIc = incident.supportContributions.filter(c => c.icStatus === "pending" && !c.withdrawn);
     const [tocBusy, setTocBusy] = useState(false);
     const supportPollMs = commandTransferred ? FAST_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
     // Closeout / final-lock workflow: IC or Site Administrator can open it anytime.
@@ -192,12 +192,9 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         try {
             const updated = await transferOfCommand(incident.id, { actingRole, userId: "support-view" });
             setIncident(updated);
-            // SME bug fix 2026-05-27: regenerate AI recommendations across all roles right after
-            // taking command so the IC has items to approve. Post-ToC these land as `pending` and
-            // appear in the IC pending queue via the 3s adaptive poll. Background fire-and-forget.
-            void autoPopulateRecommendations(updated.id, { actingRole, userId: "ic-toc" }).catch(() => {
-                /* non-fatal: the poll will keep refreshing the queue */
-            });
+            // SME 2026-05-27: the backend now re-classifies every existing not_gated contribution
+            // (AI + HIC) into the IC pending queue as part of transition_command_to_ic, so the IC
+            // sees exactly what was published pre-ToC. No client-side auto-populate needed here.
         } catch (e) {
             setActionError(e instanceof Error ? e.message : "Transfer of Command failed.");
         } finally {

@@ -534,14 +534,14 @@ const IncidentKiosk = () => {
                                 Added by support roles from their pages
                             </Caption1>
                         </div>
-                        {iap.supportContributions.filter(c => c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass").length === 0 ? (
+                        {iap.supportContributions.filter(c => !c.withdrawn && (c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass")).length === 0 ? (
                             <Body1 className={styles.empty}>
                                 {commandTransferred ? "No IC-approved contributions yet." : "No support contributions yet."}
                             </Body1>
                         ) : (
                             <div className={styles.supportGroups}>
                                 {[...RECOMMENDATION_CATEGORY_ORDER, null].map(cat => {
-                                    const group = iap.supportContributions.filter(c => (c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass") && (c.category ?? null) === cat);
+                                    const group = iap.supportContributions.filter(c => !c.withdrawn && (c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass") && (c.category ?? null) === cat);
                                     if (group.length === 0) return null;
                                     const heading = cat ? RECOMMENDATION_CATEGORY_LABEL[cat] : "Other";
                                     return (

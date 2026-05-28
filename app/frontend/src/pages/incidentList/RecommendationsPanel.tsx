@@ -27,6 +27,7 @@ import { ArrowSync24Regular, Warning24Filled } from "@fluentui/react-icons";
 import {
     addCustomRecommendation,
     attestContribution,
+    withdrawSupportContribution,
     dismissRecommendation,
     getSupportRecommendations,
     publishRecommendation,
@@ -207,6 +208,20 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
         [actingRole, incident.id, locked, onIncidentRefresh, userId]
     );
 
+    const handleWithdraw = useCallback(
+        async (contributionId: string) => {
+            try {
+                await withdrawSupportContribution(incident.id, contributionId, { actingRole, userId });
+                onIncidentRefresh();
+            } catch (e) {
+                // Surface via parent error path is overkill; log for now.
+                // eslint-disable-next-line no-console
+                console.warn("Withdraw failed:", e);
+            }
+        },
+        [actingRole, incident.id, onIncidentRefresh, userId]
+    );
+
     const handleConfirm = useCallback(
         async (contributionId: string) => {
             if (locked) return;
@@ -246,7 +261,7 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
             role: actingRole
         }));
         const published: RecommendationRowData[] = incident.supportContributions
-            .filter(c => c.addedBy.role === actingRole)
+            .filter(c => c.addedBy.role === actingRole && !c.withdrawn)
             .map(c => ({
                 id: c.id,
                 text: c.text,
@@ -358,6 +373,7 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                                         onPublish={!locked && row.status === "pending" ? handlePublish : undefined}
                                         onDismiss={!locked && row.status === "pending" ? handleDismiss : undefined}
                                         onConfirm={!locked && row.status === "published" && row.provenance === "ai" ? handleConfirm : undefined}
+                                        onWithdraw={!locked && row.status === "published" && row.provenance === "ai" ? handleWithdraw : undefined}
                                         busy={busyIds.has(row.id)}
                                     />
                                 ))}

@@ -688,6 +688,51 @@ async def apply_auto_populated_ai_contributions(
     return await replace_incident(doc)
 
 
+async def withdraw_support_contribution(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    contribution_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Pull back an AI-published support contribution. Soft-delete (hidden from kiosk; retained for audit).
+
+    Authorization: the support role that owns this AI item (added_by.role match) OR the IC as
+    override. Only AI items (provenance="ai") are withdrawable in v1 — HIC items reflect a
+    human decision and need a different mechanism if they should ever be withdrawable.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    contribution = next((c for c in doc.support_contributions if c.id == contribution_id), None)
+    if contribution is None:
+        raise ValueError(f"Contribution not found: {contribution_id}")
+    if contribution.provenance != "ai":
+        raise ValueError("Only AI-published recommendations can be withdrawn.")
+    if actor.role != "incident-commander" and actor.role != contribution.added_by.role:
+        raise PermissionError(
+            f"Only the {contribution.added_by.role} role (or the Incident Commander) can withdraw this AI recommendation."
+        )
+    if contribution.withdrawn:
+        # Idempotent — already withdrawn.
+        return doc
+
+    contribution.withdrawn = True
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="support_contribution_withdrawn",
+            actor=actor,
+            payload={
+                "contribution_id": contribution_id,
+                "originating_role": contribution.added_by.role,
+                "text": contribution.text,
+            },
+        )
+    )
+    return await replace_incident(doc)
+
+
 async def decide_gated_contribution(
     *,
     tenant_id: str,
@@ -878,12 +923,34 @@ async def transition_command_to_ic(
         return doc
 
     doc.command_transferred_at = _now_iso()
+
+    # Re-classify EVERY existing not_gated support contribution (AI + HIC) so the IC can
+    # re-validate them all (Dave 2026-05-27). Safety Officer items go safety_bypass and stay
+    # visible to the FO; everything else becomes pending. Items already decided
+    # (approved / rejected / safety_bypass) and withdrawn items are not touched.
+    reclassified_to_pending: list[str] = []
+    reclassified_to_safety_bypass: list[str] = []
+    for contribution in doc.support_contributions:
+        if contribution.ic_status != "not_gated":
+            continue
+        if contribution.added_by.role == "safety-officer":
+            contribution.ic_status = "safety_bypass"
+            reclassified_to_safety_bypass.append(contribution.id)
+        else:
+            contribution.ic_status = "pending"
+            reclassified_to_pending.append(contribution.id)
+
     doc.event_log.append(
         make_audit_event(
             incident_id=incident_id,
             event_type="command_transferred",
             actor=actor,
-            payload={"from": "fire-officer", "to": actor.role},
+            payload={
+                "from": "fire-officer",
+                "to": actor.role,
+                "reclassified_to_pending": reclassified_to_pending,
+                "reclassified_to_safety_bypass": reclassified_to_safety_bypass,
+            },
         )
     )
     return await replace_incident(doc)

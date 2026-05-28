@@ -52,6 +52,8 @@ interface RecommendationRowProps {
     busy?: boolean;
     /** Confirm handler for AI published rows — flips provenance AI -> HIC. */
     onConfirm?: (id: string) => Promise<void> | void;
+    /** Pull back an AI-published recommendation (soft-delete). Only valid for AI published items. */
+    onWithdraw?: (id: string) => Promise<void> | void;
 }
 
 const STATUS_BADGE: Record<RowStatus, { label: string; color: "warning" | "success" | "subtle" }> = {
@@ -66,7 +68,7 @@ const SOURCE_BADGE: Record<RowSource, { label: string; color: "informative" | "b
     unknown: { label: "—", color: "subtle" }
 };
 
-const RecommendationRow = ({ row, onPublish, onDismiss, onConfirm, busy }: RecommendationRowProps) => {
+const RecommendationRow = ({ row, onPublish, onDismiss, onConfirm, onWithdraw, busy }: RecommendationRowProps) => {
     const statusBadge = STATUS_BADGE[row.status];
     const sourceBadge = SOURCE_BADGE[row.source];
     const isPending = row.status === "pending";
@@ -87,17 +89,33 @@ const RecommendationRow = ({ row, onPublish, onDismiss, onConfirm, busy }: Recom
             <div className={styles.actions}>
                 {busy ? (
                     <Spinner size="tiny" />
-                ) : row.status === "published" && row.provenance === "ai" && onConfirm ? (
-                    <Tooltip content="Confirm — you take ownership (AI → HIC)" relationship="label">
-                        <Button
-                            appearance="subtle"
-                            size="small"
-                            icon={<Checkmark24Regular />}
-                            className={styles.publishButton}
-                            aria-label={`Confirm: ${row.text}`}
-                            onClick={() => void onConfirm(row.id)}
-                        />
-                    </Tooltip>
+                ) : row.status === "published" && row.provenance === "ai" && (onConfirm || onWithdraw) ? (
+                    <>
+                        {onConfirm && (
+                            <Tooltip content="Confirm — you take ownership (AI → HIC)" relationship="label">
+                                <Button
+                                    appearance="subtle"
+                                    size="small"
+                                    icon={<Checkmark24Regular />}
+                                    className={styles.publishButton}
+                                    aria-label={`Confirm: ${row.text}`}
+                                    onClick={() => void onConfirm(row.id)}
+                                />
+                            </Tooltip>
+                        )}
+                        {onWithdraw && (
+                            <Tooltip content="Withdraw — pull back this AI recommendation" relationship="label">
+                                <Button
+                                    appearance="subtle"
+                                    size="small"
+                                    icon={<Dismiss24Regular />}
+                                    className={styles.dismissButton}
+                                    aria-label={`Withdraw: ${row.text}`}
+                                    onClick={() => void onWithdraw(row.id)}
+                                />
+                            </Tooltip>
+                        )}
+                    </>
                 ) : isPending && (onPublish || onDismiss) ? (
                     <>
                         {onPublish && (
