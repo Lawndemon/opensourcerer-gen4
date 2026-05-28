@@ -614,7 +614,28 @@ Derived from the SME's EM Assistant workflow deck (three-mode model: Officer / S
 
 **Orthogonal axes:** "command status" (org structure: FO-in-charge → IC) is distinct from "lifecycle phase" (Response → Recovery via Loss Stop). They do not interact in v1.
 
-**Build status (2026-05-27):** COMPLETE at code level (backend `compileall` + frontend `tsc --noEmit` clean; not yet runtime-tested on a deploy). Backend: `command_transferred_at` + `command_transferred` event, `transition_command_to_ic`, IC-only `POST /transfer-of-command`, scene-type authority enforcement, `ic_status` gate on `SupportContribution` set in both publish + auto-populate paths (Safety→`safety_bypass`, others→`pending` post-ToC), `decide_gated_contribution` + IC-only `POST .../ic-decision`. Frontend: kiosk status line under Scene Type + scene-type lock + visible-content filter (Safety flagged); IC page Transfer-of-Command button + scene-type control (post-ToC only) + pending-approval queue. REMAINING: runtime/deploy testing with a real IC login; revisit one-way → reversible command handback later.
+**Build status (2026-05-27):** COMPLETE at code level (backend `compileall` + frontend `tsc --noEmit` clean; not yet runtime-tested on a deploy). Backend: `command_transferred_at` + `command_transferred` event, `transition_command_to_ic`, IC-only `POST /transfer-of-command`, scene-type authority enforcement, `ic_status` gate on `SupportContribution` set in both publish + auto-populate paths (Safety→`safety_bypass`, others→`pending` post-ToC), `decide_gated_contribution` + IC-only `POST .../ic-decision`. Frontend: kiosk status line under Scene Type + scene-type lock + visible-content filter (Safety flagged); IC page Transfer-of-Command button + scene-type control (post-ToC only) + pending-approval queue. REMAINING: runtime/deploy testing with a real IC login; revisit one-way → reversible command handback later. **Refinements (2026-05-27):** IC approval pane wasn't refreshing on mount (poll had no immediate tick) — fixed. Cross-session updates are poll-based (no websockets — see decision: complexity + scale-out backplane not worth it yet); adaptive polling added (kiosk + IC/support views drop to 3s while command is transferred, 10s otherwise) plus an 'IC in control' banner on support panes (Safety notes its bypass). SSE is the lighter escalation if 3s isn't enough.
+
+### CloseoutAdmin + final Lock Event + Loss-Stop scene freeze (SME-requested 2026-05-27)
+
+Adds the post-response cleanup & reporting surface — the **corporate / municipal / federal reporting** stage — distinct from Loss Stop (which freezes the scene) and from the existing Close Incident (lifecycle response→recovery). Accessible to the **IC** and **Site Administrator** on any incident, any phase. Triggers a terminal seal that makes the incident the immutable official record.
+
+**Loss-Stop semantics tightened.** Loss Stop now genuinely freezes the scene **server-side**: a new `SceneFrozenError` (→ HTTP 409) is raised from `_assert_scene_open(doc)`, called inside `confirm_scene_type`, `apply_validate_iap_result`, `remove_condition`, and `apply_refinement`. Previously only the UI hid these controls post-Loss-Stop; now the backend enforces it. Forms remain editable during cleanup; the scene does not.
+
+**Three-step workflow on the new `CloseoutAdmin` page (per-incident, IC || Site-Admin):**
+
+1. **Update all reports** — frontend fans `extract-forms` out across every form-bearing role in `Promise.all`, then `getIncident` to refresh. (Server-side fan-out is a possible future optimization; v1 client loop is fine at current scale.)
+2. **Edit reports** — per-form expandable editor with per-field text inputs (ICS 201) or per-section heading/body textareas (placeholder forms). Saves via a new `POST /api/incidents/{id}/forms/{formId}/content` endpoint (`save_form_content` cosmos fn, audit event `form_content_edited`). Faithful per-form layouts and matching PDFs land later with the SME-supplied templates.
+3. **Close out & lock event** — `POST /api/incidents/{id}/lock` (IC/Site-Admin only) sets `locked_at` + `locked_by` and appends a `incident_locked` audit event. One-way in v1 — no unlock action.
+
+**Lock guard — centralized.** Rather than touching every mutation cosmos fn, a single check inside `replace_incident` re-reads the persisted doc; if `existing.locked_at is not None` it raises `IncidentLockedError` (→ HTTP 423). The lock transition itself passes because the persisted doc is still unlocked when `lock_incident` calls through. Subsequent writes from any path are rejected.
+
+**UI signals:**
+
+- **IncidentSupportView**: a "Closeout / Lock Event" entry button (IC || Site-Admin), an "Event locked" banner once `lockedAt` is set, early-return into `CloseoutAdmin` when the user opens it.
+- **Fire Officer kiosk**: an "Event Locked" banner under the FO-in-charge status line; the existing `locked` state extends to include `lockedAt`, so the existing checks already hide Loss Stop / Re-Validate and disable the scene-type selector once locked. The LOCKED badge label switches to "EVENT LOCKED" when sealed.
+
+**Build status (2026-05-27):** COMPLETE at code level (backend `compileall` + frontend `tsc --noEmit` both clean; runtime-untested). Existing `Loss Stop` + `Close Incident` flows kept as-is (response→recovery lifecycle). Mutation-button granular disabling on `IncidentSupportView` not added (banner + 423 backend rejection cover it for v1).
 
 ## Notes on the deploy / template
 

@@ -62,6 +62,8 @@ type KioskState =
           persisted: boolean;
           // Transfer of Command (IC content gate): true once an IC has taken command.
           commandTransferred?: boolean;
+          // Terminal seal — set when the IC/Admin locks the event from the CloseoutAdmin page.
+          eventLocked?: boolean;
           // 5d.1: true while the decoupled extract-forms call is in flight. Never blocks
           // the screen — drives a subtle "Generating forms…" hint on the form tab strip.
           formsGenerating: boolean;
@@ -94,6 +96,10 @@ const IncidentKiosk = () => {
     const pollIncidentId = state.phase === "in_incident" ? state.incidentId : null;
     const pollPersisted = state.phase === "in_incident" ? state.persisted : false;
     const pollLocked = state.phase === "in_incident" ? state.locked : true;
+    // Adaptive cadence: poll faster once command is transferred (the IC approval loop benefits
+    // from prompt kiosk updates); back off to the slower rate otherwise to limit load.
+    const pollCommandTransferred = state.phase === "in_incident" ? (state.commandTransferred ?? false) : false;
+    const kioskPollMs = pollCommandTransferred ? 3_000 : 10_000;
     useEffect(() => {
         if (!pollIncidentId || !pollPersisted || pollLocked) return;
         const incidentId = pollIncidentId;
@@ -113,6 +119,7 @@ const IncidentKiosk = () => {
                     const prevSig = JSON.stringify([
                         prev.sceneType ?? null,
                         prev.commandTransferred ?? false,
+                        prev.eventLocked ?? false,
                         prev.iap.sceneSummary.lastUpdated,
                         prev.iap.sceneConditionsAndActions.map(c => [c.id, c.status, c.removed]),
                         prev.iap.supportContributions.map(c => [c.id, c.icStatus])
@@ -120,6 +127,7 @@ const IncidentKiosk = () => {
                     const freshSig = JSON.stringify([
                         fresh.sceneType ?? null,
                         freshCommand,
+                        fresh.lockedAt != null,
                         fresh.sceneSummary.lastUpdated,
                         fresh.sceneConditionsAndActions.map(c => [c.id, c.status, c.removed]),
                         fresh.supportContributions.map(c => [c.id, c.icStatus])
@@ -131,6 +139,8 @@ const IncidentKiosk = () => {
                         ...prev,
                         sceneType: fresh.sceneType ?? null,
                         commandTransferred: freshCommand,
+                        eventLocked: fresh.lockedAt != null,
+                        locked: prev.locked || fresh.lockedAt != null,
                         iap: {
                             ...prev.iap,
                             sceneTypeEstimate: fresh.sceneTypeEstimate,
@@ -144,13 +154,13 @@ const IncidentKiosk = () => {
                 // Silently ignore poll errors — next tick will retry.
             }
         };
-        const handle = window.setInterval(tick, 10_000);
+        const handle = window.setInterval(tick, kioskPollMs);
         void tick();
         return () => {
             cancelled = true;
             window.clearInterval(handle);
         };
-    }, [pollIncidentId, pollPersisted, pollLocked]);
+    }, [pollIncidentId, pollPersisted, pollLocked, kioskPollMs]);
 
     // --- Background forms extraction (5d.1) ------------------------------------
     // Fired AFTER the scene dashboard has rendered. Generates the role-tagged forms off
@@ -214,9 +224,10 @@ const IncidentKiosk = () => {
                     iap: docIap,
                     sceneType: doc.sceneType ?? null,
                     revalidating: false,
-                    locked: doc.phase !== "response",
+                    locked: doc.phase !== "response" || doc.lockedAt != null,
                     persisted: true,
                     commandTransferred: doc.commandTransferredAt != null,
+                    eventLocked: doc.lockedAt != null,
                     formsGenerating: true
                 });
                 // Forms populate in the background; the dashboard is already interactive.
@@ -267,7 +278,14 @@ const IncidentKiosk = () => {
             // Keep the previously-generated forms visible during the gap — the background
             // extract-forms call below replaces them when the fresh set is ready, so the
             // tab strip never flickers empty on a Re-Validate.
-            const merged = { ...iap, forms: previous.iap.forms };
+            // Preserve supportContributions across re-validate. The backend ValidateIAPResponse
+            // intentionally returns an empty placeholder list; without this preservation,
+            // manual entries and AI items would visually disappear until the next poll tick.
+            const merged = {
+                ...iap,
+                forms: previous.iap.forms,
+                supportContributions: previous.iap.supportContributions
+            };
             setState({ ...previous, iap: merged, revalidating: false, formsGenerating: true });
             void triggerFormsExtraction(previous.incidentId, previous.scenarioId, merged);
         } catch (err) {
@@ -440,7 +458,7 @@ const IncidentKiosk = () => {
     }
 
     if (state.phase === "in_incident") {
-        const { iap, incidentId, locked, revalidating, formsGenerating, sceneType, commandTransferred } = state;
+        const { iap, incidentId, locked, revalidating, formsGenerating, sceneType, commandTransferred, eventLocked } = state;
         const items = iap.sceneConditionsAndActions;
 
         return (
@@ -465,7 +483,7 @@ const IncidentKiosk = () => {
                                 </Button>
                             )}
                             {locked && (
-                                <span className={styles.lockedBadge}>LOCKED — Transition to Recovery</span>
+                                <span className={styles.lockedBadge}>{eventLocked ? "EVENT LOCKED" : "LOCKED — Transition to Recovery"}</span>
                             )}
                         </div>
                     </div>
@@ -486,6 +504,21 @@ const IncidentKiosk = () => {
                     >
                         {commandTransferred ? "Transfer of Command Initiated" : "Fire Officer in Charge"}
                     </div>
+                    {eventLocked && (
+                        <div
+                            style={{
+                                padding: "8px 12px",
+                                margin: "0 0 8px",
+                                borderRadius: 6,
+                                background: "#FDECEA",
+                                border: "1px solid #C62828",
+                                color: "#7A1F1A",
+                                fontWeight: 600
+                            }}
+                        >
+                            🔒 Event Locked — this incident has been sealed for the official record. No further changes.
+                        </div>
+                    )}
 
                     <section className={`${styles.pane} ${styles.summaryPane}`}>
                         <div className={styles.paneHeader}>

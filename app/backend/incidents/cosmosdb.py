@@ -216,6 +216,12 @@ async def replace_incident(doc: IncidentDocument) -> IncidentDocument:
     container = _container()
     if container is None:
         raise RuntimeError("Incidents Cosmos container not configured")
+    # Centralized lock guard: once an incident is locked, no further mutations are accepted.
+    # The lock transition itself passes because the persisted doc is still unlocked when
+    # lock_incident calls this.
+    existing = await get_incident(doc.tenant_id, doc.id)
+    if existing is not None and existing.locked_at is not None:
+        raise IncidentLockedError("Incident is locked; no further mutations allowed.")
     response = await container.replace_item(item=doc.id, body=_dump_document(doc))
     return _parse_document(response)
 
@@ -270,6 +276,7 @@ async def apply_validate_iap_result(
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
         raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    _assert_scene_open(doc)
 
     # Build a map of previously-removed condition ids → their removed metadata. New
     # conditions with the same id retain removed=True per sticky-by-default semantics.
@@ -357,6 +364,7 @@ async def remove_condition(
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
         raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    _assert_scene_open(doc)
 
     target = next((c for c in doc.scene_conditions_and_actions if c.id == condition_id), None)
     if target is None:
@@ -470,6 +478,40 @@ async def add_custom_recommendation(
         created_at=now,
         created_by=actor,
     )
+
+    # SME bug fix 2026-05-27: under Transfer of Command the IC is the gate, so the support
+    # user's own pending working set becomes a redundant extra step. When command is
+    # transferred, custom-add bypasses the working set and creates the SupportContribution
+    # directly (stamped pending / safety_bypass via _initial_ic_status) so it shows up on the
+    # IC's approval queue immediately.
+    if doc.command_transferred_at is not None:
+        from models.incidents import SupportContribution
+        contribution = SupportContribution(
+            id=str(uuid.uuid4()),
+            text=text,
+            source="custom",
+            category=None,
+            provenance="hic",
+            ic_status=_initial_ic_status(doc, role),
+            added_by=actor,
+            added_at=now,
+        )
+        doc.support_contributions.append(contribution)
+        doc.event_log.append(
+            make_audit_event(
+                incident_id=incident_id,
+                event_type="support_contribution_added",
+                actor=actor,
+                payload={
+                    "role": role,
+                    "contribution_id": contribution.id,
+                    "source": "custom",
+                    "text": text,
+                    "via": "custom_add_toc_bypass",
+                },
+            )
+        )
+        return await replace_incident(doc)
 
     existing = next((rr for rr in doc.role_recommendations if rr.role == role), None)
     if existing is not None:
@@ -765,6 +807,7 @@ async def apply_refinement(
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
         raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    _assert_scene_open(doc)
 
     target = next((c for c in doc.scene_conditions_and_actions if c.id == condition_id), None)
     if target is None:
@@ -846,6 +889,87 @@ async def transition_command_to_ic(
     return await replace_incident(doc)
 
 
+class IncidentLockedError(Exception):
+    """Raised when a mutation is attempted on a locked (sealed) incident. Maps to HTTP 423."""
+
+
+class SceneFrozenError(Exception):
+    """Raised when a scene/transcript mutation is attempted after Loss Stop. Maps to HTTP 409.
+
+    Loss Stop ends the active response — transcript and scene conditions/actions are frozen
+    at that point. Forms can still be regenerated/edited during cleanup; the scene cannot.
+    """
+
+
+def _assert_scene_open(doc: "IncidentDocument") -> None:
+    if doc.phase != "response":
+        raise SceneFrozenError(
+            "Scene is frozen — active response has ended (Loss Stop). Transcript and scene "
+            "conditions cannot be changed; cleanup operates on forms only."
+        )
+
+
+async def lock_incident(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Final administrative seal of the incident. Append-only, audit-logged, idempotent.
+
+    Triggered from the CloseoutAdmin page by the IC or Site Administrator after reports are
+    finalized. Once set, every subsequent write rejects via the centralized lock guard in
+    `replace_incident`. One-way in v1 — there is no unlock action.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    if doc.locked_at is not None:
+        # Idempotent — already locked.
+        return doc
+
+    doc.locked_at = _now_iso()
+    doc.locked_by = actor
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="incident_locked",
+            actor=actor,
+            payload={"phase_at_lock": doc.phase, "closed_at": doc.closed_at},
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def save_form_content(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    form_id: str,
+    new_content,
+    actor: Actor,
+) -> IncidentDocument:
+    """Replace a form's content with a manually-edited version. Append-only audit event."""
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    form = next((f for f in doc.forms if f.form_id == form_id), None)
+    if form is None:
+        raise ValueError(f"Form not found: {form_id}")
+
+    form.content = new_content
+    form.last_updated = _now_iso()
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="form_content_edited",
+            actor=actor,
+            payload={"form_id": form_id},
+        )
+    )
+    return await replace_incident(doc)
+
+
 async def confirm_scene_type(
     *,
     tenant_id: str,
@@ -878,6 +1002,7 @@ async def confirm_scene_type(
         raise PermissionError("Command has been transferred — only the Incident Commander can change the scene Type.")
     if not ic_in_command and actor.role == "incident-commander":
         raise PermissionError("The Incident Commander must initiate Transfer of Command before changing the scene Type.")
+    _assert_scene_open(doc)
 
     previous_type = doc.scene_type
     if previous_type == new_type:

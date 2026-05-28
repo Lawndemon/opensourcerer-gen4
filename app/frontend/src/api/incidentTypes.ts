@@ -174,6 +174,9 @@ export interface IncidentDocument {
     /** null = Fire Officer in charge; set = IC has taken command (Transfer of Command, one-way v1). */
     commandTransferredAt: string | null;
     closedAt: string | null;
+    /** Terminal seal. Once set, ALL user mutations are rejected (final corporate/municipal/federal record). */
+    lockedAt: string | null;
+    lockedBy: Actor | null;
     transcript: TranscriptChunk[];
     sceneSummary: SceneSummary;
     sceneConditionsAndActions: SceneConditionAndAction[];
@@ -223,6 +226,17 @@ export interface TransferOfCommandRequest {
 
 export interface ICDecisionRequest {
     decision: "approved" | "rejected";
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface LockIncidentRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface SaveFormContentRequest {
+    content: FormContent;
     actingRole: ActingRole | string;
     userId: string;
 }

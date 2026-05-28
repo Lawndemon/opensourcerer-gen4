@@ -66,6 +66,8 @@ from models.incidents import (
     SetSceneTypeRequest,
     TransferOfCommandRequest,
     ICDecisionRequest,
+    LockIncidentRequest,
+    SaveFormContentRequest,
     SceneSummary,
     TranscriptChunk,
     ValidateIAPRequest,
@@ -813,15 +815,22 @@ async def auto_populate_recommendations(auth_claims: dict[str, Any], incident_id
         role_items: list[tuple[str, str, Any]] = []
         for role in _AUTO_POPULATE_ROLES:
             recently_dismissed = incidents_cosmos.get_recent_dismissed_texts(doc, role)
-            items = await approach.run(
-                role=role,
-                scene_summary_text=scene_summary_text,
-                scene_conditions=doc.scene_conditions_and_actions,
-                scene_type=doc.scene_type,
-                scene_type_estimate=doc.scene_type_estimate,
-                already_published=already_hic,
-                recently_dismissed=recently_dismissed,
-            )
+            try:
+                items = await approach.run(
+                    role=role,
+                    scene_summary_text=scene_summary_text,
+                    scene_conditions=doc.scene_conditions_and_actions,
+                    scene_type=doc.scene_type,
+                    scene_type_estimate=doc.scene_type_estimate,
+                    already_published=already_hic,
+                    recently_dismissed=recently_dismissed,
+                )
+            except Exception as e:
+                # Per-role robustness (Dave 2026-05-27): one role's LLM failure shouldn't
+                # take down auto-populate for the rest. Log and skip; that role gets 0 items
+                # this round and the next confirm/refresh can retry it.
+                current_app.logger.warning("auto_populate role %s failed: %s", role, e)
+                continue
             role_items.extend((role, it.text, it.category) for it in items)
         updated = await incidents_cosmos.apply_auto_populated_ai_contributions(
             tenant_id=tenant_id, incident_id=incident_id, role_items=role_items
@@ -837,6 +846,75 @@ async def auto_populate_recommendations(auth_claims: dict[str, Any], incident_id
 # 2026-05-21). Incident Commander is the command-authority closer (owns the incident);
 # Safety Officer is the operational closer; Site Administrator keeps a broad override.
 _CLOSE_INCIDENT_ROLES = {"incident-commander", "safety-officer", "site-administrator"}
+
+
+@bp.errorhandler(incidents_cosmos.IncidentLockedError)
+async def _on_incident_locked(error):
+    return jsonify({"error": str(error)}), 423
+
+
+@bp.errorhandler(incidents_cosmos.SceneFrozenError)
+async def _on_scene_frozen(error):
+    return jsonify({"error": str(error)}), 409
+
+
+@bp.route("/api/incidents/<incident_id>/lock", methods=["POST"])
+@authenticated
+async def lock_incident(auth_claims: dict[str, Any], incident_id: str):
+    """Final administrative seal of the incident (CloseoutAdmin step 3). IC or Site-Admin only.
+
+    Once locked, every mutation endpoint rejects with 423 via the centralized guard in
+    `incidents_cosmos.replace_incident`. One-way in v1.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = LockIncidentRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match LockIncidentRequest", "details": ve.errors()}), 400
+    if body.acting_role not in ("incident-commander", "site-administrator"):
+        return jsonify({"error": "Only the Incident Commander or Site Administrator can lock an incident."}), 403
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.lock_incident(
+            tenant_id=tenant_id, incident_id=incident_id, actor=actor,
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/lock")
+
+
+@bp.route("/api/incidents/<incident_id>/forms/<form_id>/content", methods=["POST"])
+@authenticated
+async def save_form_content(auth_claims: dict[str, Any], incident_id: str, form_id: str):
+    """Manual edit of a form's content during cleanup (CloseoutAdmin step 2). IC or Site-Admin only."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = SaveFormContentRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match SaveFormContentRequest", "details": ve.errors()}), 400
+    if body.acting_role not in ("incident-commander", "site-administrator"):
+        return jsonify({"error": "Only the Incident Commander or Site Administrator can edit form content."}), 403
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.save_form_content(
+            tenant_id=tenant_id, incident_id=incident_id, form_id=form_id,
+            new_content=body.content, actor=actor,
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/forms/{form_id}/content")
 
 
 @bp.route("/api/incidents/<incident_id>/close", methods=["POST"])

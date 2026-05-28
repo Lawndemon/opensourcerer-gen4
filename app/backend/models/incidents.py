@@ -269,6 +269,8 @@ AuditEventType = Literal[
     "scene_type_confirmed",
     "command_transferred",
     "support_contribution_ic_decided",
+    "incident_locked",
+    "form_content_edited",
 ]
 
 
@@ -448,6 +450,9 @@ class IncidentDocument(_IncidentBase):
     command_transferred_at: str | None = None  # None = Fire Officer in charge; set = IC has
     # taken command (one-way v1). Append-only `command_transferred` event is the source of truth.
     closed_at: str | None = None
+    locked_at: str | None = None  # Terminal seal — set by IC/Admin via CloseoutAdmin. Once set,
+    # ALL user mutations are rejected (the incident is the final corporate/municipal/federal record).
+    locked_by: Actor | None = None
     transcript: list[TranscriptChunk] = Field(default_factory=list)
     scene_summary: SceneSummary
     scene_conditions_and_actions: list[SceneConditionAndAction] = Field(default_factory=list)
@@ -521,6 +526,28 @@ class ICDecisionRequest(_IncidentBase):
     """Request body for the IC approve/reject of a gated support contribution (post-ToC)."""
 
     decision: Literal["approved", "rejected"]
+    acting_role: str
+    user_id: str
+
+
+class LockIncidentRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/lock` — final, terminal seal of the incident."""
+
+    acting_role: str
+    user_id: str
+
+
+class UpdateAllFormsRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/forms/update-all` — regenerate every role's forms."""
+
+    acting_role: str
+    user_id: str
+
+
+class SaveFormContentRequest(_IncidentBase):
+    """Request body for `POST /api/incidents/{id}/forms/{formId}/content` — manual edit of a form's content during cleanup."""
+
+    content: FormContent
     acting_role: str
     user_id: str
 

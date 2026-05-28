@@ -15,6 +15,8 @@ import type {
     AttestContributionRequest,
     TransferOfCommandRequest,
     ICDecisionRequest,
+    LockIncidentRequest,
+    SaveFormContentRequest,
     AutoPopulateRecommendationsRequest,
     ApplyRefinementRequest,
     ApplyRefinementResponse,
@@ -151,6 +153,24 @@ export async function transferOfCommand(incidentId: string, request: TransferOfC
  */
 export async function icDecision(incidentId: string, contributionId: string, request: ICDecisionRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/support-contributions/${encodeURIComponent(contributionId)}/ic-decision`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/lock — terminal seal. IC or Site-Admin only.
+ * Once locked, every mutation endpoint rejects 423. One-way in v1.
+ */
+export async function lockIncident(incidentId: string, request: LockIncidentRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/lock`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/forms/{formId}/content — save edited form content during cleanup.
+ * IC or Site-Admin only.
+ */
+export async function saveFormContent(incidentId: string, formId: string, request: SaveFormContentRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/forms/${encodeURIComponent(formId)}/content`, request, signal);
     return envelope.incident;
 }
 

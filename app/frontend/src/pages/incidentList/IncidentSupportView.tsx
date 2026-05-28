@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { closeIncident, extractForms, getIncident, icDecision, setSceneType, transferOfCommand, validateIAP } from "../../api/incidents";
+import { autoPopulateRecommendations, closeIncident, extractForms, getIncident, icDecision, setSceneType, transferOfCommand, validateIAP } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction, SceneType } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
@@ -33,6 +33,7 @@ import SceneItemRow from "../incidentKiosk/SceneItemRow";
 import SceneTypeSelector from "../incidentKiosk/SceneTypeSelector";
 import kioskStyles from "../incidentKiosk/IncidentKiosk.module.css";
 import RecommendationsPanel from "./RecommendationsPanel";
+import CloseoutAdmin from "./CloseoutAdmin";
 import styles from "./IncidentSupportView.module.css";
 
 interface IncidentSupportViewProps {
@@ -41,6 +42,8 @@ interface IncidentSupportViewProps {
 }
 
 const POLL_INTERVAL_MS = 10_000;
+// Tighter cadence once command is transferred — the IC approval loop benefits from prompt updates.
+const FAST_POLL_INTERVAL_MS = 3_000;
 
 function formatTimestamp(iso: string | null): string | null {
     if (!iso) return null;
@@ -59,6 +62,7 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     const [closing, setClosing] = useState(false);
     const [confirmingClose, setConfirmingClose] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
+    const [showCloseout, setShowCloseout] = useState(false);
     // Used by RecommendationsPanel to ping us for an immediate refresh after publish/dismiss.
     const refreshTokenRef = useRef(0);
     const [refreshToken, setRefreshToken] = useState(0);
@@ -82,6 +86,10 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     const commandTransferred = incident.commandTransferredAt != null;
     const pendingForIc = incident.supportContributions.filter(c => c.icStatus === "pending");
     const [tocBusy, setTocBusy] = useState(false);
+    const supportPollMs = commandTransferred ? FAST_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
+    // Closeout / final-lock workflow: IC or Site Administrator can open it anytime.
+    const isEventLocked = incident.lockedAt != null;
+    const canCloseOut = actingRole === "incident-commander" || actingRole === "site-administrator";
 
     // --- Polling --------------------------------------------------------------
     // While the incident is in Response or Transition to Recovery, refresh the
@@ -103,7 +111,7 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                    surface is the RecommendationsPanel for its own ops. */
             }
         };
-        const handle = window.setInterval(tick, POLL_INTERVAL_MS);
+        const handle = window.setInterval(tick, supportPollMs);
         // Fetch immediately on mount/refresh too — without this, a page load shows the
         // incident object we mounted with and won't pull fresh data (e.g. recs a support role
         // just submitted for IC approval) until the first 10s tick.
@@ -114,7 +122,7 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         };
         // Re-establish polling if the incident id changes (shouldn't normally — this
         // component is keyed by id higher up, but guard anyway).
-    }, [incident.id, incident.phase]);
+    }, [incident.id, incident.phase, supportPollMs]);
 
     // --- Manual refresh trigger ------------------------------------------------
     // RecommendationsPanel calls this after a publish/dismiss so we don't have to
@@ -184,6 +192,12 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         try {
             const updated = await transferOfCommand(incident.id, { actingRole, userId: "support-view" });
             setIncident(updated);
+            // SME bug fix 2026-05-27: regenerate AI recommendations across all roles right after
+            // taking command so the IC has items to approve. Post-ToC these land as `pending` and
+            // appear in the IC pending queue via the 3s adaptive poll. Background fire-and-forget.
+            void autoPopulateRecommendations(updated.id, { actingRole, userId: "ic-toc" }).catch(() => {
+                /* non-fatal: the poll will keep refreshing the queue */
+            });
         } catch (e) {
             setActionError(e instanceof Error ? e.message : "Transfer of Command failed.");
         } finally {
@@ -225,6 +239,17 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         },
         [actingRole, incident.id]
     );
+
+    if (showCloseout && actingRole) {
+        return (
+            <CloseoutAdmin
+                incident={incident}
+                actingRole={actingRole}
+                onBack={() => setShowCloseout(false)}
+                onIncidentChange={setIncident}
+            />
+        );
+    }
 
     return (
         <div className={kioskStyles.container}>
@@ -306,10 +331,57 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                                         Close Incident
                                     </Button>
                                 ))}
+                            {canCloseOut && (
+                                <Button
+                                    appearance="secondary"
+                                    size="small"
+                                    icon={<LockClosed24Regular />}
+                                    onClick={() => setShowCloseout(true)}
+                                >
+                                    {isEventLocked ? "Event Locked" : "Closeout / Lock Event"}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
+                {isEventLocked && (
+                    <div
+                        style={{
+                            padding: "8px 12px",
+                            margin: "0 0 8px",
+                            borderRadius: 6,
+                            background: "#FDECEA",
+                            border: "1px solid #C62828",
+                            color: "#7A1F1A",
+                            fontWeight: 600
+                        }}
+                    >
+                        🔒 Event locked
+                        {incident.lockedAt ? ` on ${new Date(incident.lockedAt).toLocaleString()}` : ""}
+                        {incident.lockedBy ? ` by ${incident.lockedBy.role}` : ""}. No further changes can be made.
+                    </div>
+                )}
                 {actionError && <div className={styles.actionError}>{actionError}</div>}
+
+                {/* Support-role banner: command transferred — submissions route through the IC. */}
+                {!isIncidentCommander && commandTransferred && (
+                    <div
+                        style={{
+                            padding: "8px 12px",
+                            margin: "0 0 8px",
+                            borderRadius: 6,
+                            background: "#FFF4E5",
+                            border: "1px solid #E6C200",
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            color: "#7A5B00"
+                        }}
+                    >
+                        {actingRole === "safety-officer"
+                            ? "Incident Commander has assumed command. Safety items bypass directly to the Fire Officer (flagged on their kiosk)."
+                            : "Incident Commander has assumed command. Your submissions now route to the IC for approval before reaching the Fire Officer."}
+                    </div>
+                )}
 
                 {/* ----- IC Command pane (Incident Commander only) ----- */}
                 {isIncidentCommander && (
