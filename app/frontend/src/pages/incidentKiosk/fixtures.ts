@@ -16,6 +16,10 @@ export interface KioskScenario {
     transcript: string;
 }
 
+/** Sentinel id for the "bring your own transcript" option in the kiosk picker.
+ *  Not a real fixture — the kiosk renders a textarea + file input when this is selected. */
+export const CUSTOM_SCENARIO_ID = "__custom__";
+
 export const KIOSK_SCENARIOS: KioskScenario[] = [
     {
         id: "residential_conforming",

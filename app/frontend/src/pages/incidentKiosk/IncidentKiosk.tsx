@@ -19,7 +19,7 @@
  * into state. The Fire Officer doesn't need to press anything to see them.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { Body1, Button, Caption1, Spinner, Subtitle1, Title1, Title3 } from "@fluentui/react-components";
 import { ArrowClockwise24Regular, Stop24Filled } from "@fluentui/react-icons";
 
@@ -45,16 +45,17 @@ import SceneItemRow from "./SceneItemRow";
 import SceneTypeSelector from "./SceneTypeSelector";
 import RoleBubble from "../../components/RoleBubble";
 import { RECOMMENDATION_CATEGORY_LABEL, RECOMMENDATION_CATEGORY_ORDER } from "../../recommendationCategories";
-import { DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, getScenarioById } from "./fixtures";
+import { CUSTOM_SCENARIO_ID, DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, getScenarioById } from "./fixtures";
 import styles from "./IncidentKiosk.module.css";
 
 type KioskState =
-    | { phase: "pre_incident"; scenarioId: string }
+    | { phase: "pre_incident"; scenarioId: string; customTranscript?: string }
     | { phase: "starting"; scenarioId: string; incidentId: string }
     | {
           phase: "in_incident";
           incidentId: string;
           scenarioId: string;
+          transcript: string;
           iap: ValidateIAPResponse;
           sceneType: SceneType | null;
           revalidating: boolean;
@@ -168,9 +169,7 @@ const IncidentKiosk = () => {
     // dashboard stays fully usable regardless. Functional setState guards against racing
     // with phase changes (Loss Stop, End demo) or a newer incident.
     const triggerFormsExtraction = useCallback(
-        async (incidentId: string, scenarioId: string, iap: ValidateIAPResponse) => {
-            const scenario = getScenarioById(scenarioId);
-            if (!scenario) return;
+        async (incidentId: string, transcript: string, iap: ValidateIAPResponse) => {
             setState(prev =>
                 prev.phase === "in_incident" && prev.incidentId === incidentId
                     ? { ...prev, formsGenerating: true }
@@ -179,7 +178,7 @@ const IncidentKiosk = () => {
             try {
                 const { forms } = await extractForms(incidentId, {
                     actingRole: actingRole ?? "fire-officer",
-                    transcript: scenario.transcript,
+                    transcript,
                     sceneSummary: iap.sceneSummary,
                     sceneConditionsAndActions: iap.sceneConditionsAndActions
                 });
@@ -203,10 +202,22 @@ const IncidentKiosk = () => {
 
     const handleStartIncident = useCallback(async () => {
         const currentScenarioId = state.phase === "pre_incident" ? state.scenarioId : DEFAULT_SCENARIO_ID;
-        const scenario = getScenarioById(currentScenarioId);
-        if (!scenario) {
-            setState({ phase: "error", scenarioId: currentScenarioId, message: `Unknown scenario: ${currentScenarioId}` });
-            return;
+        const currentCustom = state.phase === "pre_incident" ? state.customTranscript : undefined;
+        // Resolve the transcript: custom text if the user chose "bring your own"; otherwise the fixture.
+        let transcript: string;
+        if (currentScenarioId === CUSTOM_SCENARIO_ID) {
+            if (!currentCustom || currentCustom.trim().length === 0) {
+                setState({ phase: "error", scenarioId: currentScenarioId, message: "Custom transcript is empty — paste text or upload a file before starting." });
+                return;
+            }
+            transcript = currentCustom;
+        } else {
+            const scenario = getScenarioById(currentScenarioId);
+            if (!scenario) {
+                setState({ phase: "error", scenarioId: currentScenarioId, message: `Unknown scenario: ${currentScenarioId}` });
+                return;
+            }
+            transcript = scenario.transcript;
         }
         const provisionalIncidentId = generatePrototypeIncidentId();
         setState({ phase: "starting", scenarioId: currentScenarioId, incidentId: provisionalIncidentId });
@@ -214,13 +225,14 @@ const IncidentKiosk = () => {
             try {
                 const doc = await createIncident({
                     actingRole: actingRole ?? "fire-officer",
-                    transcript: scenario.transcript
+                    transcript
                 });
                 const docIap = projectDocument(doc);
                 setState({
                     phase: "in_incident",
                     incidentId: doc.id,
                     scenarioId: currentScenarioId,
+                    transcript,
                     iap: docIap,
                     sceneType: doc.sceneType ?? null,
                     revalidating: false,
@@ -231,7 +243,7 @@ const IncidentKiosk = () => {
                     formsGenerating: true
                 });
                 // Forms populate in the background; the dashboard is already interactive.
-                void triggerFormsExtraction(doc.id, currentScenarioId, docIap);
+                void triggerFormsExtraction(doc.id, transcript, docIap);
                 return;
             } catch (createErr) {
                 if (createErr instanceof IncidentApiError && createErr.status === 503) {
@@ -243,13 +255,14 @@ const IncidentKiosk = () => {
             }
             const iap = await validateIAP({
                 incidentId: provisionalIncidentId,
-                transcript: scenario.transcript,
+                transcript,
                 actingRole: actingRole ?? "fire-officer"
             });
             setState({
                 phase: "in_incident",
                 incidentId: provisionalIncidentId,
                 scenarioId: currentScenarioId,
+                transcript,
                 iap,
                 sceneType: null,
                 revalidating: false,
@@ -257,7 +270,7 @@ const IncidentKiosk = () => {
                 persisted: false,
                 formsGenerating: true
             });
-            void triggerFormsExtraction(provisionalIncidentId, currentScenarioId, iap);
+            void triggerFormsExtraction(provisionalIncidentId, transcript, iap);
         } catch (err) {
             setState({ phase: "error", scenarioId: currentScenarioId, message: formatError(err) });
         }
@@ -265,14 +278,12 @@ const IncidentKiosk = () => {
 
     const handleRevalidate = useCallback(async () => {
         if (state.phase !== "in_incident" || state.locked || state.revalidating) return;
-        const scenario = getScenarioById(state.scenarioId);
-        if (!scenario) return;
         const previous = state;
         setState({ ...previous, revalidating: true });
         try {
             const iap = await validateIAP({
                 incidentId: previous.incidentId,
-                transcript: scenario.transcript,
+                transcript: previous.transcript,
                 actingRole: actingRole ?? "fire-officer"
             });
             // Keep the previously-generated forms visible during the gap — the background
@@ -287,7 +298,7 @@ const IncidentKiosk = () => {
                 supportContributions: previous.iap.supportContributions
             };
             setState({ ...previous, iap: merged, revalidating: false, formsGenerating: true });
-            void triggerFormsExtraction(previous.incidentId, previous.scenarioId, merged);
+            void triggerFormsExtraction(previous.incidentId, previous.transcript, merged);
         } catch (err) {
             setState({
                 phase: "error",
@@ -351,11 +362,10 @@ const IncidentKiosk = () => {
                     });
                 // SME 2026-05-27: a Scene-Type change auto-triggers Re-Validate IAP (off the
                 // critical path) so scene conditions/summary refresh against the transcript.
-                const revalidateScenario = getScenarioById(previous.scenarioId);
-                if (revalidateScenario) {
+                if (previous.transcript) {
                     void validateIAP({
                         incidentId: previous.incidentId,
-                        transcript: revalidateScenario.transcript,
+                        transcript: previous.transcript,
                         actingRole: actingRole ?? "fire-officer"
                     })
                         .then(fresh =>
@@ -442,7 +452,29 @@ const IncidentKiosk = () => {
 
     const handleScenarioChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         if (state.phase !== "pre_incident") return;
-        setState({ phase: "pre_incident", scenarioId: e.target.value });
+        setState(prev => {
+            if (prev.phase !== "pre_incident" && prev.phase !== "error") {
+                return { phase: "pre_incident", scenarioId: e.target.value };
+            }
+            // Preserve customTranscript when toggling between custom and a fixture, so the user
+            // doesn't lose pasted text by accidentally clicking another option.
+            return { phase: "pre_incident", scenarioId: e.target.value, customTranscript: prev.phase === "pre_incident" ? prev.customTranscript : undefined };
+        });
+    };
+
+    const handleCustomTranscriptFile = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const text = typeof reader.result === "string" ? reader.result : "";
+            setState(prev =>
+                prev.phase === "pre_incident"
+                    ? { ...prev, customTranscript: text }
+                    : prev
+            );
+        };
+        reader.readAsText(file);
     };
 
     if (state.phase === "starting") {
@@ -673,8 +705,21 @@ const IncidentKiosk = () => {
                                 {s.label}
                             </option>
                         ))}
+                        <option value={CUSTOM_SCENARIO_ID}>Bring your own transcript…</option>
                     </select>
-                    <span className={styles.scenarioBlurb}>{getScenarioById(state.scenarioId)?.blurb}</span>
+                    {state.scenarioId === CUSTOM_SCENARIO_ID ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                            <input type="file" accept=".txt,.md,text/plain" onChange={handleCustomTranscriptFile} />
+                            <textarea
+                                style={{ width: "100%", minHeight: 160, fontFamily: "monospace", fontSize: "0.85rem", padding: 8, boxSizing: "border-box" }}
+                                value={state.phase === "pre_incident" ? (state.customTranscript ?? "") : ""}
+                                onChange={e => setState(prev => prev.phase === "pre_incident" ? { ...prev, customTranscript: e.target.value } : prev)}
+                                placeholder="Paste your transcript here (or upload a .txt file above)"
+                            />
+                        </div>
+                    ) : (
+                        <span className={styles.scenarioBlurb}>{getScenarioById(state.scenarioId)?.blurb}</span>
+                    )}
                 </div>
 
                 <Button
