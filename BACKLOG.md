@@ -190,6 +190,34 @@ Blocked on auth being live (because chat history partitions by Entra user ID). S
 
 ---
 
+### Custom support contribution — add category selector (Dave QoL, 2026-05-27)
+
+When a support user adds a custom recommendation, the resulting `SupportContribution.category` is currently `None` (set explicitly in `add_custom_recommendation`'s ToC-bypass path; not threaded from the UI in either path). The kiosk groups support contributions by category (Life Safety / Incident Stabilization / Property Conservation / Other), so custom items fall into "Other" with no way for the human to set urgency intent. Add a 3-option selector (life_safety / incident_stabilization / property_conservation) to the custom-add UI in `RecommendationsPanel`, thread it through `AddCustomRecommendationRequest` + `add_custom_recommendation` cosmos fn (ToC-bypass path uses it directly when minting the SupportContribution), and persist it on `PendingRecommendation` so the pre-ToC publish path also carries it through.
+
+### Reopen a locked incident — IC / Site-Admin only (Dave, 2026-05-27)
+
+Lock is one-way in v1. Add a controlled unlock the IC or Site-Administrator can trigger from `CloseoutAdmin` once an incident is locked. Backend: `reopen_incident` cosmos fn that clears `locked_at` + `locked_by` and appends an `incident_reopened` audit event (with payload including who-locked-when and who-reopened-when, so the full lock/unlock history is reconstructible); endpoint `POST /api/incidents/{id}/reopen` with the same IC/Admin authorization as `/lock`. Frontend: a "Reopen incident" button shown alongside the locked banner in `CloseoutAdmin`, behind a confirmation prompt (reopen punches a hole in the official-record story, so make the action deliberate). Lock guard in `replace_incident` continues to allow the `lock → unlock → mutation` flow because, by the time the next mutation runs, the persisted doc is unlocked again.
+
+### Full incident review / summary page — IC / Site-Admin (Dave, 2026-05-27) — bundle with [[Faithful form/report templates]]
+
+A new IC / Site-Administrator page per incident that aggregates the entire record into a single review/summary view. The artifact for **corporate / municipal / federal post-incident reporting** — distinct from the active scene view and from CloseoutAdmin's workflow.
+
+Contents:
+
+- **AI-generated narrative summary** of the incident (events, scope, outcomes) — a new LLM approach that takes scene_summary, scene_conditions_and_actions, transcript, and the lifecycle events from event_log, and emits a structured prose summary. Doubles as the post-incident report cover narrative.
+- **Key actions & decisions timeline** — filtered, audit-trail view of the high-signal events from event_log: scene-type confirms, refinements, ToC, support contributions accepted/withdrawn, Loss Stop, Close Incident, Lock. Each entry stamped with actor + timestamp.
+- **Links to every form/report** — per-role forms with their "Save as PDF" exports (depends on faithful form layouts + server-side PDF generation, hence the bundling).
+- **Link to the full transcript** — read-only view of the persisted transcript chunks.
+- **Link to the raw event log** — full append-only audit view (every event with timestamp + actor), for compliance/inspection.
+
+Implementation notes:
+
+- Sits as a sibling/tab to `CloseoutAdmin` (or its own route — TBD; both are IC/Admin-accessible per-incident pages).
+- The narrative-summary LLM call is non-trivial — a new approach module + prompt, similar in shape to `validate_iap` and `recommend_actions`. Output is structured (sections), not free-form, so the page can render consistently.
+- Read-only by design — no mutations on this page. Source of truth stays the persisted doc.
+- Tied to [[Faithful form/report templates]]: the PDF links depend on real per-form templates and matching PDF rendering being done. Don't start this page until the faithful-forms work has its first templates landing.
+
+
 ## Design & build
 
 ### Incident-centric architecture (refined 2026-04-29 SME consultation)
