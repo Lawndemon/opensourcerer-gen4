@@ -665,6 +665,24 @@ Adds the post-response cleanup & reporting surface — the **corporate / municip
 
 **Build status (2026-05-27):** COMPLETE at code level (backend `compileall` + frontend `tsc --noEmit` both clean; runtime-untested). Existing `Loss Stop` + `Close Incident` flows kept as-is (response→recovery lifecycle). Mutation-button granular disabling on `IncidentSupportView` not added (banner + 423 backend rejection cover it for v1).
 
+
+### ICS forms — Phase 1 (backend foundation) landed 2026-05-27
+
+The SME-supplied ICS Canada PDFs are interactive AcroForm templates (1,546 named fields across 11 forms). That changed the build shape entirely: we don't recreate layouts, we fill the official PDFs. Phase 1 (backend) shipped:
+
+- **PDF templates staged** at `incidents/ics_pdf_templates/` (Form-201…215A).
+- **Field schemas** captured to `ics_pdf_templates/schemas.json` (form id → {title, page count, field count, fields[]}).
+- **`incidents/pdf_filler.py`** — `fill_form_pdf(form_id_key, field_values) -> bytes` using `pypdf` `update_page_form_field_values` across pages. Verified producing a valid PDF (starts `%PDF-1.3`).
+- **`FormFieldsContent`** added to the `FormContent` discriminated union (kind=`"form_fields"`, carries `form_id_key` + `fields: dict[str,str]`). `ICS201Content` + `PlaceholderFormContent` stay for back-compat.
+- **`GET /api/incidents/{id}/forms/{formId}/pdf`** — downloads the pixel-identical filled official PDF. Any authenticated user; returns 409 if the form is still on a legacy content shape.
+
+REMAINING (Phase 2 — frontend + content-shape migration):
+
+- Generic `FormFieldEditor` component (auto-builds inputs from `schemas.json` field list — text/textarea heuristic; repeating table rows like 211/215 grouped).
+- Update `CloseoutAdmin`'s `FormEditor` to render `FormFieldsContent` and add a "Download PDF" button calling the new export endpoint.
+- Migrate `extract_forms` to populate `FormFieldsContent` for the forms that have PDF schemas (AI maps transcript/scene → known field names per form). Keep `ICS201Content` until 201 is migrated.
+- Update `form_templates.py` `kind` per role-form mapping so each per-role form is provisioned as `form_fields` referencing the right `form_id_key`.
+
 ## Notes on the deploy / template
 
 - Template is upstream `azure-samples/azure-search-openai-demo`. Merges from upstream may conflict with:

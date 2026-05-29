@@ -917,6 +917,43 @@ async def lock_incident(auth_claims: dict[str, Any], incident_id: str):
         return error_response(error, f"/api/incidents/{incident_id}/lock")
 
 
+@bp.route("/api/incidents/<incident_id>/forms/<form_id>/pdf", methods=["GET"])
+@authenticated
+async def export_form_pdf(auth_claims: dict[str, Any], incident_id: str, form_id: str):
+    """Download the form as a pixel-identical filled PDF of the official ICS Canada template.
+
+    Generic across all 11 forms — driven by `FormFieldsContent.form_id_key` + the field map.
+    No body; returns `application/pdf` bytes. Auth: any signed-in user.
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        doc = await incidents_cosmos.get_incident(tenant_id, incident_id)
+        if doc is None:
+            return jsonify({"error": f"Incident not found: {incident_id}"}), 404
+        form = next((f for f in doc.forms if f.form_id == form_id), None)
+        if form is None:
+            return jsonify({"error": f"Form not found: {form_id}"}), 404
+        if form.content.kind != "form_fields":
+            return jsonify({
+                "error": f"Form {form_id} is in legacy content shape ({form.content.kind!r}); only form_fields content can be exported to PDF."
+            }), 409
+        from incidents.pdf_filler import fill_form_pdf
+        from quart import Response
+        pdf_bytes = fill_form_pdf(form.content.form_id_key, form.content.fields)
+        filename = f"{form.content.form_id_key}-{incident_id}.pdf"
+        return Response(
+            pdf_bytes,
+            mimetype="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/forms/{form_id}/pdf")
+
+
 @bp.route("/api/incidents/<incident_id>/forms/<form_id>/content", methods=["POST"])
 @authenticated
 async def save_form_content(auth_claims: dict[str, Any], incident_id: str, form_id: str):

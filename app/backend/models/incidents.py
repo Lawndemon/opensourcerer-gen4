@@ -234,8 +234,25 @@ class PlaceholderFormContent(_IncidentBase):
     sections: list[FormSection] = Field(default_factory=list)
 
 
+class FormFieldsContent(_IncidentBase):
+    """
+    Generic field-map content for ICS Canada forms whose layouts are the official
+    interactive AcroForm PDFs (Forms 201, 202, 203, 204, 205, 207, 208, 211, 214, 215, 215A).
+
+    `form_id_key` matches a key in `incidents/ics_pdf_templates/schemas.json`. On export,
+    `incidents/pdf_filler.fill_form_pdf()` opens the official template and stamps `fields`
+    into it; the user-visible PDF is pixel-identical to the official form. Edit UX is a
+    generic field-list renderer driven by the schema — no per-form bespoke layout code.
+    """
+
+    kind: Literal["form_fields"] = "form_fields"
+    form_type: str  # human-facing label, e.g. "ICS-208"
+    form_id_key: str  # schema key, e.g. "ics_208"
+    fields: dict[str, str] = Field(default_factory=dict)  # AcroForm field name -> value
+
+
 FormContent = Annotated[
-    Union[ICS201Content, PlaceholderFormContent],
+    Union[ICS201Content, PlaceholderFormContent, FormFieldsContent],
     Field(discriminator="kind"),
 ]
 
