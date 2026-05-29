@@ -96,29 +96,29 @@ const SceneItemRow = ({ item, onAnalyze, onRefineClick, onRemove }: SceneItemRow
                 {item.type === "condition" ? "Condition" : "Action"}
             </Badge>
             <Body1 className={styles.text}>{item.text}</Body1>
-            <Tooltip
-                content={
-                    isRemoved
-                        ? "Removed item — refinement disabled."
-                        : onRefineClick
-                          ? "Refine — narrow this with 3 KB-generated statements."
-                          : "Refine requires a persisted incident."
-                }
-                relationship="label"
-            >
-                <Button
-                    appearance="subtle"
-                    size="small"
-                    disabled={isRemoved || !onRefineClick}
-                    className={styles.refineButton}
-                    onClick={e => {
-                        e.stopPropagation();
-                        onRefineClick?.(item);
-                    }}
+            {onRefineClick && (
+                <Tooltip
+                    content={
+                        isRemoved
+                            ? "Removed item — refinement disabled."
+                            : "Refine — narrow this with 3 KB-generated statements."
+                    }
+                    relationship="label"
                 >
-                    Refine
-                </Button>
-            </Tooltip>
+                    <Button
+                        appearance="subtle"
+                        size="small"
+                        disabled={isRemoved}
+                        className={styles.refineButton}
+                        onClick={e => {
+                            e.stopPropagation();
+                            onRefineClick(item);
+                        }}
+                    >
+                        Refine
+                    </Button>
+                </Tooltip>
+            )}
             {onRemove && !isRemoved && (
                 <Tooltip content="Remove from scene" relationship="label">
                     <Button

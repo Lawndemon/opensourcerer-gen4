@@ -462,17 +462,38 @@ const IncidentKiosk = () => {
         });
     };
 
-    const handleCustomTranscriptFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const handleCustomTranscriptFile = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        const name = file.name.toLowerCase();
+        const isBinary = name.endsWith(".pdf") || name.endsWith(".docx");
+        const setText = (text: string) =>
+            setState(prev => (prev.phase === "pre_incident" ? { ...prev, customTranscript: text } : prev));
+        if (isBinary) {
+            // Server-side extraction via /api/transcript/extract — pypdf for PDFs, python-docx for .docx.
+            try {
+                const fd = new FormData();
+                fd.append("file", file);
+                const res = await fetch("/api/transcript/extract", { method: "POST", body: fd, credentials: "include" });
+                if (!res.ok) {
+                    const body = await res.text();
+                    // eslint-disable-next-line no-alert
+                    alert(`Could not extract text from ${file.name}: ${res.status} ${body}`);
+                    return;
+                }
+                const { text } = (await res.json()) as { text: string };
+                setText(text);
+            } catch (err) {
+                // eslint-disable-next-line no-alert
+                alert(`Could not extract text from ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
+            }
+            return;
+        }
+        // Text-based formats (txt, md, xml, json) — read client-side; no backend round-trip.
         const reader = new FileReader();
         reader.onload = () => {
             const text = typeof reader.result === "string" ? reader.result : "";
-            setState(prev =>
-                prev.phase === "pre_incident"
-                    ? { ...prev, customTranscript: text }
-                    : prev
-            );
+            setText(text);
         };
         reader.readAsText(file);
     };
@@ -709,7 +730,7 @@ const IncidentKiosk = () => {
                     </select>
                     {state.scenarioId === CUSTOM_SCENARIO_ID ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                            <input type="file" accept=".txt,.md,text/plain" onChange={handleCustomTranscriptFile} />
+                            <input type="file" accept=".txt,.md,.xml,.json,.pdf,.docx,text/plain,application/json,text/xml,application/xml,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleCustomTranscriptFile} />
                             <textarea
                                 style={{ width: "100%", minHeight: 160, fontFamily: "monospace", fontSize: "0.85rem", padding: 8, boxSizing: "border-box" }}
                                 value={state.phase === "pre_incident" ? (state.customTranscript ?? "") : ""}

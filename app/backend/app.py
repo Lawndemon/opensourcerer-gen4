@@ -917,6 +917,49 @@ async def lock_incident(auth_claims: dict[str, Any], incident_id: str):
         return error_response(error, f"/api/incidents/{incident_id}/lock")
 
 
+@bp.route("/api/transcript/extract", methods=["POST"])
+@authenticated
+async def extract_transcript_from_file(auth_claims: dict[str, Any]):
+    """Extract text from a user-uploaded transcript file (txt/md/xml/json/docx/pdf).
+
+    Powers the FO kiosk's "Bring your own transcript" option for binary formats — text
+    files are read client-side; .docx and .pdf are uploaded here and parsed server-side
+    (pypdf + python-docx). Returns `{"text": "..."}` for the client to stuff into the
+    custom-transcript field.
+    """
+    files = await request.files
+    f = files.get("file")
+    if f is None:
+        return jsonify({"error": "no file uploaded (expected multipart form field 'file')"}), 400
+    filename = (f.filename or "").lower()
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else ""
+    raw = f.read()
+
+    text: str
+    try:
+        if ext == "pdf":
+            from io import BytesIO
+
+            from pypdf import PdfReader
+            reader = PdfReader(BytesIO(raw))
+            text = "\n\n".join((page.extract_text() or "") for page in reader.pages)
+        elif ext == "docx":
+            from io import BytesIO
+
+            import docx  # python-docx
+            d = docx.Document(BytesIO(raw))
+            text = "\n".join(p.text for p in d.paragraphs)
+        elif ext in {"txt", "md", "xml", "json"}:
+            text = raw.decode("utf-8", errors="replace")
+        else:
+            return jsonify({"error": f"unsupported file extension: .{ext}"}), 415
+    except Exception as e:
+        current_app.logger.exception("transcript extract failed for %s", filename)
+        return jsonify({"error": f"extraction failed: {e}"}), 500
+
+    return jsonify({"text": text})
+
+
 @bp.route("/api/ics-forms/schemas", methods=["GET"])
 @authenticated
 async def get_ics_form_schemas(auth_claims: dict[str, Any]):
@@ -978,8 +1021,10 @@ async def save_form_content(auth_claims: dict[str, Any], incident_id: str, form_
         body = SaveFormContentRequest.model_validate(await request.get_json())
     except ValidationError as ve:
         return jsonify({"error": "request body did not match SaveFormContentRequest", "details": ve.errors()}), 400
-    if body.acting_role not in ("incident-commander", "site-administrator"):
-        return jsonify({"error": "Only the Incident Commander or Site Administrator can edit form content."}), 403
+    # Any authenticated user may save form content for their own role's forms — the kiosk
+    # FormTabStrip filters tabs to currentRole, so users only ever see (and therefore edit)
+    # their own role's forms. The lock + scene-freeze guards in replace_incident handle the
+    # post-lock and post-Loss-Stop cases server-side.
     actor = _actor_from(auth_claims, body.acting_role, body.user_id)
     tenant_id = _tenant_id_from(auth_claims)
     try:

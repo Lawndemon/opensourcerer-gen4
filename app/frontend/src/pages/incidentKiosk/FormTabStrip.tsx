@@ -14,10 +14,12 @@
  * cross-role view down the road).
  */
 
-import { useMemo, useState } from "react";
-import { Badge, Body1, Caption1 } from "@fluentui/react-components";
+import { useEffect, useMemo, useState } from "react";
+import { Badge, Body1, Button, Caption1, Field, Textarea } from "@fluentui/react-components";
 
-import type { FormSummary } from "../../api/incidentTypes";
+import { formPdfDownloadUrl, getIcsFormSchemas, saveFormContent } from "../../api/incidents";
+import type { FormSummary, IcsFormSchemas, IncidentDocument } from "../../api/incidentTypes";
+import type { ActingRole } from "../../roles";
 
 import styles from "./FormTabStrip.module.css";
 
@@ -35,6 +37,18 @@ interface FormTabStripProps {
      * forms to show yet, the empty state reads "Generating forms…" instead of "none".
      */
     generating?: boolean;
+    /**
+     * If true, form_fields content opens as an editable inline editor in the overlay
+     * (with Save + Download PDF buttons). Used on non-FO kiosks (IC + support views).
+     * The FO kiosk leaves this off and uses CloseoutAdmin for form editing.
+     */
+    editable?: boolean;
+    /** Required when editable=true — needed for the save + download endpoints. */
+    incidentId?: string;
+    /** Required when editable=true — recorded on the form_content_edited audit event. */
+    actingRole?: ActingRole | string;
+    /** Called after a successful save with the updated incident document. */
+    onSaved?: (incident: IncidentDocument) => void;
 }
 
 const renderFormContent = (form: FormSummary) => {
@@ -104,8 +118,22 @@ const renderFormContent = (form: FormSummary) => {
     );
 };
 
-const FormTabStrip = ({ forms, currentRole, locked = false, generating = false }: FormTabStripProps) => {
+const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, editable = false, incidentId, actingRole, onSaved }: FormTabStripProps) => {
     const [openFormId, setOpenFormId] = useState<string | null>(null);
+    const [schemas, setSchemas] = useState<IcsFormSchemas | null>(null);
+    const [editingFields, setEditingFields] = useState<Record<string, string>>({});
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+
+    // Load schemas once on mount when editable. Drives the inline field editor for form_fields.
+    useEffect(() => {
+        if (!editable) return;
+        let cancelled = false;
+        getIcsFormSchemas()
+            .then(s => { if (!cancelled) setSchemas(s); })
+            .catch(() => { /* non-fatal: fallback message shows */ });
+        return () => { cancelled = true; };
+    }, [editable]);
 
     const visibleForms = useMemo(
         () => (currentRole ? forms.filter(f => f.role === currentRole) : forms),
@@ -177,7 +205,75 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false }
                                 {openForm.status === "locked" || locked ? "Locked" : "Active"}
                             </Badge>
                         </div>
-                        <div className={styles.overlayBody}>{renderFormContent(openForm)}</div>
+                        <div
+                            className={styles.overlayBody}
+                            onClick={editable && openForm.content.kind === "form_fields" ? e => e.stopPropagation() : undefined}
+                        >
+                            {editable && openForm.content.kind === "form_fields" && incidentId && actingRole ? (
+                                (() => {
+                                    const ff = openForm.content;
+                                    const schema = schemas?.[ff.formIdKey];
+                                    if (!schemas) return <Caption1>Loading form schema…</Caption1>;
+                                    if (!schema) return <Caption1>No schema for &ldquo;{ff.formIdKey}&rdquo;.</Caption1>;
+                                    const current: Record<string, string> = { ...ff.fields, ...editingFields };
+                                    const setField = (name: string, value: string) =>
+                                        setEditingFields(prev => ({ ...prev, [name]: value }));
+                                    const dirty = schema.fields.some(f => (current[f.name] ?? "") !== (ff.fields[f.name] ?? ""));
+                                    const onSave = async () => {
+                                        if (saving) return;
+                                        setSaving(true); setSaveError(null);
+                                        try {
+                                            const merged: Record<string, string> = { ...ff.fields, ...editingFields };
+                                            const updated = await saveFormContent(incidentId, openForm.formId, {
+                                                content: { ...ff, fields: merged },
+                                                actingRole,
+                                                userId: "form-popup"
+                                            });
+                                            setEditingFields({});
+                                            onSaved?.(updated);
+                                        } catch (e) {
+                                            setSaveError(e instanceof Error ? e.message : "Save failed.");
+                                        } finally {
+                                            setSaving(false);
+                                        }
+                                    };
+                                    return (
+                                        <>
+                                            <Caption1 style={{ color: "#666", display: "block", marginBottom: 8 }}>
+                                                {schema.fieldCount} fields · {schema.pageCount} page(s) · official template
+                                            </Caption1>
+                                            {schema.fields.map((f, idx) => (
+                                                <Field key={`${f.name}-${idx}`} label={f.name || "(unnamed field)"}>
+                                                    <Textarea
+                                                        value={current[f.name] ?? ""}
+                                                        disabled={saving || locked}
+                                                        onChange={(_, data) => setField(f.name, data.value)}
+                                                        rows={1}
+                                                    />
+                                                </Field>
+                                            ))}
+                                            <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
+                                                <Button appearance="primary" onClick={() => void onSave()} disabled={!dirty || saving || locked}>
+                                                    {saving ? "Saving…" : "Save"}
+                                                </Button>
+                                                <Button
+                                                    appearance="secondary"
+                                                    onClick={() => window.open(formPdfDownloadUrl(incidentId, openForm.formId), "_blank")}
+                                                    disabled={dirty}
+                                                    title={dirty ? "Save changes first" : "Download as the official ICS Canada PDF"}
+                                                >
+                                                    Download PDF
+                                                </Button>
+                                                {dirty && <Caption1 style={{ color: "#7A5B00" }}>Unsaved changes</Caption1>}
+                                                {saveError && <Caption1 style={{ color: "#C62828" }}>{saveError}</Caption1>}
+                                            </div>
+                                        </>
+                                    );
+                                })()
+                            ) : (
+                                renderFormContent(openForm)
+                            )}
+                        </div>
                         <div className={styles.overlayHint}>Tap anywhere to minimize</div>
                     </div>
                 </div>

@@ -23,11 +23,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { closeIncident, extractForms, getIncident, icDecision, setSceneType, transferOfCommand, validateIAP } from "../../api/incidents";
+import { closeIncident, extractForms, getIncident, icDecision, removeCondition, setSceneType, transferOfCommand, validateIAP } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction, SceneType } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "../incidentKiosk/AnalyzePopup";
+import RefineConditionPopup from "../incidentKiosk/RefineConditionPopup";
 import FormTabStrip from "../incidentKiosk/FormTabStrip";
 import SceneItemRow from "../incidentKiosk/SceneItemRow";
 import SceneTypeSelector from "../incidentKiosk/SceneTypeSelector";
@@ -58,6 +59,7 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     const { actingRole } = useRole();
     const [incident, setIncident] = useState<IncidentDocument>(initialIncident);
     const [analyzeItem, setAnalyzeItem] = useState<SceneConditionAndAction | null>(null);
+    const [refineItem, setRefineItem] = useState<SceneConditionAndAction | null>(null);
     const [formsUpdating, setFormsUpdating] = useState(false);
     const [closing, setClosing] = useState(false);
     const [confirmingClose, setConfirmingClose] = useState(false);
@@ -90,6 +92,30 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     // Closeout / final-lock workflow: IC or Site Administrator can open it anytime.
     const isEventLocked = incident.lockedAt != null;
     const canCloseOut = actingRole === "incident-commander" || actingRole === "site-administrator";
+    // IC can refine/remove scene conditions just like the FO does, but only while the scene is
+    // open (i.e., before Loss Stop) and the incident isn't event-locked. Backend enforces both.
+    const icCanEditScene = actingRole === "incident-commander" && incident.phase === "response" && incident.lockedAt == null;
+
+    const handleRemoveCondition = useCallback(
+        async (item: SceneConditionAndAction) => {
+            if (!actingRole) return;
+            setActionError(null);
+            try {
+                const updated = await removeCondition(incident.id, item.id, { actingRole, userId: "support-view" });
+                setIncident(updated);
+            } catch (e) {
+                setActionError(e instanceof Error ? e.message : "Could not remove condition.");
+            }
+        },
+        [actingRole, incident.id]
+    );
+
+    const handleRefinementApplied = useCallback(() => {
+        setRefineItem(null);
+        // Trigger a refresh — RecommendationsPanel exposes the manual refresh path we already use.
+        refreshTokenRef.current += 1;
+        setRefreshToken(refreshTokenRef.current);
+    }, []);
 
     // --- Polling --------------------------------------------------------------
     // While the incident is in Response or Transition to Recovery, refresh the
@@ -470,7 +496,8 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                                     key={item.id}
                                     item={item}
                                     onAnalyze={setAnalyzeItem}
-                                    /* onRemove / onRefineClick intentionally omitted — read-only. */
+                                    onRefineClick={icCanEditScene ? setRefineItem : undefined}
+                                    onRemove={icCanEditScene ? handleRemoveCondition : undefined}
                                 />
                             ))}
                         </div>
@@ -496,8 +523,12 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                 <FormTabStrip
                     forms={incident.forms}
                     currentRole={actingRole ?? null}
-                    locked
+                    locked={isEventLocked}
                     generating={formsUpdating}
+                    editable={!isEventLocked}
+                    incidentId={incident.id}
+                    actingRole={actingRole ?? "incident-commander"}
+                    onSaved={setIncident}
                 />
             </div>
 
@@ -506,6 +537,13 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                 item={analyzeItem}
                 showCitations
                 onClose={() => setAnalyzeItem(null)}
+            />
+            <RefineConditionPopup
+                condition={refineItem}
+                incidentId={incident.id}
+                actingRole={actingRole ?? "incident-commander"}
+                onApplied={handleRefinementApplied}
+                onClose={() => setRefineItem(null)}
             />
         </div>
     );

@@ -27,3 +27,4 @@ python-dotenv
 jinja2
 rich
 typing-extensions
+python-docx
