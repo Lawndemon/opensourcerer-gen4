@@ -917,6 +917,18 @@ async def lock_incident(auth_claims: dict[str, Any], incident_id: str):
         return error_response(error, f"/api/incidents/{incident_id}/lock")
 
 
+@bp.route("/api/ics-forms/schemas", methods=["GET"])
+@authenticated
+async def get_ics_form_schemas(auth_claims: dict[str, Any]):
+    """Return the per-form AcroForm schemas for the 11 official ICS Canada PDFs.
+
+    Frontend uses this to drive the generic form-fields editor (one renderer for all
+    PDF-backed forms). Cached forever in process; small enough (~150KB) to ship in one shot.
+    """
+    from incidents.pdf_filler import load_schemas
+    return jsonify(load_schemas())
+
+
 @bp.route("/api/incidents/<incident_id>/forms/<form_id>/pdf", methods=["GET"])
 @authenticated
 async def export_form_pdf(auth_claims: dict[str, Any], incident_id: str, form_id: str):

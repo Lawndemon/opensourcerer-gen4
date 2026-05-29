@@ -17,6 +17,7 @@ import type {
     ICDecisionRequest,
     LockIncidentRequest,
     SaveFormContentRequest,
+    IcsFormSchemas,
     WithdrawContributionRequest,
     AutoPopulateRecommendationsRequest,
     ApplyRefinementRequest,
@@ -173,6 +174,21 @@ export async function lockIncident(incidentId: string, request: LockIncidentRequ
 export async function saveFormContent(incidentId: string, formId: string, request: SaveFormContentRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/forms/${encodeURIComponent(formId)}/content`, request, signal);
     return envelope.incident;
+}
+
+/**
+ * GET /api/ics-forms/schemas — AcroForm schemas for the 11 official ICS Canada PDFs.
+ * Used by the generic FormFieldsContent editor to build inputs from the field list.
+ */
+export async function getIcsFormSchemas(signal?: AbortSignal): Promise<IcsFormSchemas> {
+    const res = await fetch("/api/ics-forms/schemas", { credentials: "include", signal });
+    if (!res.ok) throw new IncidentApiError(`Failed to load ICS form schemas: ${res.status}`, res.status, undefined);
+    return res.json();
+}
+
+/** Direct URL for downloading a filled form as PDF. Hit via window.open / anchor. */
+export function formPdfDownloadUrl(incidentId: string, formId: string): string {
+    return `/api/incidents/${encodeURIComponent(incidentId)}/forms/${encodeURIComponent(formId)}/pdf`;
 }
 
 /**

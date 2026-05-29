@@ -15,12 +15,12 @@
  * sections).
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Body1, Button, Caption1, Field, Spinner, Textarea, Title2, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { extractForms, getIncident, lockIncident, saveFormContent } from "../../api/incidents";
-import type { FormContent, FormSummary, ICS201Content, IncidentDocument, PlaceholderFormContent } from "../../api/incidentTypes";
+import { extractForms, formPdfDownloadUrl, getIcsFormSchemas, getIncident, lockIncident, saveFormContent } from "../../api/incidents";
+import type { FormContent, FormFieldsContent, FormSummary, ICS201Content, IcsFormSchemas, IncidentDocument, PlaceholderFormContent } from "../../api/incidentTypes";
 import { ACTING_ROLES, getRoleDefinition } from "../../roles";
 import type { ActingRole } from "../../roles";
 
@@ -40,6 +40,16 @@ const CloseoutAdmin = ({ incident, actingRole, onBack, onIncidentChange }: Close
     const [lockBusy, setLockBusy] = useState(false);
     const [lockError, setLockError] = useState<string | null>(null);
     const [confirmingLock, setConfirmingLock] = useState(false);
+    const [schemas, setSchemas] = useState<IcsFormSchemas | null>(null);
+
+    // Load the ICS PDF schemas once on mount. Drives the generic field editor below.
+    useEffect(() => {
+        let cancelled = false;
+        getIcsFormSchemas()
+            .then(s => { if (!cancelled) setSchemas(s); })
+            .catch(() => { /* non-fatal: form_fields editor will show a fallback */ });
+        return () => { cancelled = true; };
+    }, []);
 
     const isLocked = incident.lockedAt != null;
 
@@ -146,6 +156,7 @@ const CloseoutAdmin = ({ incident, actingRole, onBack, onIncidentChange }: Close
                                 actingRole={actingRole}
                                 disabled={isLocked}
                                 onSaved={onIncidentChange}
+                                schemas={schemas}
                             />
                         ))}
                     </div>
@@ -191,9 +202,10 @@ interface FormEditorProps {
     actingRole: ActingRole | string;
     disabled: boolean;
     onSaved: (incident: IncidentDocument) => void;
+    schemas: IcsFormSchemas | null;
 }
 
-const FormEditor = ({ form, incidentId, actingRole, disabled, onSaved }: FormEditorProps) => {
+const FormEditor = ({ form, incidentId, actingRole, disabled, onSaved, schemas }: FormEditorProps) => {
     const [content, setContent] = useState<FormContent>(form.content);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -241,7 +253,9 @@ const FormEditor = ({ form, incidentId, actingRole, disabled, onSaved }: FormEdi
             </div>
             {expanded && (
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-                    {content.kind === "ics_201" ? (
+                    {content.kind === "form_fields" ? (
+                        <FormFieldsFields content={content} disabled={disabled} schemas={schemas} onChange={setContent} />
+                    ) : content.kind === "ics_201" ? (
                         <ICS201Fields content={content} disabled={disabled} onChange={setContent} />
                     ) : (
                         <PlaceholderFields content={content} disabled={disabled} onChange={setContent} />
@@ -250,6 +264,16 @@ const FormEditor = ({ form, incidentId, actingRole, disabled, onSaved }: FormEdi
                         <Button appearance="primary" onClick={() => void handleSave()} disabled={!dirty || saving || disabled}>
                             {saving ? "Saving…" : "Save"}
                         </Button>
+                        {content.kind === "form_fields" && (
+                            <Button
+                                appearance="secondary"
+                                onClick={() => window.open(formPdfDownloadUrl(incidentId, form.formId), "_blank")}
+                                disabled={dirty}
+                                title={dirty ? "Save changes first" : "Download as the official ICS Canada PDF"}
+                            >
+                                Download PDF
+                            </Button>
+                        )}
                         {dirty && <Caption1 style={{ color: "#7A5B00" }}>Unsaved changes</Caption1>}
                         {error && <Caption1 style={{ color: "#C62828" }}>{error}</Caption1>}
                     </div>
@@ -298,6 +322,45 @@ const ICS201Fields = ({
             {longField("Current actions", "currentActions")}
             {longField("Resource summary", "resourceSummary")}
             {shortField("Prepared by", "preparedBy")}
+        </>
+    );
+};
+
+const FormFieldsFields = ({
+    content,
+    disabled,
+    schemas,
+    onChange
+}: {
+    content: FormFieldsContent;
+    disabled: boolean;
+    schemas: IcsFormSchemas | null;
+    onChange: (c: FormFieldsContent) => void;
+}) => {
+    const schema = schemas?.[content.formIdKey];
+    if (!schemas) {
+        return <Caption1 style={{ color: "#666" }}>Loading form schema…</Caption1>;
+    }
+    if (!schema) {
+        return <Caption1 style={{ color: "#C62828" }}>No schema found for form id &ldquo;{content.formIdKey}&rdquo;.</Caption1>;
+    }
+    const setField = (name: string, value: string) =>
+        onChange({ ...content, fields: { ...content.fields, [name]: value } });
+    return (
+        <>
+            <Caption1 style={{ color: "#666", display: "block", marginBottom: 6 }}>
+                {schema.fieldCount} fields · {schema.pageCount} page(s) · official template
+            </Caption1>
+            {schema.fields.map((f, idx) => (
+                <Field key={`${f.name}-${idx}`} label={f.name || "(unnamed field)"}>
+                    <Textarea
+                        value={content.fields[f.name] ?? ""}
+                        disabled={disabled}
+                        onChange={(_, data) => setField(f.name, data.value)}
+                        rows={1}
+                    />
+                </Field>
+            ))}
         </>
     );
 };

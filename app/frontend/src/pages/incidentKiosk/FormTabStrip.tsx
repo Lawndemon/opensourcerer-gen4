@@ -73,6 +73,18 @@ const renderFormContent = (form: FormSummary) => {
             </div>
         );
     }
+    if (form.content.kind === "form_fields") {
+        const filled = Object.values(form.content.fields).filter(v => (v ?? "").trim().length > 0).length;
+        const total = Object.keys(form.content.fields).length;
+        return (
+            <div className={styles.placeholderForm}>
+                <Caption1 className={styles.fieldLabel}>{form.content.formType}</Caption1>
+                <Body1 className={styles.empty}>
+                    Official ICS Canada template{total > 0 ? ` — ${filled}/${total} fields filled` : ""}. Edit and download as PDF from the Closeout page.
+                </Body1>
+            </div>
+        );
+    }
     return (
         <div className={styles.placeholderForm}>
             <Caption1 className={styles.fieldLabel}>{form.content.title}</Caption1>

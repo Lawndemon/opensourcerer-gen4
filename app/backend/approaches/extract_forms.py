@@ -33,13 +33,35 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import TypeAdapter
 
 from incidents.form_templates import FORM_TEMPLATES, stable_form_id
-from models.incidents import FormSummary, SceneConditionAndAction, SceneSummary
+from models.incidents import FormFieldsContent, FormSummary, ICS201Content, SceneConditionAndAction, SceneSummary
 
 logger = logging.getLogger(__name__)
 
 
 # Reusable TypeAdapter avoids re-building the validator on every call.
 _FormListAdapter: TypeAdapter[list[FormSummary]] = TypeAdapter(list[FormSummary])
+
+
+def _ics201_typed_to_acroform(typed: ICS201Content) -> dict[str, str]:
+    """Map the typed ICS201Content's 7 fields onto the official Form-201.pdf AcroForm names.
+
+    Lets the AI auto-fill (which still produces ICS201Content shape) carry through to the
+    field map used by the PDF filler + generic editor. Field names match
+    `ics_pdf_templates/schemas.json` for `ics_201`. PREPARED BY is repeated on each of the
+    4 pages of the official form, so we stamp it on all four.
+    """
+    return {
+        "1 INCIDENT NAME": typed.incident_name or "",
+        "2 DATE PREPARED": typed.date_time_initiated or "",
+        "5. SITUATION SUMMARY AND SAFETY BRIEFING": typed.situation_summary or "",
+        "7. CURRENT AND PLANNED OBJECTIVES": typed.current_objectives or "",
+        "Action Row 1": typed.current_actions or "",
+        "Resources OrderedRow1": typed.resource_summary or "",
+        "6. PREPARED BY Name and Position": typed.prepared_by or "",
+        "9. PREPARED BY Name and Position": typed.prepared_by or "",
+        "11. PREPARED BY Name and Position": typed.prepared_by or "",
+        "13. PREPARED BY Name and Position": typed.prepared_by or "",
+    }
 
 
 class ExtractFormsApproach:
@@ -165,6 +187,24 @@ class ExtractFormsApproach:
             llm_form.role = tpl.role
             llm_form.title = tpl.title
             llm_form.status = "active"
+            # Phase 2 (SME forms work, 2026-05-27): for PDF-backed forms, swap the LLM's
+            # content shape to FormFieldsContent. The official PDF template + generic field
+            # editor take over from here. (Phase 3 will populate the fields via dedicated
+            # per-form extraction; for now the IC/Admin fills via the CloseoutAdmin form
+            # editor and exports the pixel-identical official PDF.)
+            if tpl.form_id_key is not None:
+                fields: dict[str, str] = {}
+                # ICS-201 special case: the LLM emits typed ICS201Content (7 hand-picked
+                # fields), preserved by mapping them onto their AcroForm names so the AI
+                # auto-fill keeps working through the migration. The remaining 153 PDF
+                # fields stay blank and the user fills them in the form editor.
+                if isinstance(llm_form.content, ICS201Content):
+                    fields = _ics201_typed_to_acroform(llm_form.content)
+                llm_form.content = FormFieldsContent(
+                    form_type=tpl.form_type,
+                    form_id_key=tpl.form_id_key,
+                    fields=fields,
+                )
             canonical.append(llm_form)
 
         return canonical

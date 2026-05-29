@@ -94,7 +94,32 @@ export interface PlaceholderFormContent {
     sections: FormSection[];
 }
 
-export type FormContent = ICS201Content | PlaceholderFormContent;
+/** Generic field-map content for official ICS Canada PDF-backed forms.
+ *  Key in `form_id_key` references the backend schemas at /api/ics-forms/schemas. */
+export interface FormFieldsContent {
+    kind: "form_fields";
+    formType: string;
+    formIdKey: string;
+    fields: Record<string, string>;
+}
+
+/** ICS PDF schema as returned by GET /api/ics-forms/schemas (form_id_key -> schema). */
+export interface IcsFormFieldDef {
+    name: string;
+    type: string;
+    maxLen: number | null;
+}
+export interface IcsFormSchema {
+    formId: string;
+    title: string;
+    pdfFile: string;
+    pageCount: number;
+    fieldCount: number;
+    fields: IcsFormFieldDef[];
+}
+export type IcsFormSchemas = Record<string, IcsFormSchema>;
+
+export type FormContent = ICS201Content | PlaceholderFormContent | FormFieldsContent;
 
 export interface FormSummary {
     formId: string;
