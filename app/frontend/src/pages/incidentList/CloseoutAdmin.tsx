@@ -352,7 +352,7 @@ const FormFieldsFields = ({
                 {schema.fieldCount} fields · {schema.pageCount} page(s) · official template
             </Caption1>
             {schema.fields.map((f, idx) => (
-                <Field key={`${f.name}-${idx}`} label={f.name || "(unnamed field)"}>
+                <Field key={`${f.name}-${idx}`} label={f.label || f.name || "(unnamed field)"}>
                     <Textarea
                         value={content.fields[f.name] ?? ""}
                         disabled={disabled}

@@ -105,7 +105,12 @@ export interface FormFieldsContent {
 
 /** ICS PDF schema as returned by GET /api/ics-forms/schemas (form_id_key -> schema). */
 export interface IcsFormFieldDef {
+    /** AcroForm field name (`/T`). Used as the key in `FormFieldsContent.fields` and the
+     *  fill target in the official PDF on export. Often opaque (e.g. "Text01"). */
     name: string;
+    /** Cleaned human-readable label derived from the AcroForm `/TU` tooltip if present,
+     *  otherwise the field name. Use this for display in editors. */
+    label: string;
     type: string;
     maxLen: number | null;
 }
