@@ -310,13 +310,13 @@
         "name": "ETARow1",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "On SceneRow1",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow1",
@@ -340,13 +340,13 @@
         "name": "ETARow2",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 2)"
+        "label": "Eta (Row 2)"
       },
       {
         "name": "On SceneRow2",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow2",
@@ -370,13 +370,13 @@
         "name": "ETARow3",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 3)"
+        "label": "Eta (Row 3)"
       },
       {
         "name": "On SceneRow3",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow3",
@@ -400,13 +400,13 @@
         "name": "ETARow4",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 4)"
+        "label": "Eta (Row 4)"
       },
       {
         "name": "On SceneRow4",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow4",
@@ -430,13 +430,13 @@
         "name": "ETARow5",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 5)"
+        "label": "Eta (Row 5)"
       },
       {
         "name": "On SceneRow5",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow5",
@@ -460,13 +460,13 @@
         "name": "ETARow6",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 6)"
+        "label": "Eta (Row 6)"
       },
       {
         "name": "On SceneRow6",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow6",
@@ -490,13 +490,13 @@
         "name": "ETARow7",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 7)"
+        "label": "Eta (Row 7)"
       },
       {
         "name": "On SceneRow7",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow7",
@@ -520,13 +520,13 @@
         "name": "ETARow8",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 8)"
+        "label": "Eta (Row 8)"
       },
       {
         "name": "On SceneRow8",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow8",
@@ -550,13 +550,13 @@
         "name": "ETARow9",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 9)"
+        "label": "Eta (Row 9)"
       },
       {
         "name": "On SceneRow9",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow9",
@@ -580,13 +580,13 @@
         "name": "ETARow10",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 10)"
+        "label": "Eta (Row 10)"
       },
       {
         "name": "On SceneRow10",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow10",
@@ -610,13 +610,13 @@
         "name": "ETARow11",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 11)"
+        "label": "Eta (Row 11)"
       },
       {
         "name": "On SceneRow11",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow11",
@@ -640,13 +640,13 @@
         "name": "ETARow12",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 12)"
+        "label": "Eta (Row 12)"
       },
       {
         "name": "On SceneRow12",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow12",
@@ -670,13 +670,13 @@
         "name": "ETARow13",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 13)"
+        "label": "Eta (Row 13)"
       },
       {
         "name": "On SceneRow13",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow13",
@@ -700,13 +700,13 @@
         "name": "ETARow14",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 14)"
+        "label": "Eta (Row 14)"
       },
       {
         "name": "On SceneRow14",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow14",
@@ -730,13 +730,13 @@
         "name": "ETARow15",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 15)"
+        "label": "Eta (Row 15)"
       },
       {
         "name": "On SceneRow15",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow15",
@@ -760,13 +760,13 @@
         "name": "ETARow16",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 16)"
+        "label": "Eta (Row 16)"
       },
       {
         "name": "On SceneRow16",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow16",
@@ -790,13 +790,13 @@
         "name": "ETARow17",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 17)"
+        "label": "Eta (Row 17)"
       },
       {
         "name": "On SceneRow17",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow17",
@@ -820,13 +820,13 @@
         "name": "ETARow18",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 18)"
+        "label": "Eta (Row 18)"
       },
       {
         "name": "On SceneRow18",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow18",
@@ -850,13 +850,13 @@
         "name": "ETARow19",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 19)"
+        "label": "Eta (Row 19)"
       },
       {
         "name": "On SceneRow19",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow19",
@@ -880,13 +880,13 @@
         "name": "ETARow20",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 20)"
+        "label": "Eta (Row 20)"
       },
       {
         "name": "On SceneRow20",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow20",
@@ -910,13 +910,13 @@
         "name": "ETARow21",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 21)"
+        "label": "Eta (Row 21)"
       },
       {
         "name": "On SceneRow21",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow21",
@@ -940,13 +940,13 @@
         "name": "ETARow22",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 22)"
+        "label": "Eta (Row 22)"
       },
       {
         "name": "On SceneRow22",
         "type": "text",
         "max_len": null,
-        "label": "ETA (Row 1)"
+        "label": "Eta (Row 1)"
       },
       {
         "name": "LocationAssignmentRow22",
@@ -1876,7 +1876,7 @@
         "name": "10 FINANCIALADMINISTRATION SECTION Procurement Unit",
         "type": "text",
         "max_len": null,
-        "label": "FINANCIAL/ADMINISTRATION SECTION (Row 4)"
+        "label": "Financial/Administration Section (Row 4)"
       },
       {
         "name": "10 FINANCIALADMINISTRATION SECTION Compensation/Claims",
@@ -3751,145 +3751,145 @@
         "name": "5 ORDER REQUEST NUMBERRow1",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 1)"
+        "label": "Order/ Request Number (Row 1)"
       },
       {
         "name": "6 DATE TIME CHECKINRow1",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_1'"
+        "label": "Date/ Time Checkin (Row 1)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow2",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 2)"
+        "label": "Order/ Request Number (Row 2)"
       },
       {
         "name": "6 DATE TIME CHECKINRow2",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_2'"
+        "label": "Date/ Time Checkin (Row 2)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow3",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 3)"
+        "label": "Order/ Request Number (Row 3)"
       },
       {
         "name": "6 DATE TIME CHECKINRow3",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_3'"
+        "label": "Date/ Time Checkin (Row 3)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow4",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 4)"
+        "label": "Order/ Request Number (Row 4)"
       },
       {
         "name": "6 DATE TIME CHECKINRow4",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_4'"
+        "label": "Date/ Time Checkin (Row 4)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow5",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 5)"
+        "label": "Order/ Request Number (Row 5)"
       },
       {
         "name": "6 DATE TIME CHECKINRow5",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_5'"
+        "label": "Date/ Time Checkin (Row 5)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow6",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 6)"
+        "label": "Order/ Request Number (Row 6)"
       },
       {
         "name": "6 DATE TIME CHECKINRow6",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_6'"
+        "label": "Date/ Time Checkin (Row 6)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow7",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 7)"
+        "label": "Order/ Request Number (Row 7)"
       },
       {
         "name": "6 DATE TIME CHECKINRow7",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_7'"
+        "label": "Date/ Time Checkin (Row 7)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow8",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 8)"
+        "label": "Order/ Request Number (Row 8)"
       },
       {
         "name": "6 DATE TIME CHECKINRow8",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_8'"
+        "label": "Date/ Time Checkin (Row 8)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow9",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 9)"
+        "label": "Order/ Request Number (Row 9)"
       },
       {
         "name": "6 DATE TIME CHECKINRow9",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_9'"
+        "label": "Date/ Time Checkin (Row 9)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow10",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 10)"
+        "label": "Order/ Request Number (Row 10)"
       },
       {
         "name": "6 DATE TIME CHECKINRow10",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_10'"
+        "label": "Date/ Time Checkin (Row 10)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow11",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 11)"
+        "label": "Order/ Request Number (Row 11)"
       },
       {
         "name": "6 DATE TIME CHECKINRow11",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_11'"
+        "label": "Date/ Time Checkin (Row 11)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow12",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 12)"
+        "label": "Order/ Request Number (Row 12)"
       },
       {
         "name": "6 DATE TIME CHECKINRow12",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_12'"
+        "label": "Date/ Time Checkin (Row 12)"
       },
       {
         "name": "I.D. No/Name Row1",
@@ -4015,937 +4015,937 @@
         "name": "7 LEADERS NAMERow1",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 1)"
+        "label": "Leader\u2019S Name (Row 1)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow1",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 1)"
+        "label": "Total No. Personnel (Row 1)"
       },
       {
         "name": "9 HOME BASERow1",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 1)"
+        "label": "Home Base (Row 1)"
       },
       {
         "name": "10 DEPARTURE POINTRow1",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 1)"
+        "label": "Departure Point (Row 1)"
       },
       {
         "name": "11 METHOD OF TRAVELRow1",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 1)"
+        "label": "Method Of Travel (Row 1)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow1",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 1)"
+        "label": "Incident Assignment (Row 1)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow1",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 1)"
+        "label": "Other Qualifications (Row 1)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow1",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 1)"
+        "label": "Sent To Resource Unit (Row 1)"
       },
       {
         "name": "7 LEADERS NAMERow2",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 2)"
+        "label": "Leader\u2019S Name (Row 2)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow2",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 2)"
+        "label": "Total No. Personnel (Row 2)"
       },
       {
         "name": "9 HOME BASERow2",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 2)"
+        "label": "Home Base (Row 2)"
       },
       {
         "name": "10 DEPARTURE POINTRow2",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 2)"
+        "label": "Departure Point (Row 2)"
       },
       {
         "name": "11 METHOD OF TRAVELRow2",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 2)"
+        "label": "Method Of Travel (Row 2)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow2",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 2)"
+        "label": "Incident Assignment (Row 2)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow2",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 2)"
+        "label": "Other Qualifications (Row 2)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow2",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 2)"
+        "label": "Sent To Resource Unit (Row 2)"
       },
       {
         "name": "7 LEADERS NAMERow3",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 3)"
+        "label": "Leader\u2019S Name (Row 3)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow3",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 3)"
+        "label": "Total No. Personnel (Row 3)"
       },
       {
         "name": "9 HOME BASERow3",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 3)"
+        "label": "Home Base (Row 3)"
       },
       {
         "name": "10 DEPARTURE POINTRow3",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 3)"
+        "label": "Departure Point (Row 3)"
       },
       {
         "name": "11 METHOD OF TRAVELRow3",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 3)"
+        "label": "Method Of Travel (Row 3)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow3",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 3)"
+        "label": "Incident Assignment (Row 3)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow3",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 3)"
+        "label": "Other Qualifications (Row 3)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow3",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 3)"
+        "label": "Sent To Resource Unit (Row 3)"
       },
       {
         "name": "7 LEADERS NAMERow4",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 4)"
+        "label": "Leader\u2019S Name (Row 4)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow4",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 4)"
+        "label": "Total No. Personnel (Row 4)"
       },
       {
         "name": "9 HOME BASERow4",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 4)"
+        "label": "Home Base (Row 4)"
       },
       {
         "name": "10 DEPARTURE POINTRow4",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 4)"
+        "label": "Departure Point (Row 4)"
       },
       {
         "name": "11 METHOD OF TRAVELRow4",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 4)"
+        "label": "Method Of Travel (Row 4)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow4",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 4)"
+        "label": "Incident Assignment (Row 4)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow4",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 4)"
+        "label": "Other Qualifications (Row 4)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow4",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 4)"
+        "label": "Sent To Resource Unit (Row 4)"
       },
       {
         "name": "7 LEADERS NAMERow5",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 5)"
+        "label": "Leader\u2019S Name (Row 5)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow5",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 5)"
+        "label": "Total No. Personnel (Row 5)"
       },
       {
         "name": "9 HOME BASERow5",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 5)"
+        "label": "Home Base (Row 5)"
       },
       {
         "name": "10 DEPARTURE POINTRow5",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 5)"
+        "label": "Departure Point (Row 5)"
       },
       {
         "name": "11 METHOD OF TRAVELRow5",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 5)"
+        "label": "Method Of Travel (Row 5)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow5",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 5)"
+        "label": "Incident Assignment (Row 5)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow5",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 5)"
+        "label": "Other Qualifications (Row 5)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow5",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 5)"
+        "label": "Sent To Resource Unit (Row 5)"
       },
       {
         "name": "7 LEADERS NAMERow6",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 6)"
+        "label": "Leader\u2019S Name (Row 6)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow6",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 6)"
+        "label": "Total No. Personnel (Row 6)"
       },
       {
         "name": "9 HOME BASERow6",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 6)"
+        "label": "Home Base (Row 6)"
       },
       {
         "name": "10 DEPARTURE POINTRow6",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 6)"
+        "label": "Departure Point (Row 6)"
       },
       {
         "name": "11 METHOD OF TRAVELRow6",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 6)"
+        "label": "Method Of Travel (Row 6)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow6",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 6)"
+        "label": "Incident Assignment (Row 6)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow6",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 6)"
+        "label": "Other Qualifications (Row 6)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow6",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 6)"
+        "label": "Sent To Resource Unit (Row 6)"
       },
       {
         "name": "7 LEADERS NAMERow7",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 7)"
+        "label": "Leader\u2019S Name (Row 7)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow7",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 7)"
+        "label": "Total No. Personnel (Row 7)"
       },
       {
         "name": "9 HOME BASERow7",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 7)"
+        "label": "Home Base (Row 7)"
       },
       {
         "name": "10 DEPARTURE POINTRow7",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 7)"
+        "label": "Departure Point (Row 7)"
       },
       {
         "name": "11 METHOD OF TRAVELRow7",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 7)"
+        "label": "Method Of Travel (Row 7)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow7",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 7)"
+        "label": "Incident Assignment (Row 7)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow7",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 7)"
+        "label": "Other Qualifications (Row 7)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow7",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 7)"
+        "label": "Sent To Resource Unit (Row 7)"
       },
       {
         "name": "7 LEADERS NAMERow8",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 8)"
+        "label": "Leader\u2019S Name (Row 8)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow8",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 8)"
+        "label": "Total No. Personnel (Row 8)"
       },
       {
         "name": "9 HOME BASERow8",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 8)"
+        "label": "Home Base (Row 8)"
       },
       {
         "name": "10 DEPARTURE POINTRow8",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 8)"
+        "label": "Departure Point (Row 8)"
       },
       {
         "name": "11 METHOD OF TRAVELRow8",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 8)"
+        "label": "Method Of Travel (Row 8)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow8",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 8)"
+        "label": "Incident Assignment (Row 8)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow8",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFATIONS (Row 8)"
+        "label": "Other Qualifations (Row 8)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow8",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 8)"
+        "label": "Sent To Resource Unit (Row 8)"
       },
       {
         "name": "7 LEADERS NAMERow9",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 9)"
+        "label": "Leader\u2019S Name (Row 9)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow9",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 9)"
+        "label": "Total No. Personnel (Row 9)"
       },
       {
         "name": "9 HOME BASERow9",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 9)"
+        "label": "Home Base (Row 9)"
       },
       {
         "name": "10 DEPARTURE POINTRow9",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 9)"
+        "label": "Departure Point (Row 9)"
       },
       {
         "name": "11 METHOD OF TRAVELRow9",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 9)"
+        "label": "Method Of Travel (Row 9)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow9",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 9)"
+        "label": "Incident Assignment (Row 9)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow9",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 9)"
+        "label": "Other Qualifications (Row 9)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow9",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 9)"
+        "label": "Sent To Resource Unit (Row 9)"
       },
       {
         "name": "7 LEADERS NAMERow10",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 10)"
+        "label": "Leader\u2019S Name (Row 10)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow10",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 10)"
+        "label": "Total No. Personnel (Row 10)"
       },
       {
         "name": "9 HOME BASERow10",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 10)"
+        "label": "Home Base (Row 10)"
       },
       {
         "name": "10 DEPARTURE POINTRow10",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 10)"
+        "label": "Departure Point (Row 10)"
       },
       {
         "name": "11 METHOD OF TRAVELRow10",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 10)"
+        "label": "Method Of Travel (Row 10)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow10",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 10)"
+        "label": "Incident Assignment (Row 10)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow10",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 10)"
+        "label": "Other Qualifications (Row 10)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow10",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 10)"
+        "label": "Sent To Resource Unit (Row 10)"
       },
       {
         "name": "7 LEADERS NAMERow11",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 11)"
+        "label": "Leader\u2019S Name (Row 11)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow11",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 11)"
+        "label": "Total No. Personnel (Row 11)"
       },
       {
         "name": "9 HOME BASERow11",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 11)"
+        "label": "Home Base (Row 11)"
       },
       {
         "name": "10 DEPARTURE POINTRow11",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 11)"
+        "label": "Departure Point (Row 11)"
       },
       {
         "name": "11 METHOD OF TRAVELRow11",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 11)"
+        "label": "Method Of Travel (Row 11)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow11",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 11)"
+        "label": "Incident Assignment (Row 11)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow11",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 11)"
+        "label": "Other Qualifications (Row 11)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow11",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 11)"
+        "label": "Sent To Resource Unit (Row 11)"
       },
       {
         "name": "7 LEADERS NAMERow12",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 12)"
+        "label": "Leader\u2019S Name (Row 12)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow12",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 12)"
+        "label": "Total No. Personnel (Row 12)"
       },
       {
         "name": "9 HOME BASERow12",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 12)"
+        "label": "Home Base (Row 12)"
       },
       {
         "name": "10 DEPARTURE POINTRow12",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 12)"
+        "label": "Departure Point (Row 12)"
       },
       {
         "name": "11 METHOD OF TRAVELRow12",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 12)"
+        "label": "Method Of Travel (Row 12)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow12",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 12)"
+        "label": "Incident Assignment (Row 12)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow12",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 12)"
+        "label": "Other Qualifications (Row 12)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow12",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 12)"
+        "label": "Sent To Resource Unit (Row 12)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow13",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 13)"
+        "label": "Order/ Request Number (Row 13)"
       },
       {
         "name": "6 DATE TIME CHECKINRow13",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_13'"
+        "label": "Date/ Time Checkin (Row 13)"
       },
       {
         "name": "7 LEADERS NAMERow13",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 13)"
+        "label": "Leader\u2019S Name (Row 13)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow13",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 13)"
+        "label": "Total No. Personnel (Row 13)"
       },
       {
         "name": "9 HOME BASERow13",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 13)"
+        "label": "Home Base (Row 13)"
       },
       {
         "name": "10 DEPARTURE POINTRow13",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 13)"
+        "label": "Departure Point (Row 13)"
       },
       {
         "name": "11 METHOD OF TRAVELRow13",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 13)"
+        "label": "Method Of Travel (Row 13)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow13",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 13)"
+        "label": "Incident Assignment (Row 13)"
       },
       {
         "name": "13 OTHER QUALIFI ATIONSRow13",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 13)"
+        "label": "Other Qualifications (Row 13)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow13",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 13)"
+        "label": "Sent To Resource Unit (Row 13)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow14",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 14)"
+        "label": "Order/ Request Number (Row 14)"
       },
       {
         "name": "6 DATE TIME CHECKINRow14",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_14'"
+        "label": "Date/ Time Checkin (Row 14)"
       },
       {
         "name": "7 LEADERS NAMERow14",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 14)"
+        "label": "Leader\u2019S Name (Row 14)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow14",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 14)"
+        "label": "Total No. Personnel (Row 14)"
       },
       {
         "name": "9 HOME BASERow14",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 14)"
+        "label": "Home Base (Row 14)"
       },
       {
         "name": "10 DEPARTURE POINTRow14",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 14)"
+        "label": "Departure Point (Row 14)"
       },
       {
         "name": "11 METHOD OF TRAVELRow14",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 14)"
+        "label": "Method Of Travel (Row 14)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow14",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 14)"
+        "label": "Incident Assignment (Row 14)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow14",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 14)"
+        "label": "Other Qualifications (Row 14)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow14",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 14)"
+        "label": "Sent To Resource Unit (Row 14)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow15",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 15)"
+        "label": "Order/ Request Number (Row 15)"
       },
       {
         "name": "6 DATE TIME CHECKINRow15",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_15'"
+        "label": "Date/ Time Checkin (Row 15)"
       },
       {
         "name": "7 LEADERS NAMERow15",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 15)"
+        "label": "Leader\u2019S Name (Row 15)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow15",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 15)"
+        "label": "Total No. Personnel (Row 15)"
       },
       {
         "name": "9 HOME BASERow15",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 15)"
+        "label": "Home Base (Row 15)"
       },
       {
         "name": "10 DEPARTURE POINTRow15",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 15)"
+        "label": "Departure Point (Row 15)"
       },
       {
         "name": "11 METHOD OF TRAVELRow15",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 15)"
+        "label": "Method Of Travel (Row 15)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow15",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 15)"
+        "label": "Incident Assignment (Row 15)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow15",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 15)"
+        "label": "Other Qualifications (Row 15)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow15",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 15)"
+        "label": "Sent To Resource Unit (Row 15)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow16",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 16)"
+        "label": "Order/ Request Number (Row 16)"
       },
       {
         "name": "6 DATE TIME CHECKINRow16",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_16'"
+        "label": "Date/ Time Checkin (Row 16)"
       },
       {
         "name": "7 LEADERS NAMERow16",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 16)"
+        "label": "Leader\u2019S Name (Row 16)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow16",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 16)"
+        "label": "Total No. Personnel (Row 16)"
       },
       {
         "name": "9 HOME BASERow16",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 16)"
+        "label": "Home Base (Row 16)"
       },
       {
         "name": "10 DEPARTURE POINTRow16",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 16)"
+        "label": "Departure Point (Row 16)"
       },
       {
         "name": "11 METHOD OF TRAVELRow16",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 16)"
+        "label": "Method Of Travel (Row 16)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow16",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 16)"
+        "label": "Incident Assignment (Row 16)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow16",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 16)"
+        "label": "Other Qualifications (Row 16)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow16",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 16)"
+        "label": "Sent To Resource Unit (Row 16)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow17",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 17)"
+        "label": "Order/ Request Number (Row 17)"
       },
       {
         "name": "6 DATE TIME CHECKINRow17",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_17'"
+        "label": "Date/ Time Checkin (Row 17)"
       },
       {
         "name": "7 LEADERS NAMERow17",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 17)"
+        "label": "Leader\u2019S Name (Row 17)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow17",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 17)"
+        "label": "Total No. Personnel (Row 17)"
       },
       {
         "name": "9 HOME BASERow17",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 17)"
+        "label": "Home Base (Row 17)"
       },
       {
         "name": "10 DEPARTURE POINTRow17",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 17)"
+        "label": "Departure Point (Row 17)"
       },
       {
         "name": "11 METHOD OF TRAVELRow17",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 17)"
+        "label": "Method Of Travel (Row 17)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow17",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 17)"
+        "label": "Incident Assignment (Row 17)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow17",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 17)"
+        "label": "Other Qualifications (Row 17)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow17",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 17)"
+        "label": "Sent To Resource Unit (Row 17)"
       },
       {
         "name": "5 ORDER REQUEST NUMBERRow18",
         "type": "text",
         "max_len": null,
-        "label": "ORDER/ REQUEST NUMBER (Row 18)"
+        "label": "Order/ Request Number (Row 18)"
       },
       {
         "name": "6 DATE TIME CHECKINRow18",
         "type": "text",
         "max_len": null,
-        "label": "b'6. DATE/ TIME CHECK\\xadIN_Row_18'"
+        "label": "Date/ Time Checkin (Row 18)"
       },
       {
         "name": "7 LEADERS NAMERow18",
         "type": "text",
         "max_len": null,
-        "label": "LEADER\u2019S NAME (Row 18)"
+        "label": "Leader\u2019S Name (Row 18)"
       },
       {
         "name": "8 TOTAL NO PERSONNELRow18",
         "type": "text",
         "max_len": null,
-        "label": "TOTAL NO. PERSONNEL (Row 18)"
+        "label": "Total No. Personnel (Row 18)"
       },
       {
         "name": "9 HOME BASERow18",
         "type": "text",
         "max_len": null,
-        "label": "HOME BASE (Row 18)"
+        "label": "Home Base (Row 18)"
       },
       {
         "name": "10 DEPARTURE POINTRow18",
         "type": "text",
         "max_len": null,
-        "label": "DEPARTURE POINT (Row 18)"
+        "label": "Departure Point (Row 18)"
       },
       {
         "name": "11 METHOD OF TRAVELRow18",
         "type": "text",
         "max_len": null,
-        "label": "METHOD OF TRAVEL (Row 18)"
+        "label": "Method Of Travel (Row 18)"
       },
       {
         "name": "12 INCIDENT ASSIGNMENTRow18",
         "type": "text",
         "max_len": null,
-        "label": "INCIDENT ASSIGNMENT (Row 18)"
+        "label": "Incident Assignment (Row 18)"
       },
       {
         "name": "13 OTHER QUALIFICATIONSRow18",
         "type": "text",
         "max_len": null,
-        "label": "OTHER QUALIFICATIONS (Row 18)"
+        "label": "Other Qualifications (Row 18)"
       },
       {
         "name": "14 SENT TO RESOURCE UNITRow18",
         "type": "text",
         "max_len": null,
-        "label": "SENT TO RESOURCE UNIT (Row 18)"
+        "label": "Sent To Resource Unit (Row 18)"
       },
       {
         "name": "REMARKS or COMMENTS",

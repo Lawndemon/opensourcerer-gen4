@@ -23,6 +23,8 @@ import { extractForms, formPdfDownloadUrl, getIcsFormSchemas, getIncident, lockI
 import type { FormContent, FormFieldsContent, FormSummary, ICS201Content, IcsFormSchemas, IncidentDocument, PlaceholderFormContent } from "../../api/incidentTypes";
 import { ACTING_ROLES, getRoleDefinition } from "../../roles";
 import type { ActingRole } from "../../roles";
+import { groupFieldsByRow } from "../../utils/formFieldGrouping";
+import { formatFormLabel } from "../../utils/formDisplay";
 
 // Roles whose forms participate in update-all. Site-administrator has no scene-driven forms.
 const ROLES_WITH_FORMS = ACTING_ROLES.filter(r => r.id !== "site-administrator").map(r => r.id);
@@ -246,7 +248,7 @@ const FormEditor = ({ form, incidentId, actingRole, disabled, onSaved, schemas }
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
             >
                 <div>
-                    <strong>{form.title}</strong>
+                    <strong>{formatFormLabel(form)}</strong>
                     <Caption1 style={{ marginLeft: 8, color: "#666" }}>{roleDef.displayName}</Caption1>
                 </div>
                 <Caption1 style={{ color: "#666" }}>{expanded ? "Hide" : "Edit"}</Caption1>
@@ -346,13 +348,15 @@ const FormFieldsFields = ({
     }
     const setField = (name: string, value: string) =>
         onChange({ ...content, fields: { ...content.fields, [name]: value } });
+    const grouped = groupFieldsByRow(schema.fields);
     return (
         <>
             <Caption1 style={{ color: "#666", display: "block", marginBottom: 6 }}>
                 {schema.fieldCount} fields · {schema.pageCount} page(s) · official template
             </Caption1>
-            {schema.fields.map((f, idx) => (
-                <Field key={`${f.name}-${idx}`} label={f.label || f.name || "(unnamed field)"}>
+            {/* Header (non-row) fields first */}
+            {grouped.unrowed.map(({ field: f, label }, idx) => (
+                <Field key={`${f.name}-${idx}`} label={label || "(unnamed field)"}>
                     <Textarea
                         value={content.fields[f.name] ?? ""}
                         disabled={disabled}
@@ -360,6 +364,34 @@ const FormFieldsFields = ({
                         rows={1}
                     />
                 </Field>
+            ))}
+            {/* Tabular row groups (one section per row, columns within) */}
+            {grouped.rows.map(row => (
+                <div
+                    key={`row-${row.rowNumber}`}
+                    style={{
+                        borderTop: "1px solid #E0E0E0",
+                        paddingTop: 8,
+                        marginTop: 12,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6
+                    }}
+                >
+                    <Caption1 style={{ color: "#555", fontWeight: 600 }}>
+                        Row {row.rowNumber}
+                    </Caption1>
+                    {row.fields.map(({ field: f, baseLabel }, idx) => (
+                        <Field key={`${f.name}-${idx}`} label={baseLabel || f.name || "(unnamed field)"}>
+                            <Textarea
+                                value={content.fields[f.name] ?? ""}
+                                disabled={disabled}
+                                onChange={(_, data) => setField(f.name, data.value)}
+                                rows={1}
+                            />
+                        </Field>
+                    ))}
+                </div>
             ))}
         </>
     );

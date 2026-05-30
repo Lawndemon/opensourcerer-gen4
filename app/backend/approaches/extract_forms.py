@@ -1,5 +1,5 @@
 """
-ExtractFormsApproach — downstream extraction that populates all 27 role-tagged forms.
+ExtractFormsApproach — downstream extraction that populates the role-tagged forms.
 
 Runs AFTER ValidateIAPApproach completes. Takes the primary scene extraction's result (the
 Scene Summary and the Scene Conditions and Actions list) plus the original transcript as
@@ -17,8 +17,9 @@ Architectural rationale (2026-05-19):
   validate-iap endpoint can choose whether to return an error or fall back to an empty
   forms list when the second call errors.
 
-Phase 1 scope: one LLM call generates all 27 forms. Phase 2 will likely split into
-parallel per-role or per-form-type calls for quality.
+Phase 1 scope: one LLM call generates every form in `FORM_TEMPLATES` (variable per-role
+count per ICS Canada doctrine — see incidents/form_templates.py). Phase 2 will likely
+split into parallel per-role or per-form-type calls for quality.
 """
 
 from __future__ import annotations
@@ -67,7 +68,7 @@ def _ics201_typed_to_acroform(typed: ICS201Content) -> dict[str, str]:
 class ExtractFormsApproach:
     """
     Downstream extractor: takes the primary scene extraction result and produces the
-    27 role-tagged forms in a single LLM call.
+    role-tagged forms (one entry per row in `FORM_TEMPLATES`) in a single LLM call.
 
     Registered as a singleton in the Quart app config (CONFIG_EXTRACT_FORMS_APPROACH) and
     pulled out by the validate-iap endpoint handler.
@@ -107,7 +108,7 @@ class ExtractFormsApproach:
         scene_summary: SceneSummary,
         scene_conditions_and_actions: list[SceneConditionAndAction],
     ) -> list[FormSummary]:
-        """Extract the 27 role-tagged forms.
+        """Extract the role-tagged forms (one per `FORM_TEMPLATES` entry).
 
         Raises on LLM refusal or schema mismatch. Callers should catch and decide whether
         to propagate the error or fall back to an empty forms list (which preserves the

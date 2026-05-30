@@ -63,7 +63,7 @@ Example: an earlier transcript chunk produced "Fire on scene" from the word "fir
 ## What goes in `support_contributions` and `forms`
 
 - `support_contributions` — empty array. Supporting roles' contributions are written through a separate publish workflow, not by this extraction.
-- `forms` — empty array. A separate downstream extraction (`extract_forms`) generates the 27 role-tagged forms from the scene state this prompt produces, so this prompt is no longer responsible for form content. Always emit `"forms": []` here.
+- `forms` — empty array. A separate downstream extraction (`extract_forms`) generates the role-tagged forms from the scene state this prompt produces, so this prompt is no longer responsible for form content. Always emit `"forms": []` here.
 
 ## Constraints
 

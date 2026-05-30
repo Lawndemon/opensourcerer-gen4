@@ -414,7 +414,7 @@ async def validate_iap(auth_claims: dict[str, Any], incident_id: str):
 #
 # Runs the downstream forms extraction OFF the critical path. The kiosk renders the scene
 # dashboard the moment Validate IAP returns, then fires this endpoint in the background;
-# the 27 role-tagged forms populate when it resolves. Keeping forms off the Validate IAP
+# the role-tagged forms populate when it resolves. Keeping forms off the Validate IAP
 # response is what guarantees the Fire Officer's screen is never locked by form generation.
 #
 # Scene source: when the incident is persisted, the authoritative scene state is read from
@@ -1944,7 +1944,7 @@ async def setup_clients():
     )
 
     # ExtractFormsApproach (5d): downstream extractor that runs after ValidateIAPApproach
-    # and populates the 27 role-tagged ICS forms. Same OpenAI client / model — the
+    # and populates the role-tagged ICS forms (per FORM_TEMPLATES). Same OpenAI client / model — the
     # cost/latency tradeoff is one extra chat completion per Validate IAP press.
     current_app.config[CONFIG_EXTRACT_FORMS_APPROACH] = ExtractFormsApproach(
         openai_client=openai_client,

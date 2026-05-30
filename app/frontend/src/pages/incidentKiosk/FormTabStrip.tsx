@@ -7,11 +7,12 @@
  *   - **Single tap anywhere on the overlay minimizes it back to the strip.** No close
  *     button — kiosk-friendly. The whole overlay is the close-target.
  *
- * Role filtering (5d, 2026-05-19): the backend now generates 27 role-tagged forms across
- * Fire Officer + 8 support roles (see app/backend/incidents/form_templates.py). This
- * component filters `forms[]` to those matching `currentRole` so each role sees only
- * their 3 tabs. Pass `currentRole={null}` to show every form (useful for an admin
- * cross-role view down the road).
+ * Role filtering (5d, 2026-05-19; revised 2026-05-29): the backend generates role-tagged
+ * forms with **variable per-role counts** per ICS Canada doctrine (see
+ * app/backend/incidents/form_templates.py — FO has 3, IC has 6, Liaison has 2, etc.). This
+ * component filters `forms[]` to those matching `currentRole` so each role sees only their
+ * own forms. Pass `currentRole={null}` to show every form (useful for an admin cross-role
+ * view down the road).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -20,6 +21,8 @@ import { Badge, Body1, Button, Caption1, Field, Textarea } from "@fluentui/react
 import { formPdfDownloadUrl, getIcsFormSchemas, saveFormContent } from "../../api/incidents";
 import type { FormSummary, IcsFormSchemas, IncidentDocument } from "../../api/incidentTypes";
 import type { ActingRole } from "../../roles";
+import { groupFieldsByRow } from "../../utils/formFieldGrouping";
+import { formatFormLabel } from "../../utils/formDisplay";
 
 import styles from "./FormTabStrip.module.css";
 
@@ -171,7 +174,7 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                             className={`${styles.tab} ${isOpen ? styles.tabOpen : ""}`}
                             onClick={() => setOpenFormId(isOpen ? null : f.formId)}
                         >
-                            <span className={styles.tabTitle}>{f.title}</span>
+                            <span className={styles.tabTitle}>{formatFormLabel(f)}</span>
                         </button>
                     );
                 })}
@@ -194,7 +197,7 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                     <div className={styles.overlayCard}>
                         <div className={styles.overlayHeader}>
                             <div>
-                                <Caption1 className={styles.formTypeLabel}>{openForm.title}</Caption1>
+                                <Caption1 className={styles.formTypeLabel}>{formatFormLabel(openForm)}</Caption1>
                                 <Body1 className={styles.formId}>{openForm.formId}</Body1>
                             </div>
                             <Badge
@@ -237,13 +240,15 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                                             setSaving(false);
                                         }
                                     };
+                                    const grouped = groupFieldsByRow(schema.fields);
                                     return (
                                         <>
                                             <Caption1 style={{ color: "#666", display: "block", marginBottom: 8 }}>
                                                 {schema.fieldCount} fields · {schema.pageCount} page(s) · official template
                                             </Caption1>
-                                            {schema.fields.map((f, idx) => (
-                                                <Field key={`${f.name}-${idx}`} label={f.label || f.name || "(unnamed field)"}>
+                                            {/* Header (non-row) fields first */}
+                                            {grouped.unrowed.map(({ field: f, label }, idx) => (
+                                                <Field key={`${f.name}-${idx}`} label={label || "(unnamed field)"}>
                                                     <Textarea
                                                         value={current[f.name] ?? ""}
                                                         disabled={saving || locked}
@@ -251,6 +256,37 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                                                         rows={1}
                                                     />
                                                 </Field>
+                                            ))}
+                                            {/* Tabular row groups (one section per row) */}
+                                            {grouped.rows.map(row => (
+                                                <div
+                                                    key={`row-${row.rowNumber}`}
+                                                    style={{
+                                                        borderTop: "1px solid #E0E0E0",
+                                                        paddingTop: 8,
+                                                        marginTop: 12,
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        gap: 6
+                                                    }}
+                                                >
+                                                    <Caption1 style={{ color: "#555", fontWeight: 600 }}>
+                                                        Row {row.rowNumber}
+                                                    </Caption1>
+                                                    {row.fields.map(({ field: f, baseLabel }, idx) => (
+                                                        <Field
+                                                            key={`${f.name}-${idx}`}
+                                                            label={baseLabel || f.name || "(unnamed field)"}
+                                                        >
+                                                            <Textarea
+                                                                value={current[f.name] ?? ""}
+                                                                disabled={saving || locked}
+                                                                onChange={(_, data) => setField(f.name, data.value)}
+                                                                rows={1}
+                                                            />
+                                                        </Field>
+                                                    ))}
+                                                </div>
                                             ))}
                                             <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
                                                 <Button appearance="primary" onClick={() => void onSave()} disabled={!dirty || saving || locked}>

@@ -676,12 +676,22 @@ The SME-supplied ICS Canada PDFs are interactive AcroForm templates (1,546 named
 - **`FormFieldsContent`** added to the `FormContent` discriminated union (kind=`"form_fields"`, carries `form_id_key` + `fields: dict[str,str]`). `ICS201Content` + `PlaceholderFormContent` stay for back-compat.
 - **`GET /api/incidents/{id}/forms/{formId}/pdf`** — downloads the pixel-identical filled official PDF. Any authenticated user; returns 409 if the form is still on a legacy content shape.
 
-REMAINING (Phase 2 — frontend + content-shape migration):
+### ICS forms — Phase 2 (frontend editor + per-role doctrine) landed 2026-05-29
 
-- Generic `FormFieldEditor` component (auto-builds inputs from `schemas.json` field list — text/textarea heuristic; repeating table rows like 211/215 grouped).
-- Update `CloseoutAdmin`'s `FormEditor` to render `FormFieldsContent` and add a "Download PDF" button calling the new export endpoint.
-- Migrate `extract_forms` to populate `FormFieldsContent` for the forms that have PDF schemas (AI maps transcript/scene → known field names per form). Keep `ICS201Content` until 201 is migrated.
-- Update `form_templates.py` `kind` per role-form mapping so each per-role form is provisioned as `form_fields` referencing the right `form_id_key`.
+- **Generic field editor** in CloseoutAdmin (`FormFieldsFields`) and inline editable popup in `FormTabStrip` (non-FO kiosks). Auto-builds Textarea inputs from `schemas.json` field list.
+- **`/TU` tooltip labels** integrated into `schemas.json` with a cleanup heuristic (strips `"N. "` / `"N "` prefixes, normalizes `_Row_N` / `RowN` suffixes to `" (Row N)"`, title-cases bare all-caps, decodes soft-hyphen bytes-repr leak). Overall /TU coverage 51%; 9 of 11 forms at 70–100%.
+- **Row-grouping** in the field editor (`utils/formFieldGrouping.ts`) — fields whose labels end with `(Row N)` are bucketed by row number and rendered as visual row sections with a "Row N" header above each cluster. Big UX win for tabular forms (211: 18×15; 214: 15×5; 215A: 14×3).
+- **Per-role doctrine remap** of `form_templates.py` — removed the artificial 3-per-role cap (was placeholder from earlier sessions) and rewrote per-role assignments against ICS Canada doctrine + the SME's Planning P deck. New counts: FO=3, IC=6, Safety=3, Liaison=2, Info=2, each Section Chief=4. Dropped the custom AGENCIES-LOG / MEDIA-LOG / PRESS-LOG entries we'd made up; ICS-214 is now correctly present on every section-chief role per Command Mode doctrine. 32 forms total, 22 PDF-backed.
+- **ICS-201 typed→AcroForm bridge** preserves Phase-3 AI auto-fill: `_ics201_typed_to_acroform()` in `extract_forms` maps the 7 typed `ICS201Content` fields onto the official Form-201 AcroForm names, so the LLM's typed output flows through the generic field editor without losing populated data.
+
+REMAINING (Phase 3 — AI auto-fill + per-form curation):
+
+- **Refine-Field interaction** (SME-anticipated, design captured 2026-05-29 from Dave): each form field opens a "Refine Scene Condition"-style popup with AI-generated suggestions for that specific field, drawing from scene state + transcript + KB. User single-pushes to select; support roles also get typed edits. Replaces the FO kiosk read-only stub (currently FO edits via CloseoutAdmin only) and brings AI auto-fill in via the same path. This is the right Phase-3 FO interaction — `editable={true}` with a plain textarea on the FO kiosk would be a stopgap that lives forever; the Refine-Field pattern is the doctrine-correct answer.
+- **Per-form simple extractors** (extend the ICS-201 pattern) for high-signal fields (incident name, date/time, prepared-by, primary objectives) across 202, 203, 208, 211, 214, 215A. Cheap per-form prompts with explicit field-name targets.
+- **ICS-207 hand-curated labels** — org chart has 4% /TU coverage; ~120 ICS-position field labels need to be hand-mapped (one-time effort, makes the form usable).
+- **ICS-214 / ICS-208 long-tail label gaps** — half of 214's fields are `Text57` / `Text58`-style (no /TU); 208 has 4 unlabeled. Curate alongside 207 or accept the long tail.
+- **ICS-201 column-label cleanup** — grouping detects 22 rows × ~28 cols because the official form has many "Eta" widgets; consider a per-form column override map for the few forms where the AcroForm naming is genuinely useless.
+- **Acquire / build non-PDF forms** (209, 213, 210, 206, 218, OF-288, 226, 219). They currently stay on `placeholder` content; either acquire the official ICS Canada PDFs (213/209/210 do exist) or design bespoke layouts.
 
 ## Notes on the deploy / template
 
