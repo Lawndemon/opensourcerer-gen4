@@ -190,6 +190,20 @@ Blocked on auth being live (because chat history partitions by Entra user ID). S
 
 ---
 
+### Re-Validate IAP must preserve FO refinements — append, not replace (SME, 2026-05-29)
+
+SME tested Refine on the FO portal and loves it, but found that pressing Re-Validate IAP wipes the refinements out — the re-extraction returns a fresh conditions list and the previously-refined wording is gone. He wants Re-Validate to **append** new evidence to the existing scene state rather than replace it, preserving every refinement and human edit that was applied between validations.
+
+**Why:** parity with the existing recs-preservation pattern (see Done 2026-05-26 / [[Bug 4]] for support recommendations). The whole point of Refine is to let the FO sharpen a condition's wording with KB-grounded alternatives; losing that on the next Validate pass tells the FO their work was throwaway. It also breaks the immutability principle's spirit — refinements are append-only on the condition's `refinements[]` history; nuking the surrounding condition takes the trail with it.
+
+**Shape of the fix:**
+- Mirror the recs-preservation pattern in `ValidateIAPApproach` / the validate-iap endpoint: before swapping in the new extraction result, reconcile against the existing `scene_conditions_and_actions` by stable id and preserve any item that has refinements applied (or a non-empty `refinements[]`).
+- New transcript content can still introduce *new* conditions/actions — append those. New evidence on an existing item can update `status_evidence` without overwriting the refined statement text. Items the LLM no longer emits should not be force-removed if they have refinement history (same logic as withdraw-vs-replace for recs).
+- Audit: each Re-Validate run should record what it appended vs. preserved (or just a count) on the event log so the trail is clear.
+- Verify with a fixture: refine a condition → Re-Validate → confirm the refined wording survives and `refinements[]` is intact.
+
+Related: [[Chat & transcript immutability principle]], [[Audit logs screen-facing deltas]]. Bundled candidate with the next prompt/extraction iteration.
+
 ### Custom support contribution — add category selector (Dave QoL, 2026-05-27)
 
 When a support user adds a custom recommendation, the resulting `SupportContribution.category` is currently `None` (set explicitly in `add_custom_recommendation`'s ToC-bypass path; not threaded from the UI in either path). The kiosk groups support contributions by category (Life Safety / Incident Stabilization / Property Conservation / Other), so custom items fall into "Other" with no way for the human to set urgency intent. Add a 3-option selector (life_safety / incident_stabilization / property_conservation) to the custom-add UI in `RecommendationsPanel`, thread it through `AddCustomRecommendationRequest` + `add_custom_recommendation` cosmos fn (ToC-bypass path uses it directly when minting the SupportContribution), and persist it on `PendingRecommendation` so the pre-ToC publish path also carries it through.
