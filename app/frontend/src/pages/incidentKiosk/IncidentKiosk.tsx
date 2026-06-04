@@ -45,7 +45,7 @@ import SceneItemRow from "./SceneItemRow";
 import SceneTypeSelector from "./SceneTypeSelector";
 import RoleBubble from "../../components/RoleBubble";
 import { RECOMMENDATION_CATEGORY_LABEL, RECOMMENDATION_CATEGORY_ORDER } from "../../recommendationCategories";
-import { CUSTOM_SCENARIO_ID, DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, getScenarioById } from "./fixtures";
+import { CUSTOM_SCENARIO_ID, DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, accumulatedTranscript, getScenarioById } from "./fixtures";
 import styles from "./IncidentKiosk.module.css";
 
 type KioskState =
@@ -55,7 +55,14 @@ type KioskState =
           phase: "in_incident";
           incidentId: string;
           scenarioId: string;
+          // Accumulated transcript: union of scene segments phases[0..currentPhaseIndex].
           transcript: string;
+          // Multi-phase (scene segments): the loaded scenario's per-segment chatter and the
+          // index of the last segment that has been run. currentPhaseIndex 0 = phase 1 (the
+          // segment fed on Start). The "Run Phase N" demo button advances this and vanishes
+          // once currentPhaseIndex === phases.length - 1.
+          phases: string[];
+          currentPhaseIndex: number;
           iap: ValidateIAPResponse;
           sceneType: SceneType | null;
           revalidating: boolean;
@@ -203,22 +210,25 @@ const IncidentKiosk = () => {
     const handleStartIncident = useCallback(async () => {
         const currentScenarioId = state.phase === "pre_incident" ? state.scenarioId : DEFAULT_SCENARIO_ID;
         const currentCustom = state.phase === "pre_incident" ? state.customTranscript : undefined;
-        // Resolve the transcript: custom text if the user chose "bring your own"; otherwise the fixture.
-        let transcript: string;
+        // Resolve the scene segments: custom text if the user chose "bring your own" (single
+        // segment); otherwise the fixture's phases array.
+        let phases: string[];
         if (currentScenarioId === CUSTOM_SCENARIO_ID) {
             if (!currentCustom || currentCustom.trim().length === 0) {
                 setState({ phase: "error", scenarioId: currentScenarioId, message: "Custom transcript is empty — paste text or upload a file before starting." });
                 return;
             }
-            transcript = currentCustom;
+            phases = [currentCustom];
         } else {
             const scenario = getScenarioById(currentScenarioId);
             if (!scenario) {
                 setState({ phase: "error", scenarioId: currentScenarioId, message: `Unknown scenario: ${currentScenarioId}` });
                 return;
             }
-            transcript = scenario.transcript;
+            phases = scenario.phases;
         }
+        // Start runs scene segment 1 only; later segments accumulate via Run Phase.
+        const transcript = accumulatedTranscript(phases, 0);
         const provisionalIncidentId = generatePrototypeIncidentId();
         setState({ phase: "starting", scenarioId: currentScenarioId, incidentId: provisionalIncidentId });
         try {
@@ -233,6 +243,8 @@ const IncidentKiosk = () => {
                     incidentId: doc.id,
                     scenarioId: currentScenarioId,
                     transcript,
+                    phases,
+                    currentPhaseIndex: 0,
                     iap: docIap,
                     sceneType: doc.sceneType ?? null,
                     revalidating: false,
@@ -263,6 +275,8 @@ const IncidentKiosk = () => {
                 incidentId: provisionalIncidentId,
                 scenarioId: currentScenarioId,
                 transcript,
+                phases,
+                currentPhaseIndex: 0,
                 iap,
                 sceneType: null,
                 revalidating: false,
@@ -304,6 +318,51 @@ const IncidentKiosk = () => {
                 phase: "error",
                 scenarioId: previous.scenarioId,
                 message: `Re-Validate failed: ${formatError(err)}`
+            });
+        }
+    }, [state, actingRole, triggerFormsExtraction]);
+
+    // Run Phase N (multi-phase scene segments — demo only). Advances to the next scene
+    // segment: appends that segment's new chatter to the accumulated transcript and re-runs
+    // Validate against the union. Like Re-Validate, it never blocks the kiosk — the scene
+    // renders immediately and forms regenerate in the background. The button graduates and
+    // disappears once the final segment has run (see the demo cluster in render). The
+    // cross-phase merge — scene items updating in place by stable id rather than duplicating —
+    // is the backend's job, via the append-not-replace Validate reconciliation.
+    const handleRunPhase = useCallback(async () => {
+        if (state.phase !== "in_incident" || state.locked || state.revalidating) return;
+        const previous = state;
+        if (previous.currentPhaseIndex >= previous.phases.length - 1) return; // already on the last segment
+        const nextIndex = previous.currentPhaseIndex + 1;
+        const nextTranscript = accumulatedTranscript(previous.phases, nextIndex);
+        // Optimistic: advance the segment + accumulated transcript immediately.
+        setState({ ...previous, transcript: nextTranscript, currentPhaseIndex: nextIndex, revalidating: true });
+        try {
+            const iap = await validateIAP({
+                incidentId: previous.incidentId,
+                transcript: nextTranscript,
+                actingRole: actingRole ?? "fire-officer"
+            });
+            // Preserve forms + support contributions across the pass, exactly like Re-Validate.
+            const merged = {
+                ...iap,
+                forms: previous.iap.forms,
+                supportContributions: previous.iap.supportContributions
+            };
+            setState({
+                ...previous,
+                transcript: nextTranscript,
+                currentPhaseIndex: nextIndex,
+                iap: merged,
+                revalidating: false,
+                formsGenerating: true
+            });
+            void triggerFormsExtraction(previous.incidentId, nextTranscript, merged);
+        } catch (err) {
+            setState({
+                phase: "error",
+                scenarioId: previous.scenarioId,
+                message: `Run Phase failed: ${formatError(err)}`
             });
         }
     }, [state, actingRole, triggerFormsExtraction]);
@@ -511,7 +570,8 @@ const IncidentKiosk = () => {
     }
 
     if (state.phase === "in_incident") {
-        const { iap, incidentId, locked, revalidating, formsGenerating, sceneType, commandTransferred, eventLocked } = state;
+        const { iap, incidentId, locked, revalidating, formsGenerating, sceneType, commandTransferred, eventLocked, phases, currentPhaseIndex } = state;
+        const hasMorePhases = currentPhaseIndex < phases.length - 1;
         const items = iap.sceneConditionsAndActions;
 
         return (
@@ -673,6 +733,17 @@ const IncidentKiosk = () => {
                     unit once streaming STT lands. The phase-progression button (backlogged) joins here. */}
                 <div className={styles.demoControls}>
                     <Caption1 className={styles.demoLabel}>DEMO</Caption1>
+                    {!locked && hasMorePhases && (
+                        <Button
+                            appearance="primary"
+                            size="small"
+                            icon={revalidating ? <Spinner size="tiny" /> : undefined}
+                            onClick={handleRunPhase}
+                            disabled={revalidating}
+                        >
+                            {revalidating ? "Running…" : `Run Phase ${currentPhaseIndex + 2}`}
+                        </Button>
+                    )}
                     <Button appearance="subtle" size="small" onClick={handleReset}>
                         End demo
                     </Button>
@@ -771,3 +842,4 @@ function formatError(err: unknown): string {
 }
 
 export default IncidentKiosk;
+// (multi-phase scene segments wired 2026-06-04)

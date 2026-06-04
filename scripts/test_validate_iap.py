@@ -73,20 +73,57 @@ def run_fixture(
     print(f"Scenario: {fixture['description']}")
     print()
 
-    body = {
-        "transcript": fixture["transcript"],
-        "actingRole": "fire-officer",
-    }
-
-    url = f"https://{host}/api/incidents/{incident_id}/validate-iap"
-    print(f"POST {url}")
-
     headers = {"Content-Type": "application/json"}
     cookies: dict[str, str] = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     if cookie:
         cookies["AppServiceAuthSession"] = cookie
+
+    # Multi-phase fixtures: run each scene segment cumulatively against the SAME incident id so
+    # the backend reconciles the accumulating transcript by stable id across phases (the point
+    # of the test — items should update in place, not duplicate). Single-phase fixtures do one pass.
+    phases = fixture.get("phases")
+    if phases:
+        accumulated: list[str] = []
+        ok = True
+        for i, segment in enumerate(phases, 1):
+            accumulated.append(segment)
+            transcript = "\n".join(accumulated)
+            label = f"PHASE {i}/{len(phases)}  (cumulative transcript)"
+            ok = (
+                _run_validate_once(
+                    host, transcript, incident_id, headers, cookies, fixture_path.stem,
+                    label=label, save_suffix=f"-p{i}",
+                )
+                and ok
+            )
+        return ok
+    return _run_validate_once(
+        host, fixture["transcript"], incident_id, headers, cookies, fixture_path.stem
+    )
+
+
+def _run_validate_once(
+    host: str,
+    transcript: str,
+    incident_id: str,
+    headers: dict[str, str],
+    cookies: dict[str, str],
+    fixture_stem: str,
+    *,
+    label: str | None = None,
+    save_suffix: str = "",
+) -> bool:
+    """POST one transcript to Validate IAP and print a summary. Returns True on HTTP 200."""
+    if label:
+        print(f"\n{'-' * 78}")
+        print(label)
+        print(f"{'-' * 78}")
+
+    body = {"transcript": transcript, "actingRole": "fire-officer"}
+    url = f"https://{host}/api/incidents/{incident_id}/validate-iap"
+    print(f"POST {url}")
 
     try:
         resp = requests.post(
@@ -152,7 +189,7 @@ def run_fixture(
             )
 
     print()
-    print("Full response saved to:", _save_response(data, fixture_path.stem, incident_id))
+    print("Full response saved to:", _save_response(data, fixture_stem, incident_id + save_suffix))
     return True
 
 
@@ -205,15 +242,16 @@ def main() -> int:
     parser.add_argument(
         "--fixture",
         type=int,
-        choices=[1, 2, 3, 4, 5],
+        choices=[1, 2, 3, 4, 5, 6],
         help="Which fixture to run, by sorted order: 1=conforming, 2=mixed, 3=life-risk, "
-        "4=SME initial report (residential), 5=SME initial report (Spacely school)",
+        "4=SME initial report (residential), 5=SME initial report (Spacely school), "
+        "6=SME single-family fire with exposure (4 phases, runs cumulatively)",
     )
     parser.add_argument("--all", action="store_true", help="Run all fixtures in sequence")
     args = parser.parse_args()
 
     if not args.fixture and not args.all:
-        parser.error("must specify --fixture <1-5> or --all")
+        parser.error("must specify --fixture <1-6> or --all")
 
     token, cookie = _resolve_auth(args)
 
@@ -244,7 +282,10 @@ def main() -> int:
         print("  Fixture 3 (life-risk):        at least one red (RIT not in place / continued offensive)")
         print("  Fixture 4 (SME residential):  command + 360 + accountability green; short size-up")
         print("  Fixture 5 (SME school):       investigative->offensive handled; resource discipline green")
-        print("  (Fixtures 4-5 answer keys are PROVISIONAL — confirm against the SME's once received.)")
+        print("  Fixture 6 (SME exposure):     4 phases run cumulatively — watch items EVOLVE in place")
+        print("                                (strategy offensive->defensive, exposures appear) and NOT")
+        print("                                duplicate across phases. Scene should worsen P1->P4.")
+        print("  (Fixtures 4-6 answer keys are PROVISIONAL — confirm against the SME's once received.)")
     else:
         print(f"{failures} of {len(to_run)} fixture(s) FAILED.")
     print("=" * 78)
@@ -253,4 +294,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
