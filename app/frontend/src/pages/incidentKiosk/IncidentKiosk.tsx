@@ -21,9 +21,9 @@
 
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { Body1, Button, Caption1, Spinner, Subtitle1, Title1, Title3 } from "@fluentui/react-components";
-import { ArrowClockwise24Regular, Stop24Filled } from "@fluentui/react-icons";
+import { ArrowClockwise24Regular, Checkmark24Regular, Stop24Filled } from "@fluentui/react-icons";
 
-import type { IncidentDocument, SceneConditionAndAction, SceneType, ValidateIAPResponse } from "../../api/incidentTypes";
+import type { IncidentDocument, SceneConditionAndAction, ValidateIAPResponse } from "../../api/incidentTypes";
 import {
     createIncident,
     extractForms,
@@ -33,7 +33,6 @@ import {
     lossStop as lossStopRequest,
     autoPopulateRecommendations,
     removeCondition,
-    setSceneType as setSceneTypeRequest,
     validateIAP
 } from "../../api/incidents";
 import { useRole } from "../../roleContext";
@@ -42,7 +41,6 @@ import AnalyzePopup from "./AnalyzePopup";
 import FormTabStrip from "./FormTabStrip";
 import RefineConditionPopup from "./RefineConditionPopup";
 import SceneItemRow from "./SceneItemRow";
-import SceneTypeSelector from "./SceneTypeSelector";
 import RoleBubble from "../../components/RoleBubble";
 import { RECOMMENDATION_CATEGORY_LABEL, RECOMMENDATION_CATEGORY_ORDER } from "../../recommendationCategories";
 import { CUSTOM_SCENARIO_ID, DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, accumulatedTranscript, getScenarioById } from "./fixtures";
@@ -59,12 +57,15 @@ type KioskState =
           transcript: string;
           // Multi-phase (scene segments): the loaded scenario's per-segment chatter and the
           // index of the last segment that has been run. currentPhaseIndex 0 = phase 1 (the
-          // segment fed on Start). The "Run Phase N" demo button advances this and vanishes
+          // segment fed on Start). The "Add Inject" demo button advances this and vanishes
           // once currentPhaseIndex === phases.length - 1.
           phases: string[];
           currentPhaseIndex: number;
           iap: ValidateIAPResponse;
-          sceneType: SceneType | null;
+          // True once the FO has pressed "Confirm Scene Conditions" (the trigger that fires
+          // forms + AI support recommendations). Flips the floating button to "Re-Validate IAP".
+          // An Add Inject also sets this, since injecting implies we're past the initial confirm.
+          hasConfirmed: boolean;
           revalidating: boolean;
           locked: boolean;
           persisted: boolean;
@@ -121,11 +122,10 @@ const IncidentKiosk = () => {
                     if (prev.incidentId !== incidentId) return prev;
                     const b = fresh.supportContributions;
                     const freshCommand = fresh.commandTransferredAt != null;
-                    // Sync scene fields too (not just contributions): an IC changing the Scene
-                    // Type or an auto Re-Validate must surface on the FO kiosk. Signature guard
-                    // avoids needless re-renders when nothing the kiosk shows has moved.
+                    // Sync scene fields too (not just contributions): an auto Re-Validate must
+                    // surface on the FO kiosk. Signature guard avoids needless re-renders when
+                    // nothing the kiosk shows has moved.
                     const prevSig = JSON.stringify([
-                        prev.sceneType ?? null,
                         prev.commandTransferred ?? false,
                         prev.eventLocked ?? false,
                         prev.iap.sceneSummary.lastUpdated,
@@ -133,7 +133,6 @@ const IncidentKiosk = () => {
                         prev.iap.supportContributions.map(c => [c.id, c.icStatus])
                     ]);
                     const freshSig = JSON.stringify([
-                        fresh.sceneType ?? null,
                         freshCommand,
                         fresh.lockedAt != null,
                         fresh.sceneSummary.lastUpdated,
@@ -145,7 +144,6 @@ const IncidentKiosk = () => {
                     }
                     return {
                         ...prev,
-                        sceneType: fresh.sceneType ?? null,
                         commandTransferred: freshCommand,
                         eventLocked: fresh.lockedAt != null,
                         locked: prev.locked || fresh.lockedAt != null,
@@ -246,16 +244,16 @@ const IncidentKiosk = () => {
                     phases,
                     currentPhaseIndex: 0,
                     iap: docIap,
-                    sceneType: doc.sceneType ?? null,
+                    hasConfirmed: false,
                     revalidating: false,
                     locked: doc.phase !== "response" || doc.lockedAt != null,
                     persisted: true,
                     commandTransferred: doc.commandTransferredAt != null,
                     eventLocked: doc.lockedAt != null,
-                    formsGenerating: true
+                    formsGenerating: false
                 });
-                // Forms populate in the background; the dashboard is already interactive.
-                void triggerFormsExtraction(doc.id, transcript, docIap);
+                // Forms + AI recommendations are NOT generated on Start anymore — they fire when
+                // the FO presses "Confirm Scene Conditions" (see handleConfirmSceneConditions).
                 return;
             } catch (createErr) {
                 if (createErr instanceof IncidentApiError && createErr.status === 503) {
@@ -278,13 +276,12 @@ const IncidentKiosk = () => {
                 phases,
                 currentPhaseIndex: 0,
                 iap,
-                sceneType: null,
+                hasConfirmed: false,
                 revalidating: false,
                 locked: false,
                 persisted: false,
-                formsGenerating: true
+                formsGenerating: false
             });
-            void triggerFormsExtraction(provisionalIncidentId, transcript, iap);
         } catch (err) {
             setState({ phase: "error", scenarioId: currentScenarioId, message: formatError(err) });
         }
@@ -335,8 +332,9 @@ const IncidentKiosk = () => {
         if (previous.currentPhaseIndex >= previous.phases.length - 1) return; // already on the last segment
         const nextIndex = previous.currentPhaseIndex + 1;
         const nextTranscript = accumulatedTranscript(previous.phases, nextIndex);
-        // Optimistic: advance the segment + accumulated transcript immediately.
-        setState({ ...previous, transcript: nextTranscript, currentPhaseIndex: nextIndex, revalidating: true });
+        // Optimistic: advance the segment + accumulated transcript immediately. hasConfirmed
+        // flips true here too, so injecting moves the floating button to "Re-Validate IAP".
+        setState({ ...previous, transcript: nextTranscript, currentPhaseIndex: nextIndex, hasConfirmed: true, revalidating: true });
         try {
             const iap = await validateIAP({
                 incidentId: previous.incidentId,
@@ -353,6 +351,7 @@ const IncidentKiosk = () => {
                 ...previous,
                 transcript: nextTranscript,
                 currentPhaseIndex: nextIndex,
+                hasConfirmed: true,
                 iap: merged,
                 revalidating: false,
                 formsGenerating: true
@@ -362,7 +361,7 @@ const IncidentKiosk = () => {
             setState({
                 phase: "error",
                 scenarioId: previous.scenarioId,
-                message: `Run Phase failed: ${formatError(err)}`
+                message: `Add Inject failed: ${formatError(err)}`
             });
         }
     }, [state, actingRole, triggerFormsExtraction]);
@@ -386,76 +385,33 @@ const IncidentKiosk = () => {
         }
     }, [state, actingRole]);
 
-    const handleConfirmSceneType = useCallback(
-        async (sceneType: SceneType) => {
-            if (state.phase !== "in_incident" || state.locked) return;
-            const previous = state;
-            // Optimistic: reflect the confirmed Type immediately. The kiosk never blocks on
-            // the network (Fire Officer kiosk responsiveness). Ephemeral incidents (Cosmos
-            // disabled) just keep the local value; persisted ones POST to the backend, which
-            // appends the scene_type_confirmed audit event.
-            setState({ ...previous, sceneType });
-            if (!previous.persisted) return;
-            try {
-                await setSceneTypeRequest(previous.incidentId, {
-                    sceneType,
-                    actingRole: actingRole ?? "fire-officer",
-                    userId: "kiosk"
-                });
-                // Off the critical path (kiosk never blocks): regenerate AI recommendations for
-                // all support roles and refresh forms. The returned doc (and the 10s incident
-                // poll as backstop) updates the Support Contributions pane when ready.
-                void autoPopulateRecommendations(previous.incidentId, {
-                    actingRole: actingRole ?? "fire-officer",
-                    userId: "kiosk"
-                })
-                    .then(doc =>
-                        setState(prev =>
-                            prev.phase === "in_incident" && prev.incidentId === doc.id
-                                ? { ...prev, iap: { ...prev.iap, supportContributions: doc.supportContributions } }
-                                : prev
-                        )
-                    )
-                    .catch(() => {
-                        /* non-fatal: the 10s incident poll backstops the update */
-                    });
-                // SME 2026-05-27: a Scene-Type change auto-triggers Re-Validate IAP (off the
-                // critical path) so scene conditions/summary refresh against the transcript.
-                if (previous.transcript) {
-                    void validateIAP({
-                        incidentId: previous.incidentId,
-                        transcript: previous.transcript,
-                        actingRole: actingRole ?? "fire-officer"
-                    })
-                        .then(fresh =>
-                            setState(prev =>
-                                prev.phase === "in_incident" && prev.incidentId === previous.incidentId
-                                    ? {
-                                          ...prev,
-                                          iap: {
-                                              ...prev.iap,
-                                              sceneSummary: fresh.sceneSummary,
-                                              sceneConditionsAndActions: fresh.sceneConditionsAndActions
-                                          }
-                                      }
-                                    : prev
-                            )
-                        )
-                        .catch(() => {
-                            /* non-fatal: the 10s incident poll backstops the refresh */
-                        });
-                }
-                void triggerFormsExtraction(previous.incidentId, previous.scenarioId, previous.iap);
-            } catch (err) {
-                setState({
-                    phase: "error",
-                    scenarioId: previous.scenarioId,
-                    message: `Set scene type failed: ${formatError(err)}`
-                });
-            }
-        },
-        [state, actingRole, triggerFormsExtraction]
-    );
+    // Confirm Scene Conditions — the FO's explicit trigger (replaces the removed scene-type
+    // confirm). First press fires the downstream AI jobs off the critical path: role-tagged
+    // forms + AI support-role recommendations. Flips the floating button to "Re-Validate IAP".
+    const handleConfirmSceneConditions = useCallback(async () => {
+        if (state.phase !== "in_incident" || state.locked || state.hasConfirmed) return;
+        const previous = state;
+        // Mark confirmed immediately (kiosk never blocks).
+        setState({ ...previous, hasConfirmed: true });
+        // Forms generate in the background (off the critical path).
+        void triggerFormsExtraction(previous.incidentId, previous.transcript, previous.iap);
+        // AI support recommendations only exist for persisted incidents.
+        if (!previous.persisted) return;
+        void autoPopulateRecommendations(previous.incidentId, {
+            actingRole: actingRole ?? "fire-officer",
+            userId: "kiosk"
+        })
+            .then(doc =>
+                setState(prev =>
+                    prev.phase === "in_incident" && prev.incidentId === doc.id
+                        ? { ...prev, iap: { ...prev.iap, supportContributions: doc.supportContributions } }
+                        : prev
+                )
+            )
+            .catch(() => {
+                /* non-fatal: the 10s incident poll backstops the update */
+            });
+    }, [state, actingRole, triggerFormsExtraction]);
 
     const handleRemoveCondition = useCallback(
         async (item: SceneConditionAndAction) => {
@@ -570,7 +526,7 @@ const IncidentKiosk = () => {
     }
 
     if (state.phase === "in_incident") {
-        const { iap, incidentId, locked, revalidating, formsGenerating, sceneType, commandTransferred, eventLocked, phases, currentPhaseIndex } = state;
+        const { iap, incidentId, locked, revalidating, formsGenerating, hasConfirmed, commandTransferred, eventLocked, phases, currentPhaseIndex } = state;
         const hasMorePhases = currentPhaseIndex < phases.length - 1;
         const items = iap.sceneConditionsAndActions;
 
@@ -601,12 +557,6 @@ const IncidentKiosk = () => {
                         </div>
                     </div>
 
-                    <SceneTypeSelector
-                        value={sceneType}
-                        estimated={iap.sceneTypeEstimate}
-                        onConfirm={handleConfirmSceneType}
-                        disabled={locked || !!commandTransferred}
-                    />
                     <div
                         style={{
                             padding: "4px 2px 8px",
@@ -714,7 +664,18 @@ const IncidentKiosk = () => {
                     />
                 </div>
 
-                {!locked && (
+                {!locked && !hasConfirmed && (
+                    <Button
+                        appearance="primary"
+                        size="large"
+                        icon={<Checkmark24Regular />}
+                        onClick={handleConfirmSceneConditions}
+                        className={styles.revalidateButton}
+                    >
+                        Confirm Scene Conditions
+                    </Button>
+                )}
+                {!locked && hasConfirmed && (
                     <Button
                         appearance="primary"
                         size="large"
@@ -730,7 +691,7 @@ const IncidentKiosk = () => {
                 {/* Demo-only controls — deliberately a DISTINCT floating cluster, kept apart from
                     the real app controls (Loss Stop in the header, Re-Validate bottom-right) so the
                     production UI isn't polluted with demo affordances and they can be removed as a
-                    unit once streaming STT lands. The phase-progression button (backlogged) joins here. */}
+                    unit once streaming STT lands. The "Add Inject" scene-segment button lives here. */}
                 <div className={styles.demoControls}>
                     <Caption1 className={styles.demoLabel}>DEMO</Caption1>
                     {!locked && hasMorePhases && (
@@ -741,7 +702,7 @@ const IncidentKiosk = () => {
                             onClick={handleRunPhase}
                             disabled={revalidating}
                         >
-                            {revalidating ? "Running…" : `Run Phase ${currentPhaseIndex + 2}`}
+                            {revalidating ? "Running…" : "Add Inject"}
                         </Button>
                     )}
                     <Button appearance="subtle" size="small" onClick={handleReset}>
