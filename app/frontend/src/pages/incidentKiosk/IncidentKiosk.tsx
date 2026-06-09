@@ -83,7 +83,6 @@ function projectDocument(doc: IncidentDocument): ValidateIAPResponse {
     return {
         incidentId: doc.id,
         phase: doc.phase,
-        sceneTypeEstimate: doc.sceneTypeEstimate,
         sceneSummary: doc.sceneSummary,
         sceneConditionsAndActions: doc.sceneConditionsAndActions,
         supportContributions: doc.supportContributions,
@@ -149,7 +148,6 @@ const IncidentKiosk = () => {
                         locked: prev.locked || fresh.lockedAt != null,
                         iap: {
                             ...prev.iap,
-                            sceneTypeEstimate: fresh.sceneTypeEstimate,
                             sceneSummary: fresh.sceneSummary,
                             sceneConditionsAndActions: fresh.sceneConditionsAndActions,
                             supportContributions: b

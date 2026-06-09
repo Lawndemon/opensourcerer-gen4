@@ -43,7 +43,6 @@ from models.incidents import (
     IncidentDocument,
     RecommendationCategory,
     SceneConditionAndAction,
-    SceneType,
 )
 
 
@@ -258,7 +257,6 @@ async def apply_validate_iap_result(
     incident_id: str,
     new_scene_summary,
     new_conditions: list[SceneConditionAndAction],
-    new_scene_type_estimate: SceneType | None = None,
     actor: Actor | str = "system",
 ) -> IncidentDocument:
     """Persist the result of a Validate IAP pass (scene state only).
@@ -302,11 +300,6 @@ async def apply_validate_iap_result(
 
     doc.scene_summary = new_scene_summary
     doc.scene_conditions_and_actions = reconciled
-    # Persist the AI's Type estimate so the kiosk can pre-select even on the persisted path.
-    # Only overwrite when present, so a re-extraction that omits it won't wipe a prior estimate.
-    if new_scene_type_estimate is not None:
-        doc.scene_type_estimate = new_scene_type_estimate
-
     doc.event_log.append(
         make_audit_event(
             incident_id=incident_id,
@@ -1032,57 +1025,6 @@ async def save_form_content(
             event_type="form_content_edited",
             actor=actor,
             payload={"form_id": form_id},
-        )
-    )
-    return await replace_incident(doc)
-
-
-async def confirm_scene_type(
-    *,
-    tenant_id: str,
-    incident_id: str,
-    new_type: SceneType,
-    actor: Actor,
-) -> IncidentDocument:
-    """Confirm or change the incident's ICS scene Type (1–5). Append-only, audit-logged.
-
-    The Fire Officer can change the Type as the scene escalates (e.g. Type 4 → Type 2). Each
-    change appends a new `scene_type_confirmed` event (from → to) — the prior value is never
-    overwritten in the log — and updates the derived `scene_type` field to the latest value.
-    The full progression stays visible in the append-only history.
-
-    Idempotent: re-confirming the Type already on record is a no-op (no duplicate event), so
-    a double-tap of the same circle won't pollute the log.
-
-    NOTE: re-triggering downstream jobs (recommendation auto-population + forms population) on
-    a change is the *caller's* responsibility — that wiring lives in the app-layer handler,
-    not here. See BACKLOG.md → "Auto-populate support recommendations on scene-type confirm".
-    """
-    doc = await get_incident(tenant_id, incident_id)
-    if doc is None:
-        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
-
-    # Scene-type authority depends on command status. Before Transfer of Command the Fire
-    # Officer owns the Type; after it, only the Incident Commander may change it.
-    ic_in_command = doc.command_transferred_at is not None
-    if ic_in_command and actor.role != "incident-commander":
-        raise PermissionError("Command has been transferred — only the Incident Commander can change the scene Type.")
-    if not ic_in_command and actor.role == "incident-commander":
-        raise PermissionError("The Incident Commander must initiate Transfer of Command before changing the scene Type.")
-    _assert_scene_open(doc)
-
-    previous_type = doc.scene_type
-    if previous_type == new_type:
-        # Re-confirming the current Type shouldn't duplicate audit events.
-        return doc
-
-    doc.scene_type = new_type
-    doc.event_log.append(
-        make_audit_event(
-            incident_id=incident_id,
-            event_type="scene_type_confirmed",
-            actor=actor,
-            payload={"from": previous_type, "to": new_type},
         )
     )
     return await replace_incident(doc)

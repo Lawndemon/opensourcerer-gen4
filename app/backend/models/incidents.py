@@ -67,21 +67,6 @@ IncidentPhase = Literal["response", "transition_to_recovery", "recovery"]
 CitationTier = Literal["client", "region", "federal", "domain"]
 """Document precedence tier. Client > Region > Federal > Domain."""
 
-SceneType = Literal[1, 2, 3, 4, 5]
-"""
-ICS Canada incident complexity Type. Stored as an integer 1–5.
-
-NOTE the inversion vs. the traffic-light severity bands: **1 = most complex / most severe**
-(national/international resources, Unified Command), **5 = least complex** (1–2 single
-resources, ≤6 personnel, no Command/General Staff). The kiosk renders these left-to-right as
-1 → 5 to conform to the ICS standard ordering — the integer is just data; the human-readable
-"Type N" labels live in the frontend.
-
-`IncidentDocument.scene_type` is the *confirmed* current Type (None until the Fire Officer
-first confirms). It is derived-but-persisted; the append-only `scene_type_confirmed` events in
-the event log are the source of truth for the full Type progression as a scene escalates.
-"""
-
 RecommendationCategory = Literal["life_safety", "incident_stabilization", "property_conservation"]
 """
 ICS resource-priority category for a support recommendation, in urgency order:
@@ -285,12 +270,13 @@ AuditEventType = Literal[
     "form_generated",
     "form_locked",
     "phase_transitioned",
-    "scene_type_confirmed",
     "command_transferred",
     "support_contribution_ic_decided",
     "incident_locked",
     "form_content_edited",
     "support_contribution_withdrawn",
+    "role_control_taken",
+    "role_control_released",
 ]
 
 
@@ -356,9 +342,6 @@ class ValidateIAPResponse(_IncidentBase):
 
     incident_id: str
     phase: IncidentPhase
-    scene_type_estimate: SceneType | None = None  # AI's estimated ICS Type (1–5). The Fire
-    # Officer confirms/overrides on the kiosk; NOT the confirmed value (that's
-    # IncidentDocument.scene_type, set only on explicit confirm).
     scene_summary: SceneSummary
     scene_conditions_and_actions: list[SceneConditionAndAction] = Field(default_factory=list)
     support_contributions: list[SupportContribution] = Field(default_factory=list)
@@ -440,6 +423,24 @@ class RoleRecommendations(_IncidentBase):
     last_generated_at: str | None = None
 
 
+class RoleControl(_IncidentBase):
+    """
+    Who is currently driving a support role: the AI (default) or a human who took control.
+
+    Per SME (2026-06): every support role starts AI-in-control. A human logged in as that role
+    can "Take Control" (controller -> "human", recorded in `controlled_by`) and later "Stand
+    Down" (controller -> "ai"). Absence of an entry for a role == AI-in-control. The append-only
+    `role_control_taken` / `role_control_released` events are the source of truth; this is the
+    derived current value. Drives the three application modes (Officer / Supervisor / Incident)
+    and the AI->HIC provenance of that role's contributions.
+    """
+
+    role: str  # ActingRole whose control this represents.
+    controller: Literal["ai", "human"] = "ai"
+    controlled_by: Actor | None = None  # the human now driving the role; None when AI-controlled.
+    since: str  # ISO-8601 timestamp of the last control change.
+
+
 class IncidentDocument(_IncidentBase):
     """
     Persistence shape for an incident record in Cosmos.
@@ -460,10 +461,6 @@ class IncidentDocument(_IncidentBase):
     id: str  # = incident_id; second level of the hierarchical partition key.
     tenant_id: str = "default"  # first level of the hierarchical partition key.
     phase: IncidentPhase
-    scene_type: SceneType | None = None  # confirmed ICS Type (1–5); None until first confirm.
-    # Derived-but-persisted; append-only `scene_type_confirmed` events are the source of truth.
-    scene_type_estimate: SceneType | None = None  # AI's latest estimate; pre-selects the kiosk
-    # control. Distinct from the confirmed scene_type above and not itself an audited decision.
     created_by: Actor
     created_at: str
     loss_stopped_at: str | None = None
@@ -483,6 +480,10 @@ class IncidentDocument(_IncidentBase):
     # joined the incident. Items are LLM-generated or custom-added and require explicit
     # publish ("check") to appear on the Fire Officer kiosk's Support Contributions pane.
     role_recommendations: list[RoleRecommendations] = Field(default_factory=list)
+    # Per-role control state (SME 2026-06): which support roles a human has taken control of.
+    # Role absent == AI-in-control (the default). Source of truth is the append-only
+    # role_control_taken / role_control_released events; this is the derived current value.
+    role_controls: list[RoleControl] = Field(default_factory=list)
 
 
 # === INCIDENT CRUD REQUEST / RESPONSE (Session 3) ===
@@ -511,20 +512,6 @@ class LossStopRequest(_IncidentBase):
     will tighten as the role system matures.
     """
 
-    acting_role: str
-    user_id: str
-
-
-class SetSceneTypeRequest(_IncidentBase):
-    """
-    Request body for `POST /api/incidents/{id}/scene-type`.
-
-    `scene_type` is the ICS Type the Fire Officer is confirming or changing to (1–5). Pydantic
-    rejects anything outside that range. `acting_role` and `user_id` are recorded on the
-    resulting `scene_type_confirmed` audit event.
-    """
-
-    scene_type: SceneType
     acting_role: str
     user_id: str
 

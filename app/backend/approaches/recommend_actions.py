@@ -26,7 +26,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
-from models.incidents import RecommendationCategory, SceneConditionAndAction, SceneType, SupportContribution
+from models.incidents import RecommendationCategory, SceneConditionAndAction, SupportContribution
 
 logger = logging.getLogger(__name__)
 
@@ -97,8 +97,6 @@ class RecommendActionsApproach:
         scene_conditions: list[SceneConditionAndAction],
         already_published: list[SupportContribution],
         recently_dismissed: list[str],
-        scene_type: SceneType | None = None,
-        scene_type_estimate: SceneType | None = None,
     ) -> list[_LLMRecommendation]:
         """Generate the role-appropriate recommended actions the scene warrants (0-5).
 
@@ -123,8 +121,6 @@ class RecommendActionsApproach:
         user_message = json.dumps(
             {
                 "role": role,
-                "sceneType": scene_type,
-                "sceneTypeEstimate": scene_type_estimate,
                 "sceneSummary": scene_summary_text,
                 "sceneConditionsAndActions": compact_conditions,
                 "alreadyPublished": compact_published,

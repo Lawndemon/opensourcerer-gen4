@@ -63,7 +63,6 @@ from models.incidents import (
     AutoPopulateRecommendationsRequest,
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
-    SetSceneTypeRequest,
     TransferOfCommandRequest,
     ICDecisionRequest,
     LockIncidentRequest,
@@ -569,7 +568,6 @@ async def create_incident(auth_claims: dict[str, Any]):
                 incident_id=incident_id,
                 new_scene_summary=iap_result.scene_summary,
                 new_conditions=iap_result.scene_conditions_and_actions,
-                new_scene_type_estimate=iap_result.scene_type_estimate,
             )
         return jsonify({"incident": created.model_dump(by_alias=True)}), 201
     except Exception as error:
@@ -670,42 +668,6 @@ async def transfer_of_command(auth_claims: dict[str, Any], incident_id: str):
         return error_response(error, f"/api/incidents/{incident_id}/transfer-of-command")
 
 
-@bp.route("/api/incidents/<incident_id>/scene-type", methods=["POST"])
-@authenticated
-async def set_scene_type(auth_claims: dict[str, Any], incident_id: str):
-    """Confirm or change the incident's ICS scene Type (1–5). Append-only, audit-logged.
-
-    The Fire Officer confirms the AI-estimated Type or changes it as the scene escalates.
-    Each change appends a `scene_type_confirmed` event; `confirm_scene_type` is idempotent on
-    a no-op re-confirm (double-tapping the same circle won't duplicate events).
-
-    TODO (slice 4 — see BACKLOG.md "Auto-populate support recommendations on scene-type
-    confirm"): on a confirm/change, re-trigger the downstream jobs OFF THE CRITICAL PATH —
-    support-recommendation auto-population AND forms population — mirroring the initial
-    confirm. IAP validation is intentionally NOT triggered here (stays manual via Re-Validate).
-    """
-    if (disabled := _incidents_enabled_or_503()) is not None:
-        return disabled
-    if not request.is_json:
-        return jsonify({"error": "request must be json"}), 415
-    try:
-        body = SetSceneTypeRequest.model_validate(await request.get_json())
-    except ValidationError as ve:
-        return jsonify({"error": "request body did not match SetSceneTypeRequest", "details": ve.errors()}), 400
-
-    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
-    tenant_id = _tenant_id_from(auth_claims)
-    try:
-        updated = await incidents_cosmos.confirm_scene_type(
-            tenant_id=tenant_id, incident_id=incident_id, new_type=body.scene_type, actor=actor
-        )
-        return jsonify({"incident": updated.model_dump(by_alias=True)})
-    except PermissionError as pe:
-        return jsonify({"error": str(pe)}), 403
-    except ValueError as ve:
-        return jsonify({"error": str(ve)}), 404
-    except Exception as error:
-        return error_response(error, f"/api/incidents/{incident_id}/scene-type")
 
 
 @bp.route("/api/incidents/<incident_id>/support-contributions/<contribution_id>/withdraw", methods=["POST"])
@@ -848,9 +810,7 @@ async def auto_populate_recommendations(auth_claims: dict[str, Any], incident_id
                     role=role,
                     scene_summary_text=scene_summary_text,
                     scene_conditions=doc.scene_conditions_and_actions,
-                    scene_type=doc.scene_type,
-                    scene_type_estimate=doc.scene_type_estimate,
-                    already_published=already_hic,
+                                    already_published=already_hic,
                     recently_dismissed=recently_dismissed,
                 )
             except Exception as e:
@@ -1303,8 +1263,6 @@ async def refresh_support_recommendations(auth_claims: dict[str, Any], incident_
             role=body.acting_role,
             scene_summary_text=doc.scene_summary.text if doc.scene_summary else "",
             scene_conditions=doc.scene_conditions_and_actions,
-            scene_type=doc.scene_type,
-            scene_type_estimate=doc.scene_type_estimate,
             already_published=doc.support_contributions,
             recently_dismissed=recently_dismissed,
         )

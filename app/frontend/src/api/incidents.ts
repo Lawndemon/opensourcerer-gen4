@@ -36,7 +36,6 @@ import type {
     RefineConditionResponse,
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
-    SetSceneTypeRequest,
     SceneConditionAndAction,
     ValidateIAPRequest,
     ValidateIAPResponse
@@ -128,15 +127,6 @@ export async function getIncident(incidentId: string, signal?: AbortSignal): Pro
 
 export async function lossStop(incidentId: string, request: LossStopRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/loss-stop`, request, signal);
-    return envelope.incident;
-}
-
-/**
- * POST /api/incidents/{id}/scene-type — confirm or change the incident's ICS Type (1–5).
- * Append-only on the backend; returns the full updated incident.
- */
-export async function setSceneType(incidentId: string, request: SetSceneTypeRequest, signal?: AbortSignal): Promise<IncidentDocument> {
-    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/scene-type`, request, signal);
     return envelope.incident;
 }
 

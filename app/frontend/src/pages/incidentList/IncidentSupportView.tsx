@@ -23,15 +23,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { closeIncident, extractForms, getIncident, icDecision, removeCondition, setSceneType, transferOfCommand, validateIAP } from "../../api/incidents";
-import type { IncidentDocument, SceneConditionAndAction, SceneType } from "../../api/incidentTypes";
+import { closeIncident, extractForms, getIncident, icDecision, removeCondition, transferOfCommand, validateIAP } from "../../api/incidents";
+import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "../incidentKiosk/AnalyzePopup";
 import RefineConditionPopup from "../incidentKiosk/RefineConditionPopup";
 import FormTabStrip from "../incidentKiosk/FormTabStrip";
 import SceneItemRow from "../incidentKiosk/SceneItemRow";
-import SceneTypeSelector from "../incidentKiosk/SceneTypeSelector";
 import kioskStyles from "../incidentKiosk/IncidentKiosk.module.css";
 import RecommendationsPanel from "./RecommendationsPanel";
 import CloseoutAdmin from "./CloseoutAdmin";
@@ -228,27 +227,6 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         }
     }, [actingRole, tocBusy, incident.id]);
 
-    const handleIcSetSceneType = useCallback(
-        async (sceneType: SceneType) => {
-            if (!actingRole) return;
-            setActionError(null);
-            try {
-                const updated = await setSceneType(incident.id, { sceneType, actingRole, userId: "support-view" });
-                setIncident(updated);
-                // SME 2026-05-27: auto Re-Validate IAP when the IC changes the Scene Type (off the
-                // critical path). The 10s poll backstops the refreshed conditions for this page and
-                // the Fire Officer kiosk.
-                const transcriptText = updated.transcript.map(ch => ch.deNoised ?? ch.text).join("\n");
-                void validateIAP({ incidentId: updated.id, transcript: transcriptText, actingRole }).catch(() => {
-                    /* non-fatal: poll backstops the refresh */
-                });
-            } catch (e) {
-                setActionError(e instanceof Error ? e.message : "Could not change scene Type.");
-            }
-        },
-        [actingRole, incident.id]
-    );
-
     const handleIcDecision = useCallback(
         async (contributionId: string, decision: "approved" | "rejected") => {
             if (!actingRole) return;
@@ -414,7 +392,7 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                             <Caption1 className={kioskStyles.panelSubheading}>
                                 {commandTransferred
                                     ? "You hold command. Recommendations route through you before the Fire Officer sees them; Safety items bypass automatically."
-                                    : "The Fire Officer currently holds command. Take command to gate content and own the scene Type."}
+                                    : "The Fire Officer currently holds command. Take command to gate content before it reaches the Fire Officer."}
                             </Caption1>
                         </div>
                         {!commandTransferred ? (
@@ -424,19 +402,6 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                         ) : (
                             <Body1>Transfer of Command initiated.</Body1>
                         )}
-                        <div style={{ marginTop: 12 }}>
-                            <SceneTypeSelector
-                                value={incident.sceneType}
-                                estimated={incident.sceneTypeEstimate}
-                                onConfirm={handleIcSetSceneType}
-                                disabled={!commandTransferred}
-                            />
-                            {!commandTransferred && (
-                                <Caption1 className={kioskStyles.panelSubheading}>
-                                    Scene Type is owned by the Fire Officer until you Transfer Command.
-                                </Caption1>
-                            )}
-                        </div>
                     </section>
                 )}
 
