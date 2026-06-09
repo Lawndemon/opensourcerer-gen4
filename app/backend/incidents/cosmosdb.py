@@ -42,6 +42,7 @@ from models.incidents import (
     AuditEventType,
     IncidentDocument,
     RecommendationCategory,
+    RoleControl,
     SceneConditionAndAction,
 )
 
@@ -949,6 +950,86 @@ async def transition_command_to_ic(
                 "reclassified_to_pending": reclassified_to_pending,
                 "reclassified_to_safety_bypass": reclassified_to_safety_bypass,
             },
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def take_control(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    role: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """A human takes control of a support role (AI -> human). Append-only audit event.
+
+    Authorization: the human may only take control of the role they are acting as
+    (`actor.role` must equal `role`). Re-taking control already held by the same role just
+    records a fresh `since` + event.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    if actor.role != role:
+        raise PermissionError(
+            f"A human may only take control of their own role (acting as {actor.role}, not {role})."
+        )
+    now = _now_iso()
+    existing = next((rc for rc in doc.role_controls if rc.role == role), None)
+    if existing is None:
+        doc.role_controls.append(
+            RoleControl(role=role, controller="human", controlled_by=actor, since=now)
+        )
+    else:
+        existing.controller = "human"
+        existing.controlled_by = actor
+        existing.since = now
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="role_control_taken",
+            actor=actor,
+            payload={"role": role},
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def stand_down(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    role: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """A human stands down from a support role (human -> AI). Append-only audit event.
+
+    Authorization: the human may only stand down from the role they are acting as.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    if actor.role != role:
+        raise PermissionError(
+            f"A human may only stand down from their own role (acting as {actor.role}, not {role})."
+        )
+    now = _now_iso()
+    existing = next((rc for rc in doc.role_controls if rc.role == role), None)
+    if existing is None:
+        doc.role_controls.append(
+            RoleControl(role=role, controller="ai", controlled_by=None, since=now)
+        )
+    else:
+        existing.controller = "ai"
+        existing.controlled_by = None
+        existing.since = now
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="role_control_released",
+            actor=actor,
+            payload={"role": role},
         )
     )
     return await replace_incident(doc)

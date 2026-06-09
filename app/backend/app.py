@@ -63,6 +63,7 @@ from models.incidents import (
     AutoPopulateRecommendationsRequest,
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
+    RoleControlRequest,
     TransferOfCommandRequest,
     ICDecisionRequest,
     LockIncidentRequest,
@@ -666,6 +667,60 @@ async def transfer_of_command(auth_claims: dict[str, Any], incident_id: str):
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/transfer-of-command")
+
+
+@bp.route("/api/incidents/<incident_id>/roles/<role>/take-control", methods=["POST"])
+@authenticated
+async def take_role_control(auth_claims: dict[str, Any], incident_id: str, role: str):
+    """A human takes control of the support role they are acting as (AI -> human)."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = RoleControlRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match RoleControlRequest", "details": ve.errors()}), 400
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.take_control(
+            tenant_id=tenant_id, incident_id=incident_id, role=role, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/roles/{role}/take-control")
+
+
+@bp.route("/api/incidents/<incident_id>/roles/<role>/stand-down", methods=["POST"])
+@authenticated
+async def stand_down_role_control(auth_claims: dict[str, Any], incident_id: str, role: str):
+    """A human stands down from the support role they are acting as (human -> AI)."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = RoleControlRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match RoleControlRequest", "details": ve.errors()}), 400
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.stand_down(
+            tenant_id=tenant_id, incident_id=incident_id, role=role, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/roles/{role}/stand-down")
 
 
 

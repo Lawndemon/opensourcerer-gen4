@@ -520,6 +520,18 @@ class LossStopRequest(_IncidentBase):
     user_id: str
 
 
+class RoleControlRequest(_IncidentBase):
+    """Request body for take-control / stand-down on a support role.
+
+    `acting_role` is the role the human is logged in as; it must match the role in the URL path
+    (a human may only take or release control of their OWN role). `user_id` is recorded on the
+    `role_control_taken` / `role_control_released` audit event.
+    """
+
+    acting_role: str
+    user_id: str
+
+
 class TransferOfCommandRequest(_IncidentBase):
     """Request body for `POST /api/incidents/{id}/transfer-of-command`.
 

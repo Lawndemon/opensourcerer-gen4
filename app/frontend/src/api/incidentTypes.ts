@@ -164,7 +164,9 @@ export type AuditEventType =
     | "support_recommendation_dismissed"
     | "form_generated"
     | "form_locked"
-    | "phase_transitioned";
+    | "phase_transitioned"
+    | "role_control_taken"
+    | "role_control_released";
 
 export interface AuditEvent {
     id: string;
@@ -205,6 +207,9 @@ export interface IncidentDocument {
     // that has joined the incident. Items require an explicit publish step before
     // they appear on the Fire Officer's kiosk.
     roleRecommendations: RoleRecommendations[];
+    // Per-role control state (SME 2026-06): which support roles a human has taken control of.
+    // Role absent == AI-in-control (the default). Derived from append-only role_control events.
+    roleControls: RoleControl[];
 }
 
 // ============================================================================
@@ -227,6 +232,11 @@ export interface IncidentListResponse {
 }
 
 export interface LossStopRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface RoleControlRequest {
     actingRole: ActingRole | string;
     userId: string;
 }
@@ -322,6 +332,14 @@ export interface RoleRecommendations {
     role: ActingRole | string;
     items: PendingRecommendation[];
     lastGeneratedAt: string | null;
+}
+
+/** Who currently drives a support role: the AI (default) or a human who took control. */
+export interface RoleControl {
+    role: ActingRole | string;
+    controller: "ai" | "human";
+    controlledBy: Actor | null;
+    since: string;
 }
 
 /**

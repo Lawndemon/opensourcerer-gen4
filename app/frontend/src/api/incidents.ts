@@ -13,6 +13,7 @@
 import type {
     AddCustomRecommendationRequest,
     AttestContributionRequest,
+    RoleControlRequest,
     TransferOfCommandRequest,
     ICDecisionRequest,
     LockIncidentRequest,
@@ -136,6 +137,24 @@ export async function lossStop(incidentId: string, request: LossStopRequest, sig
  */
 export async function transferOfCommand(incidentId: string, request: TransferOfCommandRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/transfer-of-command`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/roles/{role}/take-control — the human acting as `role` takes control
+ * of it (AI -> human). Returns the updated incident.
+ */
+export async function takeRoleControl(incidentId: string, role: string, request: RoleControlRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/roles/${encodeURIComponent(role)}/take-control`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/roles/{role}/stand-down — the human acting as `role` stands down
+ * (human -> AI). Returns the updated incident.
+ */
+export async function standDownRoleControl(incidentId: string, role: string, request: RoleControlRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/roles/${encodeURIComponent(role)}/stand-down`, request, signal);
     return envelope.incident;
 }
 
