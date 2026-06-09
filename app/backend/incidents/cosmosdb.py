@@ -129,6 +129,11 @@ def _parse_document(item: dict[str, Any]) -> IncidentDocument:
     Pydantic with `extra='forbid'` would reject them, so we drop them before validating.
     """
     cleaned = {k: v for k, v in item.items() if not k.startswith("_")}
+    # Legacy-field tolerance: scene tiers (5->1) were removed from the model. Incidents persisted
+    # before that still carry these derived fields; drop them so extra="forbid" does not reject the
+    # whole document on read. The immutable event_log is preserved untouched.
+    cleaned.pop("sceneType", None)
+    cleaned.pop("sceneTypeEstimate", None)
     return IncidentDocument.model_validate(cleaned)
 
 

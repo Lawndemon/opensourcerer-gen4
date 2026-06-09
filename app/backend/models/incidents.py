@@ -275,6 +275,10 @@ AuditEventType = Literal[
     "incident_locked",
     "form_content_edited",
     "support_contribution_withdrawn",
+    # Legacy (read-only): scene tiers (5->1) were removed; incidents created before that may
+    # still carry this event in their append-only log, so the type must still deserialize.
+    # Never emitted by new code.
+    "scene_type_confirmed",
     "role_control_taken",
     "role_control_released",
 ]
