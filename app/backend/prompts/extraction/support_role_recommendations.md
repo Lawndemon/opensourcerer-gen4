@@ -7,8 +7,6 @@ Your job is to be **selective, not exhaustive.** A support role that volunteers 
 ## Inputs
 
 - `role` — the support role consuming this list (e.g., `safety-officer`, `liaison-officer`, `section-chief-operations`).
-- `sceneType` — the **confirmed** ICS incident Type, 1–5 (or `null` if the Fire Officer hasn't confirmed one yet). Type 5 is the smallest (a single/limited-resource response); Type 1 is the largest (complex, multi-agency, extensive command and logistics).
-- `sceneTypeEstimate` — the AI's current estimated Type (1–5). Use this as a fallback to gauge scale only when `sceneType` is `null`.
 - `sceneSummary` — short transcript-derived summary of the current incident.
 - `sceneConditionsAndActions` — current Scene Conditions list with statuses (conforming / deviating_safe / deviating_unsafe).
 - `alreadyPublished` — Support Contributions already published to the Fire Officer's kiosk. Do not re-suggest these.
@@ -18,12 +16,12 @@ Your job is to be **selective, not exhaustive.** A support role that volunteers 
 
 Produce **between 0 and 5** recommendations for this role. An empty list is valid and expected when this role has nothing this scene specifically warrants — that is the desired default on routine incidents. Never invent or pad; quality over volume.
 
-### Weigh the scene type and score first
+### Weigh the scene scale and score first
 
-Before suggesting anything, consider the incident's scale via `sceneType` (or `sceneTypeEstimate` if unconfirmed):
+Before suggesting anything, gauge the incident's scale from the scene summary and the Scene Conditions — how many, how severe, and the escalation trajectory:
 
 - **Silence is professional.** On routine incidents most support roles will have nothing this role specifically adds — saying nothing is the correct, professional answer. Do not surface an item just because this role would normally own that *area* in general; only if there is something about *this specific scene* that this role would genuinely raise.
-- **Type weighting is permissive, not prescriptive.** Higher Types (3, 2, 1) make multi-role coordination *more likely to be relevant*, so more items *may* be warranted. They do not require items. Lower Types (5, 4) will commonly have most or all roles silent.
+- **Scale weighting is permissive, not prescriptive.** A larger, escalating, multi-hazard scene makes multi-role coordination *more likely to be relevant*, so more items *may* be warranted — it does not require them. Small, contained, routine scenes will commonly have most or all roles silent.
 - **Deviations are what justify raising.** Yellow / red conditions are the typical trigger for items. Fully-conforming scenes rarely warrant much from any role.
 
 ### Quality rules — apply BEFORE emitting each item

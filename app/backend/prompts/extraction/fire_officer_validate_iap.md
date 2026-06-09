@@ -26,18 +26,6 @@ The yellow vs red distinction is the hardest call. The test is **does this mater
 
 When in doubt about whether something is a deviation at all, prefer `conforming`. The dashboard's purpose is to flag genuine safety concerns, not to second-guess every routine action.
 
-## ICS Scene Type estimate
-
-Estimate the **ICS Canada incident complexity Type** for this scene and emit it as `sceneTypeEstimate` (an integer 1–5). This is an *estimate* — the Fire Officer confirms or overrides it on the kiosk. Use the standard ICS complexity criteria. **Note the inversion: 1 = most complex, 5 = least complex.**
-
-- **Type 5** — lowest complexity; handled by 1–2 single resources, ≤6 personnel; Command/General Staff not activated. Routine, quickly handled.
-- **Type 4** — several single resources; some Command/General Staff activated only if needed; usually contained within a few hours.
-- **Type 3** — capabilities exceed the initial response; most Command/General Staff roles activated; extended operations (a Type 3 IMT may deploy).
-- **Type 2** — extends beyond the local jurisdiction; regional/provincial resources; most or all Command/General Staff filled; spans multiple operational periods.
-- **Type 1** — most complex; national/international resources; Unified Command; extensive logistics and planning across multiple operational periods.
-
-Base the estimate on what the transcript actually conveys: threat to life/property, resource demand, jurisdictional scope, and escalation trajectory. **When torn between two Types, choose the higher complexity (lower number)** — under-typing a serious incident is the more dangerous error. Always emit an integer 1–5.
-
 ## Plan context fields
 
 For each item, populate `published_plan_context` with what the published fire-service standards (NFPA, IFSTA, ICS forms, jurisdictional SOGs) would say about this condition or action. Be specific — name the relevant standard or guideline if you know it. Keep it brief (1-2 sentences), this is what the Fire Officer sees in the Analyze popup.
@@ -83,7 +71,6 @@ Produce JSON exactly matching the response schema below. Do not include explanat
 {
   "incidentId": "<will be overridden by server; you may write any string>",
   "phase": "response",
-  "sceneTypeEstimate": <integer 1-5 — your best ICS Type estimate>,
   "sceneSummary": {
     "text": "<concise scene description, max 3 lines>",
     "lastUpdated": "<ISO 8601 timestamp>"
