@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { closeIncident, extractForms, getIncident, icDecision, removeCondition, transferOfCommand, validateIAP } from "../../api/incidents";
+import { closeIncident, extractForms, getIncident, icDecision, removeCondition, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
@@ -91,6 +91,19 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     // Closeout / final-lock workflow: IC or Site Administrator can open it anytime.
     const isEventLocked = incident.lockedAt != null;
     const canCloseOut = actingRole === "incident-commander" || actingRole === "site-administrator";
+    // Per-role control state + derived application mode (SME 2026-06): Officer (no IC) /
+    // Supervisor (IC, all support AI) / Incident (IC + >=1 human-controlled support role).
+    const myRoleControl = actingRole ? incident.roleControls.find(rc => rc.role === actingRole) : undefined;
+    const iHaveControl = myRoleControl?.controller === "human";
+    const humanSupportRoles = incident.roleControls.filter(rc => rc.controller === "human" && rc.role !== "incident-commander");
+    const mode = !commandTransferred ? "Officer" : humanSupportRoles.length > 0 ? "Incident" : "Supervisor";
+    const modeColor = mode === "Incident" ? "#B58B00" : mode === "Supervisor" ? "#2B6CB0" : "#777";
+    const canToggleRoleControl =
+        !!actingRole &&
+        actingRole !== "incident-commander" &&
+        actingRole !== "fire-officer" &&
+        actingRole !== "site-administrator" &&
+        incident.lockedAt == null;
     // IC can refine/remove scene conditions just like the FO does, but only while the scene is
     // open (i.e., before Loss Stop) and the incident isn't event-locked. Backend enforces both.
     const icCanEditScene = actingRole === "incident-commander" && incident.phase === "response" && incident.lockedAt == null;
@@ -227,6 +240,28 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         }
     }, [actingRole, tocBusy, incident.id]);
 
+    const handleTakeControl = useCallback(async () => {
+        if (!actingRole) return;
+        setActionError(null);
+        try {
+            const updated = await takeRoleControl(incident.id, actingRole, { actingRole, userId: "support-view" });
+            setIncident(updated);
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : "Could not take control.");
+        }
+    }, [actingRole, incident.id]);
+
+    const handleStandDown = useCallback(async () => {
+        if (!actingRole) return;
+        setActionError(null);
+        try {
+            const updated = await standDownRoleControl(incident.id, actingRole, { actingRole, userId: "support-view" });
+            setIncident(updated);
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : "Could not stand down.");
+        }
+    }, [actingRole, incident.id]);
+
     const handleIcDecision = useCallback(
         async (contributionId: string, decision: "approved" | "rejected") => {
             if (!actingRole) return;
@@ -271,6 +306,25 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                             <span className={kioskStyles.incidentId}>
                                 {incident.id} · phase: {incident.phase}
                             </span>
+                            <span style={{ marginTop: 4, fontSize: "0.72rem", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: modeColor }}>
+                                {mode} Mode
+                            </span>
+                            {canToggleRoleControl && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                                    <span style={{ fontSize: "0.78rem", fontWeight: 600, color: iHaveControl ? "#B58B00" : "#888" }}>
+                                        {iHaveControl ? "You have control (HIC)" : "AI in control"}
+                                    </span>
+                                    {iHaveControl ? (
+                                        <Button appearance="subtle" size="small" onClick={() => void handleStandDown()}>
+                                            Stand Down
+                                        </Button>
+                                    ) : (
+                                        <Button appearance="primary" size="small" onClick={() => void handleTakeControl()}>
+                                            Take Control
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className={styles.headerMeta}>
