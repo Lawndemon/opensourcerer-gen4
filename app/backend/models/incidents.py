@@ -281,6 +281,9 @@ AuditEventType = Literal[
     "scene_type_confirmed",
     "role_control_taken",
     "role_control_released",
+    "role_action_assigned",
+    "role_action_commented",
+    "role_action_resolved",
 ]
 
 
@@ -445,6 +448,33 @@ class RoleControl(_IncidentBase):
     since: str  # ISO-8601 timestamp of the last control change.
 
 
+class RoleActionComment(_IncidentBase):
+    """One append-only comment on a Role Action. Renders as a bullet under the action."""
+
+    text: str
+    author: Actor
+    timestamp: str
+
+
+class RoleAction(_IncidentBase):
+    """A unit of work assigned to a support role — by the IC (Assign to <role>) or self-assigned
+    (Take Ownership). Lives in that role's Role Actions pane. Comments are append-only; Resolve
+    closes it. Every assign / comment / resolve is an append-only audit event.
+    """
+
+    id: str
+    text: str
+    assigned_to: str  # ActingRole that owns this action.
+    assigned_by: Actor  # who assigned it (the IC, or the role itself for self-assignment).
+    source: Literal["ic_assigned", "self_assigned"] = "self_assigned"
+    source_recommendation_id: str | None = None  # the support contribution this came from, if any.
+    status: Literal["open", "resolved"] = "open"
+    comments: list[RoleActionComment] = Field(default_factory=list)
+    created_at: str
+    resolved_at: str | None = None
+    resolved_by: Actor | None = None
+
+
 class IncidentDocument(_IncidentBase):
     """
     Persistence shape for an incident record in Cosmos.
@@ -488,6 +518,9 @@ class IncidentDocument(_IncidentBase):
     # Role absent == AI-in-control (the default). Source of truth is the append-only
     # role_control_taken / role_control_released events; this is the derived current value.
     role_controls: list[RoleControl] = Field(default_factory=list)
+    # Role Actions (SME 2026-06): per-role units of work assigned by the IC or self-assigned
+    # (Take Ownership). Append-only comments + a resolve flag; surfaced in the Role Actions pane.
+    role_actions: list[RoleAction] = Field(default_factory=list)
 
 
 # === INCIDENT CRUD REQUEST / RESPONSE (Session 3) ===
@@ -527,6 +560,35 @@ class RoleControlRequest(_IncidentBase):
     (a human may only take or release control of their OWN role). `user_id` is recorded on the
     `role_control_taken` / `role_control_released` audit event.
     """
+
+    acting_role: str
+    user_id: str
+
+
+class AssignRoleActionRequest(_IncidentBase):
+    """Create a Role Action. `assigned_to` is the role that will own it. `source` is
+    "self_assigned" (Take Ownership; assigned_to must equal acting_role) or "ic_assigned"
+    (the IC assigns to a role; acting_role must be the Incident Commander).
+    """
+
+    text: str
+    assigned_to: str
+    source: Literal["ic_assigned", "self_assigned"] = "self_assigned"
+    source_recommendation_id: str | None = None
+    acting_role: str
+    user_id: str
+
+
+class RoleActionCommentRequest(_IncidentBase):
+    """Append a comment to a Role Action (renders as a bullet)."""
+
+    text: str
+    acting_role: str
+    user_id: str
+
+
+class RoleActionResolveRequest(_IncidentBase):
+    """Resolve (close) a Role Action."""
 
     acting_role: str
     user_id: str

@@ -64,6 +64,9 @@ from models.incidents import (
     RefreshRecommendationsRequest,
     RemoveConditionRequest,
     RoleControlRequest,
+    AssignRoleActionRequest,
+    RoleActionCommentRequest,
+    RoleActionResolveRequest,
     TransferOfCommandRequest,
     ICDecisionRequest,
     LockIncidentRequest,
@@ -721,6 +724,93 @@ async def stand_down_role_control(auth_claims: dict[str, Any], incident_id: str,
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
         return error_response(error, f"/api/incidents/{incident_id}/roles/{role}/stand-down")
+
+
+@bp.route("/api/incidents/<incident_id>/role-actions", methods=["POST"])
+@authenticated
+async def assign_role_action(auth_claims: dict[str, Any], incident_id: str):
+    """Create a Role Action — self-assigned (Take Ownership) or IC-assigned (Assign to <role>)."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = AssignRoleActionRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match AssignRoleActionRequest", "details": ve.errors()}), 400
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.assign_role_action(
+            tenant_id=tenant_id,
+            incident_id=incident_id,
+            text=body.text,
+            assigned_to=body.assigned_to,
+            source=body.source,
+            source_recommendation_id=body.source_recommendation_id,
+            actor=actor,
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/role-actions")
+
+
+@bp.route("/api/incidents/<incident_id>/role-actions/<action_id>/comment", methods=["POST"])
+@authenticated
+async def comment_role_action(auth_claims: dict[str, Any], incident_id: str, action_id: str):
+    """Append a comment to a Role Action (renders as a bullet under it)."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = RoleActionCommentRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match RoleActionCommentRequest", "details": ve.errors()}), 400
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.comment_role_action(
+            tenant_id=tenant_id, incident_id=incident_id, action_id=action_id, text=body.text, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/role-actions/{action_id}/comment")
+
+
+@bp.route("/api/incidents/<incident_id>/role-actions/<action_id>/resolve", methods=["POST"])
+@authenticated
+async def resolve_role_action(auth_claims: dict[str, Any], incident_id: str, action_id: str):
+    """Resolve (close) a Role Action."""
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = RoleActionResolveRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match RoleActionResolveRequest", "details": ve.errors()}), 400
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.resolve_role_action(
+            tenant_id=tenant_id, incident_id=incident_id, action_id=action_id, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/role-actions/{action_id}/resolve")
 
 
 

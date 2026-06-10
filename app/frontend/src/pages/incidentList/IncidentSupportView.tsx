@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { closeIncident, extractForms, getIncident, icDecision, removeCondition, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP } from "../../api/incidents";
+import { assignRoleAction, closeIncident, commentRoleAction, extractForms, getIncident, icDecision, removeCondition, resolveRoleAction, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
 import { useRole } from "../../roleContext";
 
@@ -67,6 +67,8 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     // Used by RecommendationsPanel to ping us for an immediate refresh after publish/dismiss.
     const refreshTokenRef = useRef(0);
     const [refreshToken, setRefreshToken] = useState(0);
+    const [newActionText, setNewActionText] = useState("");
+    const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
 
     const isLocked = incident.phase !== "response";
     const createdAt = formatTimestamp(incident.createdAt);
@@ -104,6 +106,7 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         actingRole !== "fire-officer" &&
         actingRole !== "site-administrator" &&
         incident.lockedAt == null;
+    const myRoleActions = actingRole ? incident.roleActions.filter(a => a.assignedTo === actingRole) : [];
     // IC can refine/remove scene conditions just like the FO does, but only while the scene is
     // open (i.e., before Loss Stop) and the incident isn't event-locked. Backend enforces both.
     const icCanEditScene = actingRole === "incident-commander" && incident.phase === "response" && incident.lockedAt == null;
@@ -261,6 +264,57 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
             setActionError(e instanceof Error ? e.message : "Could not stand down.");
         }
     }, [actingRole, incident.id]);
+
+    const handleAddAction = useCallback(async () => {
+        if (!actingRole) return;
+        const text = newActionText.trim();
+        if (!text) return;
+        setActionError(null);
+        try {
+            const updated = await assignRoleAction(incident.id, {
+                text,
+                assignedTo: actingRole,
+                source: "self_assigned",
+                actingRole,
+                userId: "support-view"
+            });
+            setIncident(updated);
+            setNewActionText("");
+        } catch (e) {
+            setActionError(e instanceof Error ? e.message : "Could not add action.");
+        }
+    }, [actingRole, newActionText, incident.id]);
+
+    const handleAddComment = useCallback(
+        async (actionId: string) => {
+            if (!actingRole) return;
+            const text = (commentDrafts[actionId] ?? "").trim();
+            if (!text) return;
+            setActionError(null);
+            try {
+                const updated = await commentRoleAction(incident.id, actionId, { text, actingRole, userId: "support-view" });
+                setIncident(updated);
+                setCommentDrafts(d => ({ ...d, [actionId]: "" }));
+            } catch (e) {
+                setActionError(e instanceof Error ? e.message : "Could not add comment.");
+            }
+        },
+        [actingRole, commentDrafts, incident.id]
+    );
+
+    const handleResolveAction = useCallback(
+        async (actionId: string) => {
+            if (!actingRole) return;
+            setActionError(null);
+            try {
+                const updated = await resolveRoleAction(incident.id, actionId, { actingRole, userId: "support-view" });
+                setIncident(updated);
+            } catch (e) {
+                setActionError(e instanceof Error ? e.message : "Could not resolve action.");
+            }
+        },
+        [actingRole, incident.id]
+    );
 
     const handleIcDecision = useCallback(
         async (contributionId: string, decision: "approved" | "rejected") => {
@@ -537,6 +591,75 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                         <Body1 className={kioskStyles.empty}>Resolving role…</Body1>
                     )}
                 </section>
+
+                {/* ----- Role Actions pane (SME 2026-06): assigned + self-assigned work ----- */}
+                {actingRole && (
+                    <section className={kioskStyles.pane}>
+                        <div className={kioskStyles.paneHeader}>
+                            <Title3>Role Actions</Title3>
+                            <Caption1 className={kioskStyles.panelSubheading}>
+                                Work assigned to you (by the IC or self-assigned). Comment to log progress; resolve when done.
+                            </Caption1>
+                        </div>
+                        {myRoleActions.length === 0 ? (
+                            <Body1 className={kioskStyles.empty}>No actions assigned yet.</Body1>
+                        ) : (
+                            <div className={kioskStyles.itemList}>
+                                {myRoleActions.map(a => (
+                                    <div key={a.id} style={{ padding: "8px 0", borderBottom: "1px solid rgba(128,128,128,0.2)" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <Body1 style={{ flex: 1, textDecoration: a.status === "resolved" ? "line-through" : "none", opacity: a.status === "resolved" ? 0.6 : 1 }}>
+                                                {a.text}
+                                            </Body1>
+                                            {a.source === "ic_assigned" && <Caption1 style={{ opacity: 0.7 }}>IC</Caption1>}
+                                            <Caption1 style={{ fontWeight: 700, color: a.status === "resolved" ? "#2E7D32" : "#B58B00" }}>
+                                                {a.status === "resolved" ? "RESOLVED" : "OPEN"}
+                                            </Caption1>
+                                        </div>
+                                        {a.comments.length > 0 && (
+                                            <ul style={{ margin: "4px 0 0 18px", padding: 0 }}>
+                                                {a.comments.map((c, i) => (
+                                                    <li key={i} style={{ fontSize: "0.82rem", opacity: 0.85 }}>{c.text}</li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                        {a.status === "open" && incident.lockedAt == null && (
+                                            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                                <input
+                                                    value={commentDrafts[a.id] ?? ""}
+                                                    onChange={e => setCommentDrafts(d => ({ ...d, [a.id]: e.target.value }))}
+                                                    onKeyDown={e => { if (e.key === "Enter") void handleAddComment(a.id); }}
+                                                    placeholder="Add a comment…"
+                                                    style={{ flex: 1, fontSize: "0.82rem", padding: "4px 6px" }}
+                                                />
+                                                <Button size="small" appearance="subtle" onClick={() => void handleAddComment(a.id)}>
+                                                    Comment
+                                                </Button>
+                                                <Button size="small" appearance="primary" onClick={() => void handleResolveAction(a.id)}>
+                                                    Resolve
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {incident.lockedAt == null && (
+                            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                                <input
+                                    value={newActionText}
+                                    onChange={e => setNewActionText(e.target.value)}
+                                    onKeyDown={e => { if (e.key === "Enter") void handleAddAction(); }}
+                                    placeholder="Add an action for yourself (Take Ownership)…"
+                                    style={{ flex: 1, fontSize: "0.85rem", padding: "6px 8px" }}
+                                />
+                                <Button size="small" appearance="primary" onClick={() => void handleAddAction()} disabled={!newActionText.trim()}>
+                                    + Add
+                                </Button>
+                            </div>
+                        )}
+                    </section>
+                )}
 
                 {/* ----- Form tab strip — filtered to the current role's 3 forms ----- */}
                 <FormTabStrip

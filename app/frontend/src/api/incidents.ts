@@ -14,6 +14,9 @@ import type {
     AddCustomRecommendationRequest,
     AttestContributionRequest,
     RoleControlRequest,
+    AssignRoleActionRequest,
+    RoleActionCommentRequest,
+    RoleActionResolveRequest,
     TransferOfCommandRequest,
     ICDecisionRequest,
     LockIncidentRequest,
@@ -155,6 +158,27 @@ export async function takeRoleControl(incidentId: string, role: string, request:
  */
 export async function standDownRoleControl(incidentId: string, role: string, request: RoleControlRequest, signal?: AbortSignal): Promise<IncidentDocument> {
     const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/roles/${encodeURIComponent(role)}/stand-down`, request, signal);
+    return envelope.incident;
+}
+
+/**
+ * POST /api/incidents/{id}/role-actions — create a Role Action (self-assigned Take Ownership,
+ * or IC-assigned). Returns the updated incident.
+ */
+export async function assignRoleAction(incidentId: string, request: AssignRoleActionRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/role-actions`, request, signal);
+    return envelope.incident;
+}
+
+/** POST /api/incidents/{id}/role-actions/{actionId}/comment — append a comment to a Role Action. */
+export async function commentRoleAction(incidentId: string, actionId: string, request: RoleActionCommentRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/role-actions/${encodeURIComponent(actionId)}/comment`, request, signal);
+    return envelope.incident;
+}
+
+/** POST /api/incidents/{id}/role-actions/{actionId}/resolve — resolve (close) a Role Action. */
+export async function resolveRoleAction(incidentId: string, actionId: string, request: RoleActionResolveRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/role-actions/${encodeURIComponent(actionId)}/resolve`, request, signal);
     return envelope.incident;
 }
 

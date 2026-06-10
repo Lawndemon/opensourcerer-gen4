@@ -166,7 +166,10 @@ export type AuditEventType =
     | "form_locked"
     | "phase_transitioned"
     | "role_control_taken"
-    | "role_control_released";
+    | "role_control_released"
+    | "role_action_assigned"
+    | "role_action_commented"
+    | "role_action_resolved";
 
 export interface AuditEvent {
     id: string;
@@ -210,6 +213,8 @@ export interface IncidentDocument {
     // Per-role control state (SME 2026-06): which support roles a human has taken control of.
     // Role absent == AI-in-control (the default). Derived from append-only role_control events.
     roleControls: RoleControl[];
+    // Role Actions (SME 2026-06): per-role units of work (IC-assigned or self-assigned).
+    roleActions: RoleAction[];
 }
 
 // ============================================================================
@@ -237,6 +242,26 @@ export interface LossStopRequest {
 }
 
 export interface RoleControlRequest {
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface AssignRoleActionRequest {
+    text: string;
+    assignedTo: ActingRole | string;
+    source?: "ic_assigned" | "self_assigned";
+    sourceRecommendationId?: string | null;
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface RoleActionCommentRequest {
+    text: string;
+    actingRole: ActingRole | string;
+    userId: string;
+}
+
+export interface RoleActionResolveRequest {
     actingRole: ActingRole | string;
     userId: string;
 }
@@ -340,6 +365,28 @@ export interface RoleControl {
     controller: "ai" | "human";
     controlledBy: Actor | null;
     since: string;
+}
+
+/** One append-only comment on a Role Action (renders as a bullet under the action). */
+export interface RoleActionComment {
+    text: string;
+    author: Actor;
+    timestamp: string;
+}
+
+/** A unit of work owned by a support role — IC-assigned or self-assigned (Take Ownership). */
+export interface RoleAction {
+    id: string;
+    text: string;
+    assignedTo: ActingRole | string;
+    assignedBy: Actor;
+    source: "ic_assigned" | "self_assigned";
+    sourceRecommendationId: string | null;
+    status: "open" | "resolved";
+    comments: RoleActionComment[];
+    createdAt: string;
+    resolvedAt: string | null;
+    resolvedBy: Actor | null;
 }
 
 /**

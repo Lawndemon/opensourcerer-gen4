@@ -42,6 +42,8 @@ from models.incidents import (
     AuditEventType,
     IncidentDocument,
     RecommendationCategory,
+    RoleAction,
+    RoleActionComment,
     RoleControl,
     SceneConditionAndAction,
 )
@@ -1030,6 +1032,116 @@ async def stand_down(
             event_type="role_control_released",
             actor=actor,
             payload={"role": role},
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def assign_role_action(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    text: str,
+    assigned_to: str,
+    source: str,
+    source_recommendation_id: str | None,
+    actor: Actor,
+) -> IncidentDocument:
+    """Create a Role Action assigned to `assigned_to`. Append-only audit event.
+
+    Authorization: self-assignment (source="self_assigned") requires assigned_to == actor.role;
+    IC assignment (source="ic_assigned") requires the actor to be the Incident Commander.
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    if source == "self_assigned":
+        if assigned_to != actor.role:
+            raise PermissionError("Self-assignment (Take Ownership) must target your own role.")
+    elif source == "ic_assigned":
+        if actor.role != "incident-commander":
+            raise PermissionError("Only the Incident Commander can assign actions to other roles.")
+    else:
+        raise ValueError(f"Unknown role-action source: {source}")
+    action = RoleAction(
+        id=str(uuid.uuid4()),
+        text=text,
+        assigned_to=assigned_to,
+        assigned_by=actor,
+        source=source,  # validated above
+        source_recommendation_id=source_recommendation_id,
+        status="open",
+        comments=[],
+        created_at=_now_iso(),
+    )
+    doc.role_actions.append(action)
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="role_action_assigned",
+            actor=actor,
+            payload={"action_id": action.id, "assigned_to": assigned_to, "source": source, "text": text},
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def comment_role_action(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    action_id: str,
+    text: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Append a comment to a Role Action (renders as a bullet). Append-only audit event."""
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    action = next((a for a in doc.role_actions if a.id == action_id), None)
+    if action is None:
+        raise ValueError(f"Role action not found: {action_id}")
+    if actor.role != action.assigned_to and actor.role != "incident-commander":
+        raise PermissionError("Only the assigned role (or the IC) can comment on this action.")
+    action.comments.append(RoleActionComment(text=text, author=actor, timestamp=_now_iso()))
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="role_action_commented",
+            actor=actor,
+            payload={"action_id": action_id, "text": text},
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def resolve_role_action(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    action_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """Resolve (close) a Role Action. Append-only audit event. Idempotent on already-resolved."""
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    action = next((a for a in doc.role_actions if a.id == action_id), None)
+    if action is None:
+        raise ValueError(f"Role action not found: {action_id}")
+    if actor.role != action.assigned_to and actor.role != "incident-commander":
+        raise PermissionError("Only the assigned role (or the IC) can resolve this action.")
+    if action.status == "resolved":
+        return doc
+    action.status = "resolved"
+    action.resolved_at = _now_iso()
+    action.resolved_by = actor
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="role_action_resolved",
+            actor=actor,
+            payload={"action_id": action_id},
         )
     )
     return await replace_incident(doc)
