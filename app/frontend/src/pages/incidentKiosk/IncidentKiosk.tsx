@@ -40,10 +40,11 @@ import { useRole } from "../../roleContext";
 import AnalyzePopup from "./AnalyzePopup";
 import FormTabStrip from "./FormTabStrip";
 import RefineConditionPopup from "./RefineConditionPopup";
+import InjectPopup from "./InjectPopup";
 import SceneItemRow from "./SceneItemRow";
 import RoleBubble from "../../components/RoleBubble";
 import { RECOMMENDATION_CATEGORY_LABEL, RECOMMENDATION_CATEGORY_ORDER } from "../../recommendationCategories";
-import { CUSTOM_SCENARIO_ID, DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, accumulatedTranscript, getScenarioById } from "./fixtures";
+import { CUSTOM_SCENARIO_ID, DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, getScenarioById } from "./fixtures";
 import styles from "./IncidentKiosk.module.css";
 
 type KioskState =
@@ -53,14 +54,8 @@ type KioskState =
           phase: "in_incident";
           incidentId: string;
           scenarioId: string;
-          // Accumulated transcript: union of scene segments phases[0..currentPhaseIndex].
+          // Accumulated transcript: the scenario's opening segment plus any Add Inject segments.
           transcript: string;
-          // Multi-phase (scene segments): the loaded scenario's per-segment chatter and the
-          // index of the last segment that has been run. currentPhaseIndex 0 = phase 1 (the
-          // segment fed on Start). The "Add Inject" demo button advances this and vanishes
-          // once currentPhaseIndex === phases.length - 1.
-          phases: string[];
-          currentPhaseIndex: number;
           iap: ValidateIAPResponse;
           // True once the FO has pressed "Confirm Scene Conditions" (the trigger that fires
           // forms + AI support recommendations). Flips the floating button to "Re-Validate IAP".
@@ -95,6 +90,7 @@ const IncidentKiosk = () => {
     const [state, setState] = useState<KioskState>({ phase: "pre_incident", scenarioId: DEFAULT_SCENARIO_ID });
     const [analyzeItem, setAnalyzeItem] = useState<SceneConditionAndAction | null>(null);
     const [refineItem, setRefineItem] = useState<SceneConditionAndAction | null>(null);
+    const [injectOpen, setInjectOpen] = useState(false);
 
     const showCitations = actingRole !== "fire-officer";
 
@@ -223,8 +219,8 @@ const IncidentKiosk = () => {
             }
             phases = scenario.phases;
         }
-        // Start runs scene segment 1 only; later segments accumulate via Run Phase.
-        const transcript = accumulatedTranscript(phases, 0);
+        // Start runs the scenario's opening segment; later chatter is added via Add Inject (file).
+        const transcript = phases[0];
         const provisionalIncidentId = generatePrototypeIncidentId();
         setState({ phase: "starting", scenarioId: currentScenarioId, incidentId: provisionalIncidentId });
         try {
@@ -239,8 +235,6 @@ const IncidentKiosk = () => {
                     incidentId: doc.id,
                     scenarioId: currentScenarioId,
                     transcript,
-                    phases,
-                    currentPhaseIndex: 0,
                     iap: docIap,
                     hasConfirmed: false,
                     revalidating: false,
@@ -271,8 +265,6 @@ const IncidentKiosk = () => {
                 incidentId: provisionalIncidentId,
                 scenarioId: currentScenarioId,
                 transcript,
-                phases,
-                currentPhaseIndex: 0,
                 iap,
                 hasConfirmed: false,
                 revalidating: false,
@@ -317,52 +309,49 @@ const IncidentKiosk = () => {
         }
     }, [state, actingRole, triggerFormsExtraction]);
 
-    // Run Phase N (multi-phase scene segments — demo only). Advances to the next scene
-    // segment: appends that segment's new chatter to the accumulated transcript and re-runs
-    // Validate against the union. Like Re-Validate, it never blocks the kiosk — the scene
-    // renders immediately and forms regenerate in the background. The button graduates and
-    // disappears once the final segment has run (see the demo cluster in render). The
-    // cross-phase merge — scene items updating in place by stable id rather than duplicating —
-    // is the backend's job, via the append-not-replace Validate reconciliation.
-    const handleRunPhase = useCallback(async () => {
-        if (state.phase !== "in_incident" || state.locked || state.revalidating) return;
-        const previous = state;
-        if (previous.currentPhaseIndex >= previous.phases.length - 1) return; // already on the last segment
-        const nextIndex = previous.currentPhaseIndex + 1;
-        const nextTranscript = accumulatedTranscript(previous.phases, nextIndex);
-        // Optimistic: advance the segment + accumulated transcript immediately. hasConfirmed
-        // flips true here too, so injecting moves the floating button to "Re-Validate IAP".
-        setState({ ...previous, transcript: nextTranscript, currentPhaseIndex: nextIndex, hasConfirmed: true, revalidating: true });
-        try {
-            const iap = await validateIAP({
-                incidentId: previous.incidentId,
-                transcript: nextTranscript,
-                actingRole: actingRole ?? "fire-officer"
-            });
-            // Preserve forms + support contributions across the pass, exactly like Re-Validate.
-            const merged = {
-                ...iap,
-                forms: previous.iap.forms,
-                supportContributions: previous.iap.supportContributions
-            };
-            setState({
-                ...previous,
-                transcript: nextTranscript,
-                currentPhaseIndex: nextIndex,
-                hasConfirmed: true,
-                iap: merged,
-                revalidating: false,
-                formsGenerating: true
-            });
-            void triggerFormsExtraction(previous.incidentId, nextTranscript, merged);
-        } catch (err) {
-            setState({
-                phase: "error",
-                scenarioId: previous.scenarioId,
-                message: `Add Inject failed: ${formatError(err)}`
-            });
-        }
-    }, [state, actingRole, triggerFormsExtraction]);
+    // Add Inject — feed a new segment of radio chatter (loaded from a file via the inject popup)
+    // into the running incident. Appends it to the accumulated transcript and re-runs Validate
+    // against the union, exactly like Re-Validate (never blocks; forms regenerate in the
+    // background). Available for ANY scenario, any number of times. hasConfirmed flips true since
+    // injecting implies we are past the initial confirm.
+    const handleInject = useCallback(
+        async (injectedText: string) => {
+            if (state.phase !== "in_incident" || state.locked || state.revalidating) return;
+            const trimmed = injectedText.trim();
+            if (!trimmed) return;
+            const previous = state;
+            const nextTranscript = `${previous.transcript}\n${trimmed}`;
+            setState({ ...previous, transcript: nextTranscript, hasConfirmed: true, revalidating: true });
+            try {
+                const iap = await validateIAP({
+                    incidentId: previous.incidentId,
+                    transcript: nextTranscript,
+                    actingRole: actingRole ?? "fire-officer"
+                });
+                const merged = {
+                    ...iap,
+                    forms: previous.iap.forms,
+                    supportContributions: previous.iap.supportContributions
+                };
+                setState({
+                    ...previous,
+                    transcript: nextTranscript,
+                    hasConfirmed: true,
+                    iap: merged,
+                    revalidating: false,
+                    formsGenerating: true
+                });
+                void triggerFormsExtraction(previous.incidentId, nextTranscript, merged);
+            } catch (err) {
+                setState({
+                    phase: "error",
+                    scenarioId: previous.scenarioId,
+                    message: `Add Inject failed: ${formatError(err)}`
+                });
+            }
+        },
+        [state, actingRole, triggerFormsExtraction]
+    );
 
     const handleLossStop = useCallback(async () => {
         if (state.phase !== "in_incident" || state.locked) return;
@@ -524,8 +513,7 @@ const IncidentKiosk = () => {
     }
 
     if (state.phase === "in_incident") {
-        const { iap, incidentId, locked, revalidating, formsGenerating, hasConfirmed, commandTransferred, eventLocked, phases, currentPhaseIndex } = state;
-        const hasMorePhases = currentPhaseIndex < phases.length - 1;
+        const { iap, incidentId, locked, revalidating, formsGenerating, hasConfirmed, commandTransferred, eventLocked } = state;
         const items = iap.sceneConditionsAndActions;
         // FO surfacing cap (SME): the kiosk shows only the TOP 5 visible support contributions,
         // ranked by criticality (life_safety > incident_stabilization > property_conservation), so
@@ -711,12 +699,12 @@ const IncidentKiosk = () => {
                     unit once streaming STT lands. The "Add Inject" scene-segment button lives here. */}
                 <div className={styles.demoControls}>
                     <Caption1 className={styles.demoLabel}>DEMO</Caption1>
-                    {!locked && hasMorePhases && (
+                    {!locked && (
                         <Button
                             appearance="primary"
                             size="small"
                             icon={revalidating ? <Spinner size="tiny" /> : undefined}
-                            onClick={handleRunPhase}
+                            onClick={() => setInjectOpen(true)}
                             disabled={revalidating}
                         >
                             {revalidating ? "Running…" : "Add Inject"}
@@ -739,6 +727,12 @@ const IncidentKiosk = () => {
                     actingRole={actingRole ?? "fire-officer"}
                     onApplied={handleRefinementApplied}
                     onClose={() => setRefineItem(null)}
+                />
+
+                <InjectPopup
+                    open={injectOpen}
+                    onClose={() => setInjectOpen(false)}
+                    onInject={handleInject}
                 />
             </div>
         );
