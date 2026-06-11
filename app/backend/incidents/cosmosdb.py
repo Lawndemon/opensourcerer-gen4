@@ -465,6 +465,7 @@ async def add_custom_recommendation(
     role: str,
     text: str,
     actor: Actor,
+    category: "RecommendationCategory | None" = None,
 ):
     """Append a user-typed item to the role's pending list (source='custom').
 
@@ -482,6 +483,7 @@ async def add_custom_recommendation(
         id=str(uuid.uuid4()),
         text=text,
         source="custom",
+        category=category,
         created_at=now,
         created_by=actor,
     )
@@ -497,7 +499,7 @@ async def add_custom_recommendation(
             id=str(uuid.uuid4()),
             text=text,
             source="custom",
-            category=None,
+            category=category,
             provenance="hic",
             ic_status=_initial_ic_status(doc, role),
             added_by=actor,

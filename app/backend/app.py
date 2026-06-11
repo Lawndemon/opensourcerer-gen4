@@ -1562,6 +1562,7 @@ async def add_custom_support_recommendation(auth_claims: dict[str, Any], inciden
             incident_id=incident_id,
             role=body.acting_role,
             text=body.text.strip(),
+            category=body.category,
             actor=actor,
         )
         entry = _find_role_recommendations(updated_doc, body.acting_role)

@@ -739,6 +739,10 @@ class AddCustomRecommendationRequest(_IncidentBase):
     text: str
     acting_role: str
     user_id: str
+    # Optional urgency intent set by the human at add time. Threads to the PendingRecommendation
+    # and, on publish, to the SupportContribution so the kiosk groups it under the right header
+    # instead of dumping it into "Other" (Dave QoL 2026-05-27).
+    category: RecommendationCategory | None = None
 
 
 # === EXTRACT FORMS (5d.1 — decoupled forms extraction) ====================
