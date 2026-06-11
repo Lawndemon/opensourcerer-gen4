@@ -28,9 +28,14 @@ export interface KioskScenario {
     phases: string[];
 }
 
-/** Sentinel id for the "bring your own transcript" option in the kiosk picker.
- *  Not a real fixture — the kiosk renders a textarea + file input when this is selected. */
+/** Sentinel id for the "upload transcript" option in the kiosk picker.
+ *  Not a real fixture — the kiosk renders a file input + textarea when this is selected. */
 export const CUSTOM_SCENARIO_ID = "__custom__";
+
+/** Sentinel id for the "type or narrate scene" option (Dave 2026-06-11). Same
+ *  customTranscript path as upload, different affordance: textarea + voice dictation,
+ *  no file input. */
+export const NARRATE_SCENARIO_ID = "__narrate__";
 
 export const KIOSK_SCENARIOS: KioskScenario[] = [
     {

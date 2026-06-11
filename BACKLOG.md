@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-06-11 (server-side HIC enforcement; struck the removed Scene Type entries; marked refinement-preservation shipped)
+**Last updated:** 2026-06-11 (scene setup type/narrate + voice dictation, inject popup text/voice-only; server-side HIC enforcement + pre-ToC role-control restrictions; struck the removed Scene Type entries)
 
 ---
 
@@ -18,7 +18,7 @@ _Nothing in flight — pick up from "Next up"._
 
 **SHIPPED 2026-06-04 (frontend + fixtures + harness).** `KioskScenario.transcript: string` → `phases: string[]` (`fixtures.ts`); existing fixtures became length-1, new `single_family_exposure` fixture has 4 phases parsed from the SME's `Single Family Structure Fire with Exposure.docx` on the "validate IAP" delimiter (now the default scenario). Kiosk `in_incident` state gained `phases` + `currentPhaseIndex`; Start runs segment 1 only; new `handleRunPhase` appends the next segment to the accumulated transcript and re-runs Validate against the union (non-blocking, mirrors Re-Validate). Data-driven **"Run Phase N"** button lives in the `.demoControls` cluster and vanishes once `currentPhaseIndex === phases.length - 1` (proven with N=4, not hardcoded to 3). Backend `06_single_family_exposure_phased.json` mirrors the phases; `scripts/test_validate_iap.py` runs phased fixtures cumulatively against one incident id (`--fixture 6`). Cross-phase stable-id reconciliation is **delegated to the existing append-not-replace Validate path** (Run Phase = Re-Validate with an expanded transcript) — the thing to eyeball on the deployed run is that items update in place rather than duplicate P1→P4. Verified: full-project `tsc` clean (bar a known stale-mount truncation artifact), harness compiles, all fixture JSON valid.
 
-**REDESIGNED 2026-06-04 (SME, same day) — injects are now FILE-BASED, not scripted phases.** The scripted-phases approach was too rigid: the "Add Inject" button only appeared for the one multi-phase fixture, and the SME wants **any** scenario to take more chatter on demand. So: the `phases`/`currentPhaseIndex` state + `handleRunPhase` scripted advance were removed; Start uses `phases[0]` as the opening segment; the **Add Inject** button now shows for ANY running incident (`!locked`, no phase gating) and opens a new **`InjectPopup`** modal with a **Select-file** input (.txt/.md/.pdf/.docx, reusing the `/api/transcript/extract` path). The chosen file's text is appended to the transcript and re-validated via `handleInject` (same non-blocking pass as Re-Validate). The `single_family_exposure` fixture's phases 2–4 are now vestigial (Start uses only phase 1); they could be exported as inject files later. Verified: full-project `tsc` clean (0 errors). **FUTURE (SME, placeholder):** the inject popup should also offer a **free-text box** and a **voice-input** option for future demos, alongside file select. **(2026-06-10, Dave: the free-text box is the next planned enhancement — pull it forward; voice stays future. Target popup copy: "select transcript or type injection narrative".)**
+**REDESIGNED 2026-06-04 (SME, same day) — injects are now FILE-BASED, not scripted phases.** The scripted-phases approach was too rigid: the "Add Inject" button only appeared for the one multi-phase fixture, and the SME wants **any** scenario to take more chatter on demand. So: the `phases`/`currentPhaseIndex` state + `handleRunPhase` scripted advance were removed; Start uses `phases[0]` as the opening segment; the **Add Inject** button now shows for ANY running incident (`!locked`, no phase gating) and opens a new **`InjectPopup`** modal with a **Select-file** input (.txt/.md/.pdf/.docx, reusing the `/api/transcript/extract` path). The chosen file's text is appended to the transcript and re-validated via `handleInject` (same non-blocking pass as Re-Validate). The `single_family_exposure` fixture's phases 2–4 are now vestigial (Start uses only phase 1); they could be exported as inject files later. Verified: full-project `tsc` clean (0 errors). **FUTURE (SME, placeholder):** ~~the inject popup should also offer a **free-text box** and a **voice-input** option for future demos, alongside file select.~~ **SHIPPED 2026-06-11 — and went further: file select REMOVED from the inject popup; it is text + voice only now (Dave's revised spec). See Done 2026-06-11 (scene setup rework).**
 
 _Original scripted-phases spec below (superseded by the file-based redesign above)._
 
@@ -741,6 +741,18 @@ REMAINING (Phase 3 — AI auto-fill + per-form curation):
 ---
 
 ## Done
+
+### 2026-06-11 — Scene setup rework: type/narrate option + voice dictation; inject popup goes text/voice-only
+
+**Outcome (Dave's spec, same day):** the kiosk's scene setup now offers three entry paths — canned scenario (unchanged), **Upload transcript…** (unchanged file path, renamed from "Bring your own transcript…"), and a new **Type or narrate scene…** option: a textarea the operator can type/paste into, plus a **Narrate** mic button that dictates into it. The **Add Inject** popup dropped file selection entirely — it is now a textarea + the same Narrate button (type/paste/voice only).
+
+**New shared component `app/frontend/src/components/DictationButton.tsx`** — derived from the upstream template's `QuestionInput/SpeechInput` (browser SpeechRecognition) but rebuilt for narration: APPENDS to existing text instead of replacing, continuous + interim results, auto-restarts across the browser's silence timeouts (natural pauses survive), no i18n/alert() coupling, errors surface inline. Renders nothing on unsupported browsers; `isDictationSupported()` lets parents show a "needs Chrome/Edge" hint. The upstream chat `SpeechInput` is untouched.
+
+**PRODUCTION TRAJECTORY (deliberate):** production scene input is **all voice** — the streaming Azure STT pipeline (`cognitive-services-speech-sdk`, see "Voice input / streaming STT"). `DictationButton` is the designated swap point: keep its `onTextChange(composedText)` contract and replace the browser engine with the streaming recognizer when that lands. The demo picker, upload path, and textareas are bridge affordances.
+
+**Mechanics:** new `NARRATE_SCENARIO_ID` sentinel in `fixtures.ts` rides the existing `customTranscript` path (Start treats upload and narrate identically); `InjectPopup` hands typed/narrated text to the unchanged `handleInject` append+re-validate flow. Supersedes the "free-text box + voice in inject popup" placeholder under the multi-phase entry (both now shipped; the to-do there is closed).
+
+**Verification:** full-project `tsc --noEmit` 0 errors. Mount truncation hit `IncidentKiosk.tsx`, `fixtures.ts`, and `InjectPopup.tsx`; all heredoc-resynced and Windows-side spot-verified. **Voice needs a runtime test on the deployed kiosk (mic permission + dictation appending) — browser STT can't be exercised from the sandbox.**
 
 ### 2026-06-11 — Server-side HIC enforcement (closes the 2026-06-10 UI-only follow-up)
 

@@ -44,7 +44,8 @@ import InjectPopup from "./InjectPopup";
 import SceneItemRow from "./SceneItemRow";
 import RoleBubble from "../../components/RoleBubble";
 import { RECOMMENDATION_CATEGORY_LABEL, RECOMMENDATION_CATEGORY_ORDER } from "../../recommendationCategories";
-import { CUSTOM_SCENARIO_ID, DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, getScenarioById } from "./fixtures";
+import DictationButton, { isDictationSupported } from "../../components/DictationButton";
+import { CUSTOM_SCENARIO_ID, DEFAULT_SCENARIO_ID, KIOSK_SCENARIOS, NARRATE_SCENARIO_ID, getScenarioById } from "./fixtures";
 import styles from "./IncidentKiosk.module.css";
 
 type KioskState =
@@ -91,6 +92,8 @@ const IncidentKiosk = () => {
     const [analyzeItem, setAnalyzeItem] = useState<SceneConditionAndAction | null>(null);
     const [refineItem, setRefineItem] = useState<SceneConditionAndAction | null>(null);
     const [injectOpen, setInjectOpen] = useState(false);
+    // Voice-dictation error surfaced under the narrate text box (mic permission, unsupported, …).
+    const [dictationError, setDictationError] = useState<string | null>(null);
 
     const showCitations = actingRole !== "fire-officer";
 
@@ -202,12 +205,12 @@ const IncidentKiosk = () => {
     const handleStartIncident = useCallback(async () => {
         const currentScenarioId = state.phase === "pre_incident" ? state.scenarioId : DEFAULT_SCENARIO_ID;
         const currentCustom = state.phase === "pre_incident" ? state.customTranscript : undefined;
-        // Resolve the scene segments: custom text if the user chose "bring your own" (single
-        // segment); otherwise the fixture's phases array.
+        // Resolve the scene segments: custom text if the user chose upload or type/narrate
+        // (single segment); otherwise the fixture's phases array.
         let phases: string[];
-        if (currentScenarioId === CUSTOM_SCENARIO_ID) {
+        if (currentScenarioId === CUSTOM_SCENARIO_ID || currentScenarioId === NARRATE_SCENARIO_ID) {
             if (!currentCustom || currentCustom.trim().length === 0) {
-                setState({ phase: "error", scenarioId: currentScenarioId, message: "Custom transcript is empty — paste text or upload a file before starting." });
+                setState({ phase: "error", scenarioId: currentScenarioId, message: "Scene text is empty — type, paste, upload, or narrate the scene before starting." });
                 return;
             }
             phases = [currentCustom];
@@ -219,7 +222,7 @@ const IncidentKiosk = () => {
             }
             phases = scenario.phases;
         }
-        // Start runs the scenario's opening segment; later chatter is added via Add Inject (file).
+        // Start runs the scenario's opening segment; later chatter is added via Add Inject (typed or narrated).
         const transcript = phases[0];
         const provisionalIncidentId = generatePrototypeIncidentId();
         setState({ phase: "starting", scenarioId: currentScenarioId, incidentId: provisionalIncidentId });
@@ -309,9 +312,9 @@ const IncidentKiosk = () => {
         }
     }, [state, actingRole, triggerFormsExtraction]);
 
-    // Add Inject — feed a new segment of radio chatter (loaded from a file via the inject popup)
-    // into the running incident. Appends it to the accumulated transcript and re-runs Validate
-    // against the union, exactly like Re-Validate (never blocks; forms regenerate in the
+    // Add Inject — feed a new segment of radio chatter (typed, pasted, or narrated via the inject
+    // popup) into the running incident. Appends it to the accumulated transcript and re-runs
+    // Validate against the union, exactly like Re-Validate (never blocks; forms regenerate in the
     // background). Available for ANY scenario, any number of times. hasConfirmed flips true since
     // injecting implies we are past the initial confirm.
     const handleInject = useCallback(
@@ -778,17 +781,43 @@ const IncidentKiosk = () => {
                                 {s.label}
                             </option>
                         ))}
-                        <option value={CUSTOM_SCENARIO_ID}>Bring your own transcript…</option>
+                        <option value={CUSTOM_SCENARIO_ID}>Upload transcript…</option>
+                        <option value={NARRATE_SCENARIO_ID}>Type or narrate scene…</option>
                     </select>
-                    {state.scenarioId === CUSTOM_SCENARIO_ID ? (
+                    {state.scenarioId === CUSTOM_SCENARIO_ID || state.scenarioId === NARRATE_SCENARIO_ID ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                            <input type="file" accept=".txt,.md,.xml,.json,.pdf,.docx,text/plain,application/json,text/xml,application/xml,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleCustomTranscriptFile} />
+                            {state.scenarioId === CUSTOM_SCENARIO_ID && (
+                                <input type="file" accept=".txt,.md,.xml,.json,.pdf,.docx,text/plain,application/json,text/xml,application/xml,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleCustomTranscriptFile} />
+                            )}
                             <textarea
                                 style={{ width: "100%", minHeight: 160, fontFamily: "monospace", fontSize: "0.85rem", padding: 8, boxSizing: "border-box" }}
                                 value={state.phase === "pre_incident" ? (state.customTranscript ?? "") : ""}
                                 onChange={e => setState(prev => prev.phase === "pre_incident" ? { ...prev, customTranscript: e.target.value } : prev)}
-                                placeholder="Paste your transcript here (or upload a .txt file above)"
+                                placeholder={
+                                    state.scenarioId === NARRATE_SCENARIO_ID
+                                        ? "Type or paste the scene summary — or tap Narrate and describe the scene as you would on the radio…"
+                                        : "Upload a file above, or paste your transcript here"
+                                }
                             />
+                            {state.scenarioId === NARRATE_SCENARIO_ID && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                    <DictationButton
+                                        getBaseText={() => (state.phase === "pre_incident" ? (state.customTranscript ?? "") : "")}
+                                        onTextChange={text =>
+                                            setState(prev => (prev.phase === "pre_incident" ? { ...prev, customTranscript: text } : prev))
+                                        }
+                                        onError={setDictationError}
+                                    />
+                                    {!isDictationSupported() && (
+                                        <span style={{ fontSize: "0.78rem", opacity: 0.7 }}>
+                                            Voice input needs Chrome or Edge — typing/pasting works everywhere.
+                                        </span>
+                                    )}
+                                    {dictationError && (
+                                        <span style={{ fontSize: "0.78rem", color: "#fca5a5" }}>{dictationError}</span>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <span className={styles.scenarioBlurb}>{getScenarioById(state.scenarioId)?.blurb}</span>
@@ -823,4 +852,4 @@ function formatError(err: unknown): string {
 }
 
 export default IncidentKiosk;
-// (multi-phase scene segments wired 2026-06-04)
+// (multi-phase scene segments wired 2026-06-04; scene setup text/voice options 2026-06-11)
