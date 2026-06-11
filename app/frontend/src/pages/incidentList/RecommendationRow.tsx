@@ -54,6 +54,10 @@ interface RecommendationRowProps {
     onConfirm?: (id: string) => Promise<void> | void;
     /** Pull back an AI-published recommendation (soft-delete). Only valid for AI published items. */
     onWithdraw?: (id: string) => Promise<void> | void;
+    /** Assign to FO (SO/OSC only) — sends the rec straight to the Fire Officer. */
+    onAssignToFo?: (id: string) => Promise<void> | void;
+    /** Take Ownership — create a Role Action from this rec. */
+    onTakeOwnership?: (id: string) => Promise<void> | void;
 }
 
 const STATUS_BADGE: Record<RowStatus, { label: string; color: "warning" | "success" | "subtle" }> = {
@@ -68,7 +72,7 @@ const SOURCE_BADGE: Record<RowSource, { label: string; color: "informative" | "b
     unknown: { label: "—", color: "subtle" }
 };
 
-const RecommendationRow = ({ row, onPublish, onDismiss, onConfirm, onWithdraw, busy }: RecommendationRowProps) => {
+const RecommendationRow = ({ row, onPublish, onDismiss, onConfirm, onWithdraw, onAssignToFo, onTakeOwnership, busy }: RecommendationRowProps) => {
     const statusBadge = STATUS_BADGE[row.status];
     const sourceBadge = SOURCE_BADGE[row.source];
     const isPending = row.status === "pending";
@@ -116,18 +120,27 @@ const RecommendationRow = ({ row, onPublish, onDismiss, onConfirm, onWithdraw, b
                             </Tooltip>
                         )}
                     </>
-                ) : isPending && (onPublish || onDismiss) ? (
+                ) : isPending ? (
                     <>
+                        {onAssignToFo && (
+                            <Tooltip content="Assign to FO — send straight to the Fire Officer" relationship="label">
+                                <Button appearance="subtle" size="small" onClick={() => void onAssignToFo(row.id)}>
+                                    → FO
+                                </Button>
+                            </Tooltip>
+                        )}
                         {onPublish && (
-                            <Tooltip content="Publish — visible to the Fire Officer" relationship="label">
-                                <Button
-                                    appearance="subtle"
-                                    size="small"
-                                    icon={<Checkmark24Regular />}
-                                    className={styles.publishButton}
-                                    aria-label={`Publish: ${row.text}`}
-                                    onClick={() => void onPublish(row.id)}
-                                />
+                            <Tooltip content="Send to IC — route to the Incident Commander for review" relationship="label">
+                                <Button appearance="subtle" size="small" onClick={() => void onPublish(row.id)}>
+                                    → IC
+                                </Button>
+                            </Tooltip>
+                        )}
+                        {onTakeOwnership && (
+                            <Tooltip content="Take Ownership — add to your Role Actions" relationship="label">
+                                <Button appearance="subtle" size="small" onClick={() => void onTakeOwnership(row.id)}>
+                                    Own
+                                </Button>
                             </Tooltip>
                         )}
                         {onDismiss && (

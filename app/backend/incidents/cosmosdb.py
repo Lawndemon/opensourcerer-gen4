@@ -59,6 +59,12 @@ _USE_CHAT_HISTORY_COSMOS_ENV = "USE_CHAT_HISTORY_COSMOS"
 # need a per-deploy container (e.g., `incidents-v2` for a schema migration).
 _DEFAULT_INCIDENTS_CONTAINER_NAME = "incidents"
 
+# Roles whose published recommendations bypass the IC gate and go straight to the FO kiosk
+# (flagged), even after Transfer of Command — life-safety / front-line ops must not wait on the
+# approval queue. SME 2026-06: generalized from Safety Officer alone to also include the
+# Operations Section Chief.
+_DIRECT_TO_FO_ROLES = {"safety-officer", "section-chief-operations"}
+
 
 # === Time helpers ===============================================================
 
@@ -531,14 +537,31 @@ def _initial_ic_status(doc: "IncidentDocument", role: str) -> str:
     """Gate state for a newly-surfaced contribution given command status + originating role.
 
     Before Transfer of Command everything is ungated (current behavior). After ToC the IC gates
-    content to the Fire Officer — except Safety Officer items, which bypass straight to the kiosk
-    (flagged), because life-safety must not wait on an approval queue.
+    content to the Fire Officer — except items from roles in `_DIRECT_TO_FO_ROLES` (Safety Officer
+    + Operations Section Chief), which bypass straight to the kiosk (flagged), because life-safety
+    and front-line ops must not wait on an approval queue.
     """
     if doc.command_transferred_at is None:
         return "not_gated"
-    if role == "safety-officer":
+    if role in _DIRECT_TO_FO_ROLES:
         return "safety_bypass"
     return "pending"
+
+
+def _ic_status_for_publish(doc: "IncidentDocument", role: str, target: str | None) -> str:
+    """Gate state for an item the support role is explicitly routing on publish.
+
+    `target` overrides the role-default routing: "fo" forces direct-to-FO (safety_bypass), "ic"
+    forces the IC approval queue (pending). Pre-ToC there is no IC, so everything reaches the FO
+    regardless. None falls back to `_initial_ic_status` (role default).
+    """
+    if doc.command_transferred_at is None:
+        return "not_gated"
+    if target == "fo":
+        return "safety_bypass"
+    if target == "ic":
+        return "pending"
+    return _initial_ic_status(doc, role)
 
 
 async def publish_recommendation(
@@ -548,6 +571,7 @@ async def publish_recommendation(
     role: str,
     recommendation_id: str,
     actor: Actor,
+    target: str | None = None,
 ):
     """Move an item from the role's pending list into the incident's support_contributions.
 
@@ -577,7 +601,7 @@ async def publish_recommendation(
         source="recommended" if item.source == "kb" else "custom",
         category=item.category,
         provenance="hic",  # a human publish is itself an act of ownership.
-        ic_status=_initial_ic_status(doc, role),
+        ic_status=_ic_status_for_publish(doc, role, target),
         added_by=actor,
         added_at=_now_iso(),
     )
@@ -926,15 +950,16 @@ async def transition_command_to_ic(
     doc.command_transferred_at = _now_iso()
 
     # Re-classify EVERY existing not_gated support contribution (AI + HIC) so the IC can
-    # re-validate them all (Dave 2026-05-27). Safety Officer items go safety_bypass and stay
-    # visible to the FO; everything else becomes pending. Items already decided
+    # re-validate them all (Dave 2026-05-27). Direct-to-FO roles (Safety Officer + Ops Section
+    # Chief) go safety_bypass and stay visible to the FO; everything else becomes pending. Items
+    # already decided
     # (approved / rejected / safety_bypass) and withdrawn items are not touched.
     reclassified_to_pending: list[str] = []
     reclassified_to_safety_bypass: list[str] = []
     for contribution in doc.support_contributions:
         if contribution.ic_status != "not_gated":
             continue
-        if contribution.added_by.role == "safety-officer":
+        if contribution.added_by.role in _DIRECT_TO_FO_ROLES:
             contribution.ic_status = "safety_bypass"
             reclassified_to_safety_bypass.append(contribution.id)
         else:

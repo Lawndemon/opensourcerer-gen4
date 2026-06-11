@@ -709,10 +709,17 @@ class GetRecommendationsResponse(_IncidentBase):
 
 
 class PublishRecommendationRequest(_IncidentBase):
-    """Request body for `POST /api/incidents/{id}/support-recommendations/{recId}/publish`."""
+    """Request body for `POST /api/incidents/{id}/support-recommendations/{recId}/publish`.
+
+    `target` routes the published item: "fo" sends it straight to the Fire Officer kiosk
+    (safety_bypass after Transfer of Command), "ic" routes it to the IC approval queue (pending
+    after ToC). None falls back to the role default. Pre-ToC there is no IC, so everything
+    reaches the FO regardless.
+    """
 
     acting_role: str
     user_id: str
+    target: Literal["fo", "ic"] | None = None
 
 
 class DismissRecommendationRequest(_IncidentBase):

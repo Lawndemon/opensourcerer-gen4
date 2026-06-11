@@ -25,6 +25,7 @@ import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fl
 
 import { assignRoleAction, closeIncident, commentRoleAction, extractForms, getIncident, icDecision, removeCondition, resolveRoleAction, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
+import { IMT_ROLE_CHOICES, getRoleDefinition } from "../../roles";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "../incidentKiosk/AnalyzePopup";
@@ -330,6 +331,30 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         [actingRole, incident.id]
     );
 
+    // IC routes a pending recommendation into a role's Role Actions (Assign to <role> or Take
+    // Ownership). The rec becomes an IC-assigned Role Action and leaves the IC pending queue.
+    const handleIcAssign = useCallback(
+        async (contributionId: string, text: string, assignTo: string) => {
+            if (!actingRole || !assignTo) return;
+            setActionError(null);
+            try {
+                await assignRoleAction(incident.id, {
+                    text,
+                    assignedTo: assignTo,
+                    source: "ic_assigned",
+                    sourceRecommendationId: contributionId,
+                    actingRole,
+                    userId: "support-view"
+                });
+                const updated = await icDecision(incident.id, contributionId, { decision: "rejected", actingRole, userId: "support-view" });
+                setIncident(updated);
+            } catch (e) {
+                setActionError(e instanceof Error ? e.message : "Could not assign action.");
+            }
+        },
+        [actingRole, incident.id]
+    );
+
     if (showCloseout && actingRole) {
         return (
             <CloseoutAdmin
@@ -532,7 +557,27 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                                             <strong>[{c.addedBy.role}]</strong> {c.text}
                                         </Body1>
                                         <Button size="small" appearance="primary" onClick={() => handleIcDecision(c.id, "approved")}>
-                                            Approve
+                                            Send to FO
+                                        </Button>
+                                        <select
+                                            defaultValue=""
+                                            onChange={e => {
+                                                if (e.target.value) void handleIcAssign(c.id, c.text, e.target.value);
+                                            }}
+                                            style={{ fontSize: "0.8rem", padding: "2px 4px" }}
+                                            aria-label="Assign to role"
+                                        >
+                                            <option value="" disabled>
+                                                Assign to…
+                                            </option>
+                                            {IMT_ROLE_CHOICES.filter(r => r !== "incident-commander").map(r => (
+                                                <option key={r} value={r}>
+                                                    {getRoleDefinition(r).acronym ?? getRoleDefinition(r).displayName}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <Button size="small" onClick={() => void handleIcAssign(c.id, c.text, "incident-commander")}>
+                                            Take Ownership
                                         </Button>
                                         <Button size="small" onClick={() => handleIcDecision(c.id, "rejected")}>
                                             Reject

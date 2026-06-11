@@ -515,10 +515,11 @@ const IncidentKiosk = () => {
     if (state.phase === "in_incident") {
         const { iap, incidentId, locked, revalidating, formsGenerating, hasConfirmed, commandTransferred, eventLocked } = state;
         const items = iap.sceneConditionsAndActions;
-        // FO surfacing cap (SME): the kiosk shows only the TOP 5 visible support contributions,
-        // ranked by criticality (life_safety > incident_stabilization > property_conservation), so
-        // the Fire Officer is never inundated. The IC's approval view stays uncapped ("ok to
-        // inundate the IC, just not the FO"). Stable within a band (Array.sort is stable).
+        // FO surfacing cap (SME): the kiosk caps ONLY untouched AI suggestions at the TOP 5 by
+        // criticality (life_safety > incident_stabilization > property_conservation), so the Fire
+        // Officer is never inundated by the AI. Anything a HUMAN has surfaced is ALWAYS shown on
+        // top of that 5 — taken ownership of (provenance "hic"), IC-approved, or an SO/OSC sent
+        // direct (safety_bypass). The IC's approval view stays uncapped. Stable (Array.sort).
         const foVisibleContribs = iap.supportContributions.filter(
             c => !c.withdrawn && (c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass")
         );
@@ -528,12 +529,20 @@ const IncidentKiosk = () => {
             const i = RECOMMENDATION_CATEGORY_ORDER.indexOf(cat);
             return i === -1 ? RECOMMENDATION_CATEGORY_ORDER.length : i;
         };
-        const foTop5Ids = new Set(
+        // Human-surfaced items bypass the cap; only pure AI suggestions are limited to 5.
+        const isHumanSurfaced = (c: (typeof foVisibleContribs)[number]) =>
+            c.provenance === "hic" || c.icStatus === "approved" || c.icStatus === "safety_bypass";
+        const aiTop5Ids = new Set(
             [...foVisibleContribs]
+                .filter(c => !isHumanSurfaced(c))
                 .sort((a, b) => contribCritRank(a) - contribCritRank(b))
                 .slice(0, 5)
                 .map(c => c.id)
         );
+        const foShownIds = new Set([
+            ...foVisibleContribs.filter(isHumanSurfaced).map(c => c.id),
+            ...aiTop5Ids
+        ]);
 
         return (
             <div className={styles.container}>
@@ -609,7 +618,7 @@ const IncidentKiosk = () => {
                         ) : (
                             <div className={styles.supportGroups}>
                                 {[...RECOMMENDATION_CATEGORY_ORDER, null].map(cat => {
-                                    const group = foVisibleContribs.filter(c => foTop5Ids.has(c.id) && (c.category ?? null) === cat);
+                                    const group = foVisibleContribs.filter(c => foShownIds.has(c.id) && (c.category ?? null) === cat);
                                     if (group.length === 0) return null;
                                     const heading = cat ? RECOMMENDATION_CATEGORY_LABEL[cat] : "Other";
                                     return (

@@ -1464,6 +1464,7 @@ async def publish_support_recommendation(
             role=body.acting_role,
             recommendation_id=recommendation_id,
             actor=actor,
+            target=body.target,
         )
         entry = _find_role_recommendations(updated_doc, body.acting_role)
         response = GetRecommendationsResponse(

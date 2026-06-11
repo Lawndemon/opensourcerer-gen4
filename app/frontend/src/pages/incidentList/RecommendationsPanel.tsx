@@ -26,6 +26,7 @@ import { ArrowSync24Regular, Warning24Filled } from "@fluentui/react-icons";
 
 import {
     addCustomRecommendation,
+    assignRoleAction,
     attestContribution,
     withdrawSupportContribution,
     dismissRecommendation,
@@ -172,13 +173,15 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
             return next;
         });
 
+    const isSoOrOsc = actingRole === "safety-officer" || actingRole === "section-chief-operations";
+
     const handlePublish = useCallback(
-        async (recId: string) => {
+        async (recId: string, target?: "fo" | "ic") => {
             if (locked) return;
             markBusy(recId, true);
             setError(null);
             try {
-                const response = await publishRecommendation(incident.id, recId, { actingRole, userId });
+                const response = await publishRecommendation(incident.id, recId, { actingRole, userId, target });
                 setData(response);
                 onIncidentRefresh();
             } catch (err) {
@@ -188,6 +191,34 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
             }
         },
         [actingRole, incident.id, locked, onIncidentRefresh, userId]
+    );
+
+    const handleTakeOwnership = useCallback(
+        async (recId: string) => {
+            if (locked) return;
+            const row = (data?.items ?? []).find(it => it.id === recId);
+            if (!row) return;
+            markBusy(recId, true);
+            setError(null);
+            try {
+                await assignRoleAction(incident.id, {
+                    text: row.text,
+                    assignedTo: actingRole,
+                    source: "self_assigned",
+                    sourceRecommendationId: recId,
+                    actingRole,
+                    userId
+                });
+                // The rec becomes a Role Action — clear it from the pending list.
+                await dismissRecommendation(incident.id, recId, { actingRole, userId });
+                onIncidentRefresh();
+            } catch (err) {
+                setError(err instanceof Error ? err.message : "Take Ownership failed");
+            } finally {
+                markBusy(recId, false);
+            }
+        },
+        [actingRole, data, incident.id, locked, onIncidentRefresh, userId]
     );
 
     const handleDismiss = useCallback(
@@ -370,7 +401,9 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                                     <RecommendationRow
                                         key={`${row.status}-${row.id}`}
                                         row={row}
-                                        onPublish={!locked && row.status === "pending" ? handlePublish : undefined}
+                                        onAssignToFo={!locked && row.status === "pending" && isSoOrOsc ? (id) => handlePublish(id, "fo") : undefined}
+                                        onPublish={!locked && row.status === "pending" ? (id) => handlePublish(id, "ic") : undefined}
+                                        onTakeOwnership={!locked && row.status === "pending" ? handleTakeOwnership : undefined}
                                         onDismiss={!locked && row.status === "pending" ? handleDismiss : undefined}
                                         onConfirm={!locked && row.status === "published" && row.provenance === "ai" ? handleConfirm : undefined}
                                         onWithdraw={!locked && row.status === "published" && row.provenance === "ai" ? handleWithdraw : undefined}

@@ -409,6 +409,8 @@ export interface RefreshRecommendationsRequest {
 export interface PublishRecommendationRequest {
     actingRole: ActingRole | string;
     userId: string;
+    /** Route the published item: "fo" = direct to Fire Officer; "ic" = to the IC approval queue. */
+    target?: "fo" | "ic";
 }
 
 export interface DismissRecommendationRequest {
