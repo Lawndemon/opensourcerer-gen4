@@ -1102,6 +1102,13 @@ async def assign_role_action(
         created_at=_now_iso(),
     )
     doc.role_actions.append(action)
+    # Own / IC-assign consumes the source pending recommendation in the SAME write, so the
+    # frontend no longer needs a separate dismiss call (that second call 404'd when the item
+    # wasn't found in role_recommendations). No-op if the id isn't a pending rec (e.g. the IC
+    # assigning an already-published SupportContribution id).
+    if source_recommendation_id is not None:
+        for rr in doc.role_recommendations:
+            rr.items = [i for i in rr.items if i.id != source_recommendation_id]
     doc.event_log.append(
         make_audit_event(
             incident_id=incident_id,

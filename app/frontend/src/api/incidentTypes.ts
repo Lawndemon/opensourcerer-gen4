@@ -422,6 +422,7 @@ export interface AddCustomRecommendationRequest {
     text: string;
     actingRole: ActingRole | string;
     userId: string;
+    category?: RecommendationCategory | null;
 }
 
 // ============================================================================

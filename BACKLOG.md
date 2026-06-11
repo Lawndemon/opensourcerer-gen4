@@ -212,6 +212,8 @@ Related: [[Chat & transcript immutability principle]], [[Audit logs screen-facin
 
 ### Custom support contribution — add category selector (Dave QoL, 2026-05-27)
 
+**SHIPPED 2026-06-10.** `AddCustomRecommendationRequest` gained an optional `category` (life_safety / incident_stabilization / property_conservation); `add_custom_recommendation` threads it into the `PendingRecommendation` (pre-ToC path) and the directly-minted `SupportContribution` (ToC-bypass path), and the existing publish path already carries `item.category` through, so the kiosk groups custom items under the right header instead of "Other". Frontend: `CustomAddForm` gained an "Uncategorized / Life Safety / Incident Stabilization / Property Conservation" `<select>`; `handleAddCustom` threads the choice. Verified: backend `ast.parse` clean, frontend `tsc` 0 errors. _Original note below._
+
 When a support user adds a custom recommendation, the resulting `SupportContribution.category` is currently `None` (set explicitly in `add_custom_recommendation`'s ToC-bypass path; not threaded from the UI in either path). The kiosk groups support contributions by category (Life Safety / Incident Stabilization / Property Conservation / Other), so custom items fall into "Other" with no way for the human to set urgency intent. Add a 3-option selector (life_safety / incident_stabilization / property_conservation) to the custom-add UI in `RecommendationsPanel`, thread it through `AddCustomRecommendationRequest` + `add_custom_recommendation` cosmos fn (ToC-bypass path uses it directly when minting the SupportContribution), and persist it on `PendingRecommendation` so the pre-ToC publish path also carries it through.
 
 ### Reopen a locked incident — IC / Site-Admin only (Dave, 2026-05-27)
@@ -847,12 +849,3 @@ REMAINING (Phase 3 — AI auto-fill + per-form curation):
 - Frontend `app/frontend/src/pages/incidentKiosk/RefineConditionPopup.tsx` (new) + CSS — Fluent Dialog with four big tap targets (3 statements + dashed "None of the above"). Distinct loading / applying / error states. Single-tap selection → backend → close.
 - Frontend `SceneItemRow.tsx` — Refine button is now functional when `onRefineClick` supplied; disabled with helpful tooltip when not (e.g., ephemeral incident, locked phase).
 - Frontend `IncidentKiosk.tsx` — wired refine state and `handleRefinementApplied` (merges the returned `SceneConditionAndAction` into the in-memory state).
-
-**Trade-offs accepted:**
-
-- **Refine requires persistence.** No useful ephemeral fallback — you need a persisted condition for the audit log to mean anything. Refine button is disabled in the Session-1 fallback path (Cosmos 503).
-- **Transcript fed to the refine prompt is empty in v1.** We read `TranscriptChunk[]` from the persisted incident, but chunks aren't yet written (streaming STT is post-MVP). The LLM falls back to condition text + plan context; quality improves automatically once chunks start flowing in.
-- **No KB retrieval in v1 refine.** Same call to the chat-completion LLM, no Azure Search hop. The "knowledgebase-generated" narrowing statements are LLM-generated for now; real KB grounding lands with the role-based retrieval cascade.
-- **Temperature split.** Narrowing is creative (0.45) so the three options actually differ; apply is near-deterministic (0.15) so the same inputs yield the same re-evaluation. Considered making this configurable but it's not worth a knob until we see real evals.
-
-**ICS 201 verification finding:** the existing extraction prompt already produces fully-populated ICS 201 content in all three smoke-test fixtures (incident nam

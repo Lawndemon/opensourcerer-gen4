@@ -25,7 +25,9 @@ import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fl
 
 import { assignRoleAction, closeIncident, commentRoleAction, extractForms, getIncident, icDecision, removeCondition, resolveRoleAction, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
-import { IMT_ROLE_CHOICES, getRoleDefinition } from "../../roles";
+import type { ActingRole } from "../../roles";
+import { getRoleDefinition } from "../../roles";
+import { activeHicSupportRoles } from "../../recommendationRouting";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "../incidentKiosk/AnalyzePopup";
@@ -89,6 +91,9 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     const isIncidentCommander = actingRole === "incident-commander";
     const commandTransferred = incident.commandTransferredAt != null;
     const pendingForIc = incident.supportContributions.filter(c => c.icStatus === "pending" && !c.withdrawn);
+    // IC can only assign a recommendation to a role that a human has actually taken control of
+    // (an active HIC support role); never to itself (SME bug batch 2026-06-10).
+    const icAssignTargets = activeHicSupportRoles(incident);
     const [tocBusy, setTocBusy] = useState(false);
     const supportPollMs = commandTransferred ? FAST_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
     // Closeout / final-lock workflow: IC or Site Administrator can open it anytime.
@@ -560,19 +565,20 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                                             Send to FO
                                         </Button>
                                         <select
-                                            defaultValue=""
+                                            value=""
+                                            disabled={icAssignTargets.length === 0}
                                             onChange={e => {
                                                 if (e.target.value) void handleIcAssign(c.id, c.text, e.target.value);
                                             }}
                                             style={{ fontSize: "0.8rem", padding: "2px 4px" }}
-                                            aria-label="Assign to role"
+                                            aria-label="Assign to active HIC support role"
                                         >
                                             <option value="" disabled>
-                                                Assign to…
+                                                {icAssignTargets.length === 0 ? "No active HIC roles" : "Assign to…"}
                                             </option>
-                                            {IMT_ROLE_CHOICES.filter(r => r !== "incident-commander").map(r => (
+                                            {icAssignTargets.map(r => (
                                                 <option key={r} value={r}>
-                                                    {getRoleDefinition(r).acronym ?? getRoleDefinition(r).displayName}
+                                                    {getRoleDefinition(r as ActingRole).acronym ?? getRoleDefinition(r as ActingRole).displayName}
                                                 </option>
                                             ))}
                                         </select>

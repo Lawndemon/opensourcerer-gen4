@@ -39,6 +39,7 @@ import type { GetRecommendationsResponse, IncidentDocument, PendingRecommendatio
 import CustomAddForm from "./CustomAddForm";
 import RecommendationRow, { RecommendationRowData } from "./RecommendationRow";
 import { RECOMMENDATION_CATEGORY_LABEL, RECOMMENDATION_CATEGORY_ORDER } from "../../recommendationCategories";
+import { routingActionsFor, isHumanInCharge } from "../../recommendationRouting";
 import styles from "./RecommendationsPanel.module.css";
 
 interface RecommendationsPanelProps {
@@ -100,6 +101,13 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
     const [storedHash, setStoredHash] = useState<string | null>(() => readStoredHash(incident.id, actingRole));
     // Avoid the auto-refresh-on-empty firing twice across StrictMode double-mount.
     const autoRefreshFiredRef = useRef(false);
+
+    // Master control gate (SME bug batch 2026-06-10): a human can only curate once they are
+    // the Human-In-Charge of this role; otherwise the whole pane is observe-only. Routing
+    // options come from the shared helper so role rules live in exactly one place.
+    const isHic = isHumanInCharge(actingRole, incident);
+    const actionsLocked = !!locked || !isHic;
+    const routingActions = routingActionsFor(actingRole, incident);
 
     // --- Load initial pending list -----------------------------------------
     useEffect(() => {
@@ -173,8 +181,6 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
             return next;
         });
 
-    const isSoOrOsc = actingRole === "safety-officer" || actingRole === "section-chief-operations";
-
     const handlePublish = useCallback(
         async (recId: string, target?: "fo" | "ic") => {
             if (locked) return;
@@ -195,12 +201,14 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
 
     const handleTakeOwnership = useCallback(
         async (recId: string) => {
-            if (locked) return;
+            if (actionsLocked) return;
             const row = (data?.items ?? []).find(it => it.id === recId);
             if (!row) return;
             markBusy(recId, true);
             setError(null);
             try {
+                // Atomic: assignRoleAction now consumes the source pending rec in the same write,
+                // so there is no separate dismiss call (that second call 404'd). See cosmosdb.
                 await assignRoleAction(incident.id, {
                     text: row.text,
                     assignedTo: actingRole,
@@ -209,8 +217,6 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                     actingRole,
                     userId
                 });
-                // The rec becomes a Role Action — clear it from the pending list.
-                await dismissRecommendation(incident.id, recId, { actingRole, userId });
                 onIncidentRefresh();
             } catch (err) {
                 setError(err instanceof Error ? err.message : "Take Ownership failed");
@@ -218,7 +224,7 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                 markBusy(recId, false);
             }
         },
-        [actingRole, data, incident.id, locked, onIncidentRefresh, userId]
+        [actingRole, actionsLocked, data, incident.id, locked, onIncidentRefresh, userId]
     );
 
     const handleDismiss = useCallback(
@@ -271,8 +277,8 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
     );
 
     const handleAddCustom = useCallback(
-        async (text: string) => {
-            const response = await addCustomRecommendation(incident.id, { text, actingRole, userId });
+        async (text: string, category: RecommendationCategory | null) => {
+            const response = await addCustomRecommendation(incident.id, { text, actingRole, userId, category });
             setData(response);
             onIncidentRefresh();
         },
@@ -370,9 +376,15 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                 </Tooltip>
             </div>
 
+            {!locked && !isHic && (
+                <Caption1 className={styles.subtitle}>
+                    AI in Control — take control of this role to curate its recommendations.
+                </Caption1>
+            )}
+
             {!locked && (
                 <div className={styles.addRow}>
-                    <CustomAddForm onAdd={handleAddCustom} disabled={locked} />
+                    <CustomAddForm onAdd={handleAddCustom} disabled={actionsLocked} />
                 </div>
             )}
 
@@ -401,12 +413,12 @@ const RecommendationsPanel = ({ incident, actingRole, userId, onIncidentRefresh,
                                     <RecommendationRow
                                         key={`${row.status}-${row.id}`}
                                         row={row}
-                                        onAssignToFo={!locked && row.status === "pending" && isSoOrOsc ? (id) => handlePublish(id, "fo") : undefined}
-                                        onPublish={!locked && row.status === "pending" ? (id) => handlePublish(id, "ic") : undefined}
-                                        onTakeOwnership={!locked && row.status === "pending" ? handleTakeOwnership : undefined}
-                                        onDismiss={!locked && row.status === "pending" ? handleDismiss : undefined}
-                                        onConfirm={!locked && row.status === "published" && row.provenance === "ai" ? handleConfirm : undefined}
-                                        onWithdraw={!locked && row.status === "published" && row.provenance === "ai" ? handleWithdraw : undefined}
+                                        onAssignToFo={!actionsLocked && row.status === "pending" && routingActions.includes("send_to_fo") ? (id) => handlePublish(id, "fo") : undefined}
+                                        onPublish={!actionsLocked && row.status === "pending" && routingActions.includes("send_to_ic") ? (id) => handlePublish(id, "ic") : undefined}
+                                        onTakeOwnership={!actionsLocked && row.status === "pending" && routingActions.includes("own") ? handleTakeOwnership : undefined}
+                                        onDismiss={!actionsLocked && row.status === "pending" ? handleDismiss : undefined}
+                                        onConfirm={!actionsLocked && row.status === "published" && row.provenance === "ai" ? handleConfirm : undefined}
+                                        onWithdraw={!actionsLocked && row.status === "published" && row.provenance === "ai" ? handleWithdraw : undefined}
                                         busy={busyIds.has(row.id)}
                                     />
                                 ))}
