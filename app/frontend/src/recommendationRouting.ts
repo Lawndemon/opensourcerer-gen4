@@ -4,13 +4,20 @@
  * 2026-06-10). Both the support-pane RecommendationRow buttons and the IC approval pane
  * read from here so routing rules live in exactly one place.
  *
+ * BACKEND TWIN: app/backend/incidents/routing.py enforces these same rules server-side
+ * (403s). Any rule change lands in BOTH files.
+ *
  * Master gate: a human can only act once they are the Human-In-Charge (HIC) of the role.
  *  - Support roles become HIC by pressing Take Control (roleControls[role].controller === "human").
  *  - The Incident Commander is inherently HIC once command has been transferred.
  * When a role is AI-in-Control the whole support pane is observe-only (Dave, 2026-06-10).
  *
+ * Pre-ToC restrictions (Dave, 2026-06-11): until the IC takes command, ONLY the FO-bypass
+ * roles (Safety Officer, Ops Section Chief) can be taken control of by a human — and even
+ * they can only self-assign (own) or send to FO, because there is no human IC to route to.
+ *
  * Routing options:
- *  - Every support role: "own" + "send to IC".
+ *  - Every support role: "own"; "send to IC" only once command has been transferred.
  *  - "send to FO" additionally for the FO-bypass roles (Safety Officer, Ops Section Chief).
  *  - Incident Commander override: "own" + "send to FO" + "assign to an active HIC support
  *    role"; the IC never gets "send to IC" (it would route to itself).
@@ -31,13 +38,25 @@ export function isHumanInCharge(role: string, incident: IncidentDocument): boole
     return incident.roleControls.find(rc => rc.role === role)?.controller === "human";
 }
 
+/**
+ * A human may take control of `role` right now (Dave, 2026-06-11): before Transfer of
+ * Command only the FO-bypass roles are takeable — every other support role unlocks once
+ * the IC is in command. Never applies to the IC (it becomes HIC via ToC, not Take Control).
+ */
+export function canTakeControl(role: string, incident: IncidentDocument): boolean {
+    if (role === "incident-commander") return false;
+    return FO_BYPASS_ROLES.has(role) || incident.commandTransferredAt != null;
+}
+
 /** Routing actions available to `role` for a pending recommendation. Empty when not HIC. */
 export function routingActionsFor(role: string, incident: IncidentDocument): RoutingAction[] {
     if (!isHumanInCharge(role, incident)) return [];
     if (role === "incident-commander") {
         return ["own", "send_to_fo", "assign_to_role"];
     }
-    const actions: RoutingAction[] = ["own", "send_to_ic"];
+    const actions: RoutingAction[] = ["own"];
+    // No human IC pre-ToC — nothing to route to (Dave, 2026-06-11).
+    if (incident.commandTransferredAt != null) actions.push("send_to_ic");
     if (FO_BYPASS_ROLES.has(role)) actions.push("send_to_fo");
     return actions;
 }

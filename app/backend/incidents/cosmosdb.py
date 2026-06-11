@@ -50,6 +50,7 @@ from models.incidents import (
 from incidents.routing import (
     FO_BYPASS_ROLES,
     active_hic_support_roles,
+    assert_can_take_control,
     assert_human_in_charge,
     assert_publish_target_allowed,
 )
@@ -1031,6 +1032,8 @@ async def take_control(
         raise PermissionError(
             f"A human may only take control of their own role (acting as {actor.role}, not {role})."
         )
+    # Pre-ToC only the FO-bypass roles (SO, OSC) are takeable (Dave, 2026-06-11).
+    assert_can_take_control(doc, role)
     now = _now_iso()
     existing = next((rc for rc in doc.role_controls if rc.role == role), None)
     if existing is None:

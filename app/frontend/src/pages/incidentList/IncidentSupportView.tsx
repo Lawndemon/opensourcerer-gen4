@@ -27,7 +27,7 @@ import { assignRoleAction, closeIncident, commentRoleAction, extractForms, getIn
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
 import type { ActingRole } from "../../roles";
 import { getRoleDefinition } from "../../roles";
-import { activeHicSupportRoles } from "../../recommendationRouting";
+import { activeHicSupportRoles, canTakeControl } from "../../recommendationRouting";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "../incidentKiosk/AnalyzePopup";
@@ -112,6 +112,9 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
         actingRole !== "fire-officer" &&
         actingRole !== "site-administrator" &&
         incident.lockedAt == null;
+    // Pre-ToC only the FO-bypass roles (SO, OSC) may be taken over (Dave, 2026-06-11);
+    // backend take_control enforces the same rule (403).
+    const takeControlAvailable = !!actingRole && canTakeControl(actingRole, incident);
     const myRoleActions = actingRole ? incident.roleActions.filter(a => a.assignedTo === actingRole) : [];
     // IC can refine/remove scene conditions just like the FO does, but only while the scene is
     // open (i.e., before Loss Stop) and the incident isn't event-locked. Backend enforces both.
@@ -402,10 +405,14 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                                         <Button appearance="subtle" size="small" onClick={() => void handleStandDown()}>
                                             Stand Down
                                         </Button>
-                                    ) : (
+                                    ) : takeControlAvailable ? (
                                         <Button appearance="primary" size="small" onClick={() => void handleTakeControl()}>
                                             Take Control
                                         </Button>
+                                    ) : (
+                                        <span style={{ fontSize: "0.72rem", color: "#888" }}>
+                                            Take Control available after Transfer of Command
+                                        </span>
                                     )}
                                 </div>
                             )}

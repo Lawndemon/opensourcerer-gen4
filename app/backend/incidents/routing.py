@@ -13,8 +13,12 @@ Master gate (Dave, 2026-06-10):
    never HIC before Transfer of Command).
  - AI-in-Control == the whole support pane is observe-only.
 
+Pre-ToC restrictions (Dave, 2026-06-11): until the IC takes command, ONLY the FO-bypass
+roles (Safety Officer, Ops Section Chief) can be taken control of by a human — and even
+they can only self-assign (own) or send to FO, because there is no human IC to route to.
+
 Routing options:
- - Every support role: "own" + "send_to_ic".
+ - Every support role: "own"; "send_to_ic" only once command has been transferred.
  - "send_to_fo" additionally for the FO-bypass roles (Safety Officer, Ops Section Chief).
  - IC override: "own" + "send_to_fo" + "assign_to_role"; the IC never gets "send_to_ic".
  - IC assignment targets are restricted to ACTIVE HIC support roles, never the IC itself.
@@ -52,13 +56,38 @@ def assert_human_in_charge(doc: "IncidentDocument", role: str) -> None:
         )
 
 
+def can_take_control(doc: "IncidentDocument", role: str) -> bool:
+    """A human may take control of `role` right now (Dave, 2026-06-11): before Transfer of
+    Command only the FO-bypass roles are takeable — every other support role unlocks once
+    the IC is in command. Never applies to the IC (it becomes HIC via ToC, not Take Control)."""
+    if role == "incident-commander":
+        return False
+    return role in FO_BYPASS_ROLES or doc.command_transferred_at is not None
+
+
+def assert_can_take_control(doc: "IncidentDocument", role: str) -> None:
+    """Raise PermissionError unless `role` may currently be taken over by a human (→ 403)."""
+    if not can_take_control(doc, role):
+        if role == "incident-commander":
+            raise PermissionError(
+                "The Incident Commander assumes control via Transfer of Command, not Take Control."
+            )
+        raise PermissionError(
+            f"Before Transfer of Command only the Safety Officer and Operations Section Chief "
+            f"can be taken over by a human; {role} unlocks once the IC is in command."
+        )
+
+
 def routing_actions_for(doc: "IncidentDocument", role: str) -> set[str]:
     """Routing actions available to `role` for a pending recommendation. Empty when not HIC."""
     if not is_human_in_charge(doc, role):
         return set()
     if role == "incident-commander":
         return {"own", "send_to_fo", "assign_to_role"}
-    actions = {"own", "send_to_ic"}
+    actions = {"own"}
+    # No human IC pre-ToC — nothing to route to (Dave, 2026-06-11).
+    if doc.command_transferred_at is not None:
+        actions.add("send_to_ic")
     if role in FO_BYPASS_ROLES:
         actions.add("send_to_fo")
     return actions
