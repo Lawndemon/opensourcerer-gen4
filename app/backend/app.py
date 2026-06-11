@@ -866,6 +866,8 @@ async def ic_decision(auth_claims: dict[str, Any], incident_id: str, contributio
             decision=body.decision, actor=actor,
         )
         return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
@@ -896,6 +898,8 @@ async def attest_contribution(auth_claims: dict[str, Any], incident_id: str, con
             tenant_id=tenant_id, incident_id=incident_id, contribution_id=contribution_id, actor=actor
         )
         return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
@@ -1474,6 +1478,8 @@ async def publish_support_recommendation(
             scene_last_updated=updated_doc.scene_summary.last_updated if updated_doc.scene_summary else None,
         )
         return jsonify(response.model_dump(by_alias=True))
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
@@ -1522,6 +1528,8 @@ async def dismiss_support_recommendation(
             scene_last_updated=updated_doc.scene_summary.last_updated if updated_doc.scene_summary else None,
         )
         return jsonify(response.model_dump(by_alias=True))
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404
     except Exception as error:
@@ -1573,6 +1581,8 @@ async def add_custom_support_recommendation(auth_claims: dict[str, Any], inciden
             scene_last_updated=updated_doc.scene_summary.last_updated if updated_doc.scene_summary else None,
         )
         return jsonify(response.model_dump(by_alias=True))
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404
     except Exception as error:

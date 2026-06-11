@@ -96,13 +96,13 @@ const RecommendationRow = ({ row, onPublish, onDismiss, onConfirm, onWithdraw, o
                 ) : row.status === "published" && row.provenance === "ai" && (onConfirm || onWithdraw) ? (
                     <>
                         {onConfirm && (
-                            <Tooltip content="Confirm — you take ownership (AI → HIC)" relationship="label">
+                            <Tooltip content="Confirm AI Recommendation (AI → HIC)" relationship="label">
                                 <Button
                                     appearance="subtle"
                                     size="small"
                                     icon={<Checkmark24Regular />}
                                     className={styles.publishButton}
-                                    aria-label={`Confirm: ${row.text}`}
+                                    aria-label={`Confirm AI Recommendation: ${row.text}`}
                                     onClick={() => void onConfirm(row.id)}
                                 />
                             </Tooltip>

@@ -47,6 +47,12 @@ from models.incidents import (
     RoleControl,
     SceneConditionAndAction,
 )
+from incidents.routing import (
+    FO_BYPASS_ROLES,
+    active_hic_support_roles,
+    assert_human_in_charge,
+    assert_publish_target_allowed,
+)
 
 
 # === Module constants ===========================================================
@@ -62,8 +68,8 @@ _DEFAULT_INCIDENTS_CONTAINER_NAME = "incidents"
 # Roles whose published recommendations bypass the IC gate and go straight to the FO kiosk
 # (flagged), even after Transfer of Command — life-safety / front-line ops must not wait on the
 # approval queue. SME 2026-06: generalized from Safety Officer alone to also include the
-# Operations Section Chief.
-_DIRECT_TO_FO_ROLES = {"safety-officer", "section-chief-operations"}
+# Operations Section Chief. Sourced from incidents/routing.py (single source of truth).
+_DIRECT_TO_FO_ROLES = FO_BYPASS_ROLES
 
 
 # === Time helpers ===============================================================
@@ -478,6 +484,8 @@ async def add_custom_recommendation(
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
         raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    # Server-side HIC gate: custom-add is a curation action — requires HIC of the role.
+    assert_human_in_charge(doc, role)
     now = _now_iso()
     item = PendingRecommendation(
         id=str(uuid.uuid4()),
@@ -586,6 +594,11 @@ async def publish_recommendation(
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
         raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    # Server-side HIC gate (closes the 2026-06-10 UI-only follow-up): acting on a role's
+    # pending list requires a human in charge of that role, and the routing target must be
+    # one the role is actually allowed (e.g. the IC never sends to itself).
+    assert_human_in_charge(doc, role)
+    assert_publish_target_allowed(doc, role, target)
 
     role_entry = next((rr for rr in doc.role_recommendations if rr.role == role), None)
     if role_entry is None:
@@ -648,6 +661,13 @@ async def attest_support_contribution(
     target = next((c for c in doc.support_contributions if c.id == contribution_id), None)
     if target is None:
         raise ValueError(f"Support contribution not found: {contribution_id}")
+    # Server-side HIC gate: only the named human in charge of the originating role may
+    # attest — attestation IS the act of that human taking ownership.
+    if actor.role != target.added_by.role:
+        raise PermissionError(
+            f"Only the {target.added_by.role} role can attest this recommendation."
+        )
+    assert_human_in_charge(doc, actor.role)
     if target.provenance == "hic":
         return doc  # already attested; don't duplicate the event.
 
@@ -740,6 +760,9 @@ async def withdraw_support_contribution(
         raise PermissionError(
             f"Only the {contribution.added_by.role} role (or the Incident Commander) can withdraw this AI recommendation."
         )
+    # Server-side HIC gate: withdrawing is a curation action — requires HIC of the acting
+    # role (for the IC that means command must have been transferred).
+    assert_human_in_charge(doc, actor.role)
     if contribution.withdrawn:
         # Idempotent — already withdrawn.
         return doc
@@ -779,6 +802,8 @@ async def decide_gated_contribution(
     contribution = next((c for c in doc.support_contributions if c.id == contribution_id), None)
     if contribution is None:
         raise ValueError(f"Contribution not found: {contribution_id}")
+    # Server-side HIC gate: the IC is only HIC (and the gate only exists) post-ToC.
+    assert_human_in_charge(doc, "incident-commander")
 
     contribution.ic_status = "approved" if decision == "approved" else "rejected"
     doc.event_log.append(
@@ -808,6 +833,8 @@ async def dismiss_recommendation(
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
         raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    # Server-side HIC gate: dismissing from a role's pending list requires HIC of that role.
+    assert_human_in_charge(doc, role)
 
     role_entry = next((rr for rr in doc.role_recommendations if rr.role == role), None)
     if role_entry is None:
@@ -1085,9 +1112,18 @@ async def assign_role_action(
     if source == "self_assigned":
         if assigned_to != actor.role:
             raise PermissionError("Self-assignment (Take Ownership) must target your own role.")
+        # Server-side HIC gate: owning an item requires being HIC of your role.
+        assert_human_in_charge(doc, actor.role)
     elif source == "ic_assigned":
         if actor.role != "incident-commander":
             raise PermissionError("Only the Incident Commander can assign actions to other roles.")
+        # Server-side HIC gate: IC assignment requires command transferred, and targets are
+        # restricted to ACTIVE HIC support roles (a human has taken them over) — never the IC.
+        assert_human_in_charge(doc, "incident-commander")
+        if assigned_to not in active_hic_support_roles(doc):
+            raise PermissionError(
+                f"The IC can only assign to support roles a human has taken control of; {assigned_to} is not an active HIC role."
+            )
     else:
         raise ValueError(f"Unknown role-action source: {source}")
     action = RoleAction(
@@ -1137,6 +1173,8 @@ async def comment_role_action(
         raise ValueError(f"Role action not found: {action_id}")
     if actor.role != action.assigned_to and actor.role != "incident-commander":
         raise PermissionError("Only the assigned role (or the IC) can comment on this action.")
+    # Server-side HIC gate: acting on role actions requires being HIC of your role.
+    assert_human_in_charge(doc, actor.role)
     action.comments.append(RoleActionComment(text=text, author=actor, timestamp=_now_iso()))
     doc.event_log.append(
         make_audit_event(
@@ -1165,6 +1203,8 @@ async def resolve_role_action(
         raise ValueError(f"Role action not found: {action_id}")
     if actor.role != action.assigned_to and actor.role != "incident-commander":
         raise PermissionError("Only the assigned role (or the IC) can resolve this action.")
+    # Server-side HIC gate: acting on role actions requires being HIC of your role.
+    assert_human_in_charge(doc, actor.role)
     if action.status == "resolved":
         return doc
     action.status = "resolved"

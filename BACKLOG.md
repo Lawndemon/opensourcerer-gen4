@@ -2,7 +2,7 @@
 
 Durable task list for opensourcerer-gen4, an emergency-response RAG built on the `azure-search-openai-demo` template. This file is the source of truth between sessions; session-scoped task lists inside the IDE are transient and should be reconciled against this document.
 
-**Last updated:** 2026-05-25 (Microsoft-template decoupling plan documented; not running GitHub CI per Dave)
+**Last updated:** 2026-06-11 (server-side HIC enforcement; struck the removed Scene Type entries; marked refinement-preservation shipped)
 
 ---
 
@@ -18,7 +18,7 @@ _Nothing in flight — pick up from "Next up"._
 
 **SHIPPED 2026-06-04 (frontend + fixtures + harness).** `KioskScenario.transcript: string` → `phases: string[]` (`fixtures.ts`); existing fixtures became length-1, new `single_family_exposure` fixture has 4 phases parsed from the SME's `Single Family Structure Fire with Exposure.docx` on the "validate IAP" delimiter (now the default scenario). Kiosk `in_incident` state gained `phases` + `currentPhaseIndex`; Start runs segment 1 only; new `handleRunPhase` appends the next segment to the accumulated transcript and re-runs Validate against the union (non-blocking, mirrors Re-Validate). Data-driven **"Run Phase N"** button lives in the `.demoControls` cluster and vanishes once `currentPhaseIndex === phases.length - 1` (proven with N=4, not hardcoded to 3). Backend `06_single_family_exposure_phased.json` mirrors the phases; `scripts/test_validate_iap.py` runs phased fixtures cumulatively against one incident id (`--fixture 6`). Cross-phase stable-id reconciliation is **delegated to the existing append-not-replace Validate path** (Run Phase = Re-Validate with an expanded transcript) — the thing to eyeball on the deployed run is that items update in place rather than duplicate P1→P4. Verified: full-project `tsc` clean (bar a known stale-mount truncation artifact), harness compiles, all fixture JSON valid.
 
-**REDESIGNED 2026-06-04 (SME, same day) — injects are now FILE-BASED, not scripted phases.** The scripted-phases approach was too rigid: the "Add Inject" button only appeared for the one multi-phase fixture, and the SME wants **any** scenario to take more chatter on demand. So: the `phases`/`currentPhaseIndex` state + `handleRunPhase` scripted advance were removed; Start uses `phases[0]` as the opening segment; the **Add Inject** button now shows for ANY running incident (`!locked`, no phase gating) and opens a new **`InjectPopup`** modal with a **Select-file** input (.txt/.md/.pdf/.docx, reusing the `/api/transcript/extract` path). The chosen file's text is appended to the transcript and re-validated via `handleInject` (same non-blocking pass as Re-Validate). The `single_family_exposure` fixture's phases 2–4 are now vestigial (Start uses only phase 1); they could be exported as inject files later. Verified: full-project `tsc` clean (0 errors). **FUTURE (SME, placeholder):** the inject popup should also offer a **free-text box** and a **voice-input** option for future demos, alongside file select.
+**REDESIGNED 2026-06-04 (SME, same day) — injects are now FILE-BASED, not scripted phases.** The scripted-phases approach was too rigid: the "Add Inject" button only appeared for the one multi-phase fixture, and the SME wants **any** scenario to take more chatter on demand. So: the `phases`/`currentPhaseIndex` state + `handleRunPhase` scripted advance were removed; Start uses `phases[0]` as the opening segment; the **Add Inject** button now shows for ANY running incident (`!locked`, no phase gating) and opens a new **`InjectPopup`** modal with a **Select-file** input (.txt/.md/.pdf/.docx, reusing the `/api/transcript/extract` path). The chosen file's text is appended to the transcript and re-validated via `handleInject` (same non-blocking pass as Re-Validate). The `single_family_exposure` fixture's phases 2–4 are now vestigial (Start uses only phase 1); they could be exported as inject files later. Verified: full-project `tsc` clean (0 errors). **FUTURE (SME, placeholder):** the inject popup should also offer a **free-text box** and a **voice-input** option for future demos, alongside file select. **(2026-06-10, Dave: the free-text box is the next planned enhancement — pull it forward; voice stays future. Target popup copy: "select transcript or type injection narrative".)**
 
 _Original scripted-phases spec below (superseded by the file-based redesign above)._
 
@@ -58,6 +58,8 @@ The SME asked whether AI can order scene conditions by "importance" — not mere
 
 ### ICS Scene Type triage detection + Fire Officer confirmation control (SME-requested 2026-05-22)
 
+**BUILT, THEN DELIBERATELY REMOVED (2026-06-04 → 2026-06-09); STRUCK 2026-06-11 (Dave).** The Type 5→1 selector shipped and was then removed in commits `5a489d6` ("Replace scene type confirmation with explicit scene conditions confirmation"), `9776165`, `f7f5be9`, `4a2454f`. The FO's **"Confirm Scene Conditions"** button is now the explicit trigger that fires downstream auto-population; legacy `sceneType` fields are stripped on document parse and `scene_type_confirmed` survives only as a legacy audit-event type. Dave confirmed 2026-06-11: keep it removed. _Original spec retained below for the record only — do not build from it._
+
 Add ICS Canada incident **Type** (5 → 1) detection to the initial triage. The initial scene extraction estimates the applicable Type from the chatter; the Fire Officer confirms it (or overrides) on the kiosk. **Confirming the Type is a downstream trigger** — it fires support-recommendation auto-population (see [[Auto-populate support recommendations on scene-type confirm]]).
 
 **Source (federal-tier, ICS Canada — consistent with the doc cascade):** Type 5 (lowest; 1–2 single resources, ≤6 personnel, Command/General Staff not activated) → Type 4 (some staff if needed; contained within hours) → Type 3 (capabilities exceed initial response; most staff activated; Type 3 IMTs) → Type 2 (beyond local jurisdiction; regional/provincial; most/all staff filled; multi-operational-period) → Type 1 (most complex; national/international resources; Unified Command; extensive logistics/planning).
@@ -81,6 +83,8 @@ Add ICS Canada incident **Type** (5 → 1) detection to the initial triage. The 
 - Per [[Don't over-engineer for the SME's short summary transcripts]], the AI Type estimate must work off streaming STT chatter, not the SME's tidy summary paragraphs — don't tune it to the placeholder shape.
 
 ### Auto-populate support recommendations on scene-type confirm — ICS-urgency ordering, role bubbles, AI/HIC provenance (SME-requested 2026-05-22)
+
+**LARGELY SHIPPED; trigger changed; STRUCK 2026-06-11.** The substance of this entry is live: the auto-populate endpoint (`/auto-populate-recommendations`), role bubbles with `acronym` + `vestColor` on `roles.ts`, the three ICS urgency headers, AI/HIC provenance + per-item attestation, and the `support_recommendation_edited` / `support_recommendation_attested` audit events. What changed: the trigger is the FO's **"Confirm Scene Conditions"** press, not a scene-Type confirm (Scene Type was removed — see the struck entry above). _Original spec retained below for the record only._
 
 When the Fire Officer confirms the scene Type (see [[ICS Scene Type triage detection]]), **all support roles automatically generate recommendations** into the Fire Officer's Scene Support pane — no per-role manual fetch.
 
@@ -197,6 +201,8 @@ Blocked on auth being live (because chat history partitions by Entra user ID). S
 ---
 
 ### Re-Validate IAP must preserve FO refinements — append, not replace (SME, 2026-05-29)
+
+**SHIPPED 2026-05-30** (commit `ffa18e0` "Preserve refinements on Re-Validate IAP by appending new evidence instead of replacing"). Inject rides the same re-validate path, so injects preserve refinements too. _Original note below._
 
 SME tested Refine on the FO portal and loves it, but found that pressing Re-Validate IAP wipes the refinements out — the re-extraction returns a fresh conditions list and the previously-refined wording is gone. He wants Re-Validate to **append** new evidence to the existing scene state rather than replace it, preserving every refinement and human edit that was applied between validations.
 
@@ -735,6 +741,41 @@ REMAINING (Phase 3 — AI auto-fill + per-form curation):
 ---
 
 ## Done
+
+### 2026-06-11 — Server-side HIC enforcement (closes the 2026-06-10 UI-only follow-up)
+
+**Outcome:** The Human-In-Charge gate is now enforced where it counts — the backend. A new `app/backend/incidents/routing.py` is the server-side twin of `app/frontend/src/recommendationRouting.ts` (same rules, one module per side of the wire; change BOTH or neither): `is_human_in_charge` (support role → `role_controls[role].controller == "human"`; IC → `command_transferred_at != null`), `routing_actions_for` (shared core + FO-bypass + IC override, IC never send-to-IC), `assert_publish_target_allowed`, `active_hic_support_roles`. `FO_BYPASS_ROLES` moved here; `cosmosdb._DIRECT_TO_FO_ROLES` now aliases it.
+
+**Gates added (PermissionError → 403):** `publish_recommendation` (HIC + routing-target validation), `dismiss_recommendation`, `add_custom_recommendation`, `attest_support_contribution` (own-role only + HIC), `withdraw_support_contribution` (HIC on top of the existing owner-or-IC check), `decide_gated_contribution` (IC HIC, i.e. post-ToC), `assign_role_action` (self-assign → HIC of own role; IC-assign → post-ToC + target must be an *active HIC* support role, mirroring the frontend dropdown), `comment_role_action` / `resolve_role_action` (HIC of acting role). `take_control` / `stand_down` deliberately ungated — they're how you *become* HIC. `refresh` (regenerate suggestions) left ungated: observe-only mode may still refresh the AI view; it mutates no curation state.
+
+**app.py:** added `except PermissionError → 403` to the five endpoints that previously only caught ValueError (publish, dismiss, custom, attest, ic-decision).
+
+**Known limit (unchanged trust model):** `acting_role` is still client-supplied via `_actor_from` — this hardens against a *well-behaved client in the wrong state*, not a hostile client forging its role. Role-claim verification (Entra group / UPN mapping) is the existing future-work item.
+
+**Verification:** `ast.parse` clean on `app.py`, `incidents/cosmosdb.py`, `incidents/routing.py`; line counts confirm no mount-truncation; grep confirms no other callers of the gated cosmos fns. Backend-only change — no frontend deploy needed, but runtime-test publish/dismiss/attest as a non-HIC role (expect 403) and as HIC (expect success) on the next deploy. **Runtime-tested by Dave 2026-06-11 — working.**
+
+**QoL (Dave, 2026-06-11, post-test):** attest tooltip in `RecommendationRow.tsx` renamed "Confirm — you take ownership (AI → HIC)" → **"Confirm AI Recommendation (AI → HIC)"** (aria-label matched) — "ownership" wording is reserved for the Own routing action so the two don't collide. `tsc` clean.
+
+### 2026-06-10 — Support-role control gating + unified recommendation-routing model + IC assignment (SME bug batch)
+
+**Outcome:** Resolved an SME-testing batch around who may act on recommendations and how they route. A single per-role control gate now governs the whole support pane (AI-in-Control → observe-only; Human-In-Charge → all actions). Routing is consolidated into one shared helper with role-specific extensions. The IC can assign to active HIC roles. The "Own" 404 is fixed at the root (atomic).
+
+**Design (locked with Dave 2026-06-10):**
+- **Master gate:** AI-in-Control = whole support pane read-only (publish / dismiss / custom-add / attest / routing all disabled); HIC unlocks all. Support roles become HIC via **Take Control**; the **IC is HIC once command is transferred** (`commandTransferredAt != null`) — no separate toggle.
+- **Routing (shared core + role extensions):** every support role gets **own** + **send to IC**; **send to FO** added only for **Safety Officer & Ops Section Chief**; **IC override** = own + send to FO + assign-to-active-HIC-role, and the IC **never** gets send-to-IC.
+- **IC assignment** targets are restricted to **active HIC support roles** only (a human has taken them over), never the IC itself.
+
+**What changed:**
+- NEW `app/frontend/src/recommendationRouting.ts` — single source of truth: `RoutingAction` type, `isHumanInCharge(role, incident)`, `routingActionsFor(role, incident)`, `activeHicSupportRoles(incident)`. Both `RecommendationRow` and the IC pane read from it.
+- `app/frontend/.../RecommendationsPanel.tsx` — `isHic` / `actionsLocked` master gate; buttons wired through `routingActionsFor`; custom-add disabled + an "AI in Control — take control to curate" caption under AI control; `handleTakeOwnership` dropped its second `dismiss` call.
+- `app/frontend/.../IncidentSupportView.tsx` — IC "Assign to…" dropdown now lists `activeHicSupportRoles` only (was all IMT roles), with a "No active HIC roles" disabled state.
+- `app/backend/incidents/cosmosdb.py` — `assign_role_action` now **consumes the source pending recommendation in the same write** (own / assign atomic), eliminating the assign+dismiss two-call flow that 404'd.
+
+**Also shipped this session:** custom-contribution category selector (see Next up); support-pane + IC-pane recommendation routing buttons.
+
+**Verification:** backend `ast.parse` clean on the 3 touched modules; full-project frontend `tsc --noEmit` 0 errors. Hit the recurring mount-truncation bug on `CustomAddForm.tsx` (Write truncated at line 69) — caught by tsc, rewrote via bash heredoc. **Backend + frontend must deploy together.**
+
+**Open follow-up:** ~~the HIC gate is UI-enforced only; backend publish/dismiss endpoints don't yet check HIC (acceptable for demo; add server-side checks if hardening later).~~ **CLOSED 2026-06-11** — see Done 2026-06-11 (server-side HIC enforcement).
 
 ### 2026-05-21 — Incident Commander authorized to close incidents
 
