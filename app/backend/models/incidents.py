@@ -281,6 +281,10 @@ AuditEventType = Literal[
     "scene_type_confirmed",
     "role_control_taken",
     "role_control_released",
+    # Fire Officer reconnected to an active incident after a logout/reload (SME, 2026-06-16).
+    # Not an alternate control state — the FO is implicitly in charge of the kiosk; this just
+    # records the screen-facing act of resuming so the subsequent actions have provenance.
+    "fire_officer_resumed",
     "role_action_assigned",
     "role_action_commented",
     "role_action_resolved",

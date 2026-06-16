@@ -23,7 +23,7 @@
  *    role"; the IC never gets "send to IC" (it would route to itself).
  */
 
-import type { IncidentDocument } from "./api/incidentTypes";
+import type { IncidentDocument, SupportContribution } from "./api/incidentTypes";
 
 export type RoutingAction = "own" | "send_to_ic" | "send_to_fo" | "assign_to_role";
 
@@ -61,7 +61,20 @@ export function routingActionsFor(role: string, incident: IncidentDocument): Rou
     return actions;
 }
 
-/** Support roles a human has taken control of — the IC's valid assignment targets. */
+/**
+ * The support contributions the Fire Officer can see on the kiosk: not withdrawn, and gated to
+ * a FO-visible status (not_gated pre-ToC, IC-approved, or SO/OSC safety_bypass). Centralized so
+ * the FO kiosk and the IC's "Visible to the Fire Officer" pane render the exact same set — the
+ * IC must see everything reaching the FO before, during, and after a human takes control
+ * (SME, 2026-06-16). Display filter only (no routing authority), so it lives frontend-side.
+ */
+export function foVisibleContributions(source: { supportContributions: SupportContribution[] }): SupportContribution[] {
+    return source.supportContributions.filter(
+        c => !c.withdrawn && (c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass")
+    );
+}
+
+/** Support roles a human has taken control of — the IC's valid assignment targets (the IC's HIC list). */
 export function activeHicSupportRoles(incident: IncidentDocument): string[] {
     return incident.roleControls
         .filter(rc => rc.controller === "human" && rc.role !== "incident-commander")

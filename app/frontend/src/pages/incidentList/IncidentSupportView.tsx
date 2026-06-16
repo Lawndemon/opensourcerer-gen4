@@ -23,11 +23,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { assignRoleAction, closeIncident, commentRoleAction, extractForms, getIncident, icDecision, removeCondition, resolveRoleAction, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP } from "../../api/incidents";
+import { assignRoleAction, closeIncident, commentRoleAction, extractForms, getIncident, icDecision, removeCondition, resolveRoleAction, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP, withdrawSupportContribution } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
 import type { ActingRole } from "../../roles";
 import { getRoleDefinition } from "../../roles";
-import { activeHicSupportRoles, canTakeControl } from "../../recommendationRouting";
+import { activeHicSupportRoles, canTakeControl, foVisibleContributions } from "../../recommendationRouting";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "../incidentKiosk/AnalyzePopup";
@@ -91,6 +91,10 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
     const isIncidentCommander = actingRole === "incident-commander";
     const commandTransferred = incident.commandTransferredAt != null;
     const pendingForIc = incident.supportContributions.filter(c => c.icStatus === "pending" && !c.withdrawn);
+    // Everything the Fire Officer can currently see (SME, 2026-06-16). The IC must have the same
+    // visibility as the FO — including not_gated (pre-ToC), IC-approved, and SO/OSC safety_bypass
+    // items — before, during, and after a human takes control. Same filter the kiosk uses.
+    const foVisibleForIc = foVisibleContributions(incident);
     // IC can only assign a recommendation to a role that a human has actually taken control of
     // (an active HIC support role); never to itself (SME bug batch 2026-06-10).
     const icAssignTargets = activeHicSupportRoles(incident);
@@ -334,6 +338,23 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                 setIncident(updated);
             } catch (e) {
                 setActionError(e instanceof Error ? e.message : "Could not record decision.");
+            }
+        },
+        [actingRole, incident.id]
+    );
+
+    // IC override (SME, 2026-06-16): pull back anything reaching the Fire Officer — including
+    // human-owned (HIC) and Safety Officer / OSC safety_bypass items. Backend enforces that only
+    // the IC (in command) may withdraw a non-AI item.
+    const handleWithdrawContribution = useCallback(
+        async (contributionId: string) => {
+            if (!actingRole) return;
+            setActionError(null);
+            try {
+                const updated = await withdrawSupportContribution(incident.id, contributionId, { actingRole, userId: "support-view" });
+                setIncident(updated);
+            } catch (e) {
+                setActionError(e instanceof Error ? e.message : "Could not withdraw contribution.");
             }
         },
         [actingRole, incident.id]
@@ -595,6 +616,47 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                                         <Button size="small" onClick={() => handleIcDecision(c.id, "rejected")}>
                                             Reject
                                         </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {/* ----- IC mirror of the Fire Officer's view (SME 2026-06-16) ----- */}
+                {/* The IC sees everything reaching the FO — before, during, and after a human takes
+                    control — and (once in command) can pull any of it back, including safety_bypass. */}
+                {isIncidentCommander && (
+                    <section className={kioskStyles.pane}>
+                        <div className={kioskStyles.paneHeader}>
+                            <Title3>Visible to the Fire Officer</Title3>
+                            <Caption1 className={kioskStyles.panelSubheading}>
+                                Everything currently on the Fire Officer's kiosk: AI-surfaced, IC-approved, and
+                                Safety / Operations items that bypass straight to the kiosk.
+                                {commandTransferred ? " You can withdraw any item." : " Take command to withdraw items."}
+                            </Caption1>
+                        </div>
+                        {foVisibleForIc.length === 0 ? (
+                            <Body1 className={kioskStyles.empty}>Nothing on the Fire Officer's kiosk yet.</Body1>
+                        ) : (
+                            <div className={kioskStyles.itemList}>
+                                {foVisibleForIc.map(c => (
+                                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(128,128,128,0.2)" }}>
+                                        <Body1 style={{ flex: 1 }}>
+                                            <strong>[{c.addedBy.role}]</strong> {c.text}
+                                            {c.icStatus === "safety_bypass" && (
+                                                <span style={{ marginLeft: 6, fontSize: "0.7rem", fontWeight: 700, color: "#C62828" }}>⚑ SAFETY</span>
+                                            )}
+                                            {c.icStatus === "approved" && (
+                                                <span style={{ marginLeft: 6, fontSize: "0.7rem", fontWeight: 700, color: "#2E7D32" }}>APPROVED</span>
+                                            )}
+                                            <Caption1 style={{ marginLeft: 6, opacity: 0.7 }}>{c.provenance === "ai" ? "AI" : "HIC"}</Caption1>
+                                        </Body1>
+                                        {commandTransferred && !isLocked && (
+                                            <Button size="small" appearance="subtle" onClick={() => void handleWithdrawContribution(c.id)}>
+                                                Withdraw
+                                            </Button>
+                                        )}
                                     </div>
                                 ))}
                             </div>

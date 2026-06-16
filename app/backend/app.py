@@ -726,6 +726,36 @@ async def stand_down_role_control(auth_claims: dict[str, Any], incident_id: str,
         return error_response(error, f"/api/incidents/{incident_id}/roles/{role}/stand-down")
 
 
+@bp.route("/api/incidents/<incident_id>/fire-officer/resume", methods=["POST"])
+@authenticated
+async def resume_fire_officer(auth_claims: dict[str, Any], incident_id: str):
+    """The Fire Officer reconnects to an active incident after an accidental logout/reload.
+
+    Records a `fire_officer_resumed` audit event — no alternate control state (SME, 2026-06-16).
+    """
+    if (disabled := _incidents_enabled_or_503()) is not None:
+        return disabled
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    try:
+        body = RoleControlRequest.model_validate(await request.get_json())
+    except ValidationError as ve:
+        return jsonify({"error": "request body did not match RoleControlRequest", "details": ve.errors()}), 400
+    actor = _actor_from(auth_claims, body.acting_role, body.user_id)
+    tenant_id = _tenant_id_from(auth_claims)
+    try:
+        updated = await incidents_cosmos.resume_fire_officer(
+            tenant_id=tenant_id, incident_id=incident_id, actor=actor
+        )
+        return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as error:
+        return error_response(error, f"/api/incidents/{incident_id}/fire-officer/resume")
+
+
 @bp.route("/api/incidents/<incident_id>/role-actions", methods=["POST"])
 @authenticated
 async def assign_role_action(auth_claims: dict[str, Any], incident_id: str):

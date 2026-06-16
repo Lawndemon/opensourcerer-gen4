@@ -162,6 +162,16 @@ export async function standDownRoleControl(incidentId: string, role: string, req
 }
 
 /**
+ * POST /api/incidents/{id}/fire-officer/resume — the Fire Officer reconnects to an active
+ * incident after an accidental logout/reload. Logs a fire_officer_resumed audit event; no
+ * alternate control state. Returns the updated incident.
+ */
+export async function resumeFireOfficer(incidentId: string, request: RoleControlRequest, signal?: AbortSignal): Promise<IncidentDocument> {
+    const envelope = await postJson<IncidentEnvelope>(`/api/incidents/${encodeURIComponent(incidentId)}/fire-officer/resume`, request, signal);
+    return envelope.incident;
+}
+
+/**
  * POST /api/incidents/{id}/role-actions — create a Role Action (self-assigned Take Ownership,
  * or IC-assigned). Returns the updated incident.
  */

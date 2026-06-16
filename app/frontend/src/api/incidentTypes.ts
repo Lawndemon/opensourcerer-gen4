@@ -167,6 +167,7 @@ export type AuditEventType =
     | "phase_transitioned"
     | "role_control_taken"
     | "role_control_released"
+    | "fire_officer_resumed"
     | "role_action_assigned"
     | "role_action_commented"
     | "role_action_resolved";

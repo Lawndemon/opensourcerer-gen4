@@ -62,6 +62,12 @@ export const DictationButton = ({ onTextChange, getBaseText, disabled, onError }
             onError?.("Voice input is not supported in this browser — try Chrome or Edge.");
             return;
         }
+        // SpeechRecognition (like the mic itself) only works in a secure context. Over plain HTTP
+        // the engine silently no-ops, which reads as "voice doesn't work" — surface it clearly.
+        if (typeof window.isSecureContext === "boolean" && !window.isSecureContext) {
+            onError?.("Voice input needs a secure (https://) connection — it won't run over plain http.");
+            return;
+        }
         const base = getBaseText();
         // Separate a new narration from existing text with a newline (transcript-style).
         baseRef.current = base && !/\s$/.test(base) ? `${base}\n` : base;

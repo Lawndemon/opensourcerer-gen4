@@ -19,7 +19,7 @@
  * into state. The Fire Officer doesn't need to press anything to see them.
  */
 
-import { useCallback, useEffect, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Body1, Button, Caption1, Spinner, Subtitle1, Title1, Title3 } from "@fluentui/react-components";
 import { ArrowClockwise24Regular, Checkmark24Regular, Stop24Filled } from "@fluentui/react-icons";
 
@@ -33,8 +33,10 @@ import {
     lossStop as lossStopRequest,
     autoPopulateRecommendations,
     removeCondition,
+    resumeFireOfficer,
     validateIAP
 } from "../../api/incidents";
+import { foVisibleContributions } from "../../recommendationRouting";
 import { useRole } from "../../roleContext";
 
 import AnalyzePopup from "./AnalyzePopup";
@@ -86,6 +88,64 @@ function projectDocument(doc: IncidentDocument): ValidateIAPResponse {
     };
 }
 
+// Where the kiosk remembers the active incident so the Fire Officer can resume it after an
+// accidental logout/reload (SME, 2026-06-16). Single-incident-at-a-time, so one key suffices.
+const ACTIVE_INCIDENT_KEY = "osg.kiosk.activeIncident";
+
+function readStoredActiveIncident(): { incidentId: string; scenarioId: string } | null {
+    try {
+        const raw = window.localStorage.getItem(ACTIVE_INCIDENT_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed.incidentId === "string" ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function writeStoredActiveIncident(incidentId: string, scenarioId: string): void {
+    try {
+        window.localStorage.setItem(ACTIVE_INCIDENT_KEY, JSON.stringify({ incidentId, scenarioId }));
+    } catch {
+        /* storage unavailable (private mode); resume-on-reload is a convenience, not load-bearing */
+    }
+}
+
+function clearStoredActiveIncident(): void {
+    try {
+        window.localStorage.removeItem(ACTIVE_INCIDENT_KEY);
+    } catch {
+        /* ignore */
+    }
+}
+
+// An incident is resumable while it is still live (response phase) and not terminally sealed.
+function isResumableIncident(doc: IncidentDocument): boolean {
+    return doc.phase === "response" && doc.lockedAt == null;
+}
+
+// Rebuild the kiosk's in-incident state from a persisted incident the FO is reconnecting to.
+function inIncidentStateFromDoc(doc: IncidentDocument, scenarioId: string): Extract<KioskState, { phase: "in_incident" }> {
+    const transcript = doc.transcript.map(chunk => chunk.text).join("\n");
+    // The FO has already confirmed the scene if any downstream artifacts exist (forms generated
+    // or support contributions surfaced); otherwise show "Confirm Scene Conditions" again.
+    const hasConfirmed = doc.forms.length > 0 || doc.supportContributions.length > 0;
+    return {
+        phase: "in_incident",
+        incidentId: doc.id,
+        scenarioId,
+        transcript,
+        iap: projectDocument(doc),
+        hasConfirmed,
+        revalidating: false,
+        locked: doc.phase !== "response" || doc.lockedAt != null,
+        persisted: true,
+        commandTransferred: doc.commandTransferredAt != null,
+        eventLocked: doc.lockedAt != null,
+        formsGenerating: false
+    };
+}
+
 const IncidentKiosk = () => {
     const { actingRole } = useRole();
     const [state, setState] = useState<KioskState>({ phase: "pre_incident", scenarioId: DEFAULT_SCENARIO_ID });
@@ -94,8 +154,69 @@ const IncidentKiosk = () => {
     const [injectOpen, setInjectOpen] = useState(false);
     // Voice-dictation error surfaced under the narrate text box (mic permission, unsupported, …).
     const [dictationError, setDictationError] = useState<string | null>(null);
+    // Resume-on-reload (SME, 2026-06-16): if the FO logged out / reloaded mid-incident, offer to
+    // reconnect to the still-active incident instead of forcing a brand-new Start.
+    const [resumeCandidate, setResumeCandidate] = useState<IncidentDocument | null>(null);
+    const [resuming, setResuming] = useState(false);
+    const resumeCheckedRef = useRef(false);
 
     const showCitations = actingRole !== "fire-officer";
+
+    // Remember the active incident so an accidental logout/reload can offer to resume it.
+    useEffect(() => {
+        if (state.phase === "in_incident" && state.persisted && !state.eventLocked) {
+            writeStoredActiveIncident(state.incidentId, state.scenarioId);
+        }
+    }, [state]);
+
+    // On first mount in the pre-incident screen, check for a stored active incident and, if it's
+    // still live, surface the resume confirm popup. Runs once (guarded by resumeCheckedRef).
+    useEffect(() => {
+        if (resumeCheckedRef.current) return;
+        if (state.phase !== "pre_incident") return;
+        resumeCheckedRef.current = true;
+        const stored = readStoredActiveIncident();
+        if (!stored) return;
+        let cancelled = false;
+        void (async () => {
+            try {
+                const doc = await getIncident(stored.incidentId);
+                if (cancelled) return;
+                if (isResumableIncident(doc)) {
+                    setResumeCandidate(doc);
+                } else {
+                    clearStoredActiveIncident();
+                }
+            } catch {
+                // Incident gone / not accessible — drop the stale pointer silently.
+                clearStoredActiveIncident();
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [state.phase]);
+
+    const handleResumeIncident = useCallback(async () => {
+        if (!resumeCandidate) return;
+        const doc = resumeCandidate;
+        const storedScenarioId = readStoredActiveIncident()?.scenarioId ?? DEFAULT_SCENARIO_ID;
+        setResuming(true);
+        // Reconnect immediately (kiosk never blocks); log the resume in the background.
+        setState(inIncidentStateFromDoc(doc, storedScenarioId));
+        setResumeCandidate(null);
+        setResuming(false);
+        try {
+            await resumeFireOfficer(doc.id, { actingRole: actingRole ?? "fire-officer", userId: "kiosk" });
+        } catch {
+            // Non-fatal: the resume audit event is best-effort; the FO is already back in the incident.
+        }
+    }, [resumeCandidate, actingRole]);
+
+    const handleDeclineResume = useCallback(() => {
+        clearStoredActiveIncident();
+        setResumeCandidate(null);
+    }, []);
 
     // --- Live support-contribution poll (Session 5b) ---------------------------
     // While the Fire Officer is in-incident, persisted, and not locked, poll
@@ -450,6 +571,7 @@ const IncidentKiosk = () => {
 
     const handleReset = useCallback(() => {
         const currentScenarioId = "scenarioId" in state ? state.scenarioId : DEFAULT_SCENARIO_ID;
+        clearStoredActiveIncident();
         setState({ phase: "pre_incident", scenarioId: currentScenarioId });
         setAnalyzeItem(null);
         setRefineItem(null);
@@ -523,9 +645,7 @@ const IncidentKiosk = () => {
         // Officer is never inundated by the AI. Anything a HUMAN has surfaced is ALWAYS shown on
         // top of that 5 — taken ownership of (provenance "hic"), IC-approved, or an SO/OSC sent
         // direct (safety_bypass). The IC's approval view stays uncapped. Stable (Array.sort).
-        const foVisibleContribs = iap.supportContributions.filter(
-            c => !c.withdrawn && (c.icStatus === "not_gated" || c.icStatus === "approved" || c.icStatus === "safety_bypass")
-        );
+        const foVisibleContribs = foVisibleContributions(iap);
         const contribCritRank = (c: (typeof foVisibleContribs)[number]) => {
             const cat = c.category;
             if (cat === null || cat === undefined) return RECOMMENDATION_CATEGORY_ORDER.length;
@@ -833,6 +953,52 @@ const IncidentKiosk = () => {
                     Start Incident
                 </Button>
             </div>
+
+            {resumeCandidate && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Resume active incident"
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        background: "rgba(0, 0, 0, 0.55)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        zIndex: 100
+                    }}
+                >
+                    <div
+                        style={{
+                            background: "#1f1f1f",
+                            color: "#f3f3f3",
+                            padding: 24,
+                            borderRadius: 10,
+                            minWidth: 420,
+                            maxWidth: 560,
+                            boxShadow: "0 12px 32px rgba(0,0,0,0.6)"
+                        }}
+                    >
+                        <Title3>Resume active incident?</Title3>
+                        <Body1 style={{ display: "block", margin: "10px 0 6px" }}>
+                            You have an incident still in progress. Resume control to pick up where you left off.
+                        </Body1>
+                        <span className={styles.incidentId}>{resumeCandidate.id}</span>
+                        <Body1 style={{ display: "block", margin: "10px 0 0", opacity: 0.85, fontSize: "0.9rem" }}>
+                            {resumeCandidate.sceneSummary.text}
+                        </Body1>
+                        <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                            <Button appearance="subtle" onClick={handleDeclineResume} disabled={resuming}>
+                                Start a new incident
+                            </Button>
+                            <Button appearance="primary" onClick={() => void handleResumeIncident()} disabled={resuming}>
+                                {resuming ? "Resuming…" : "Resume control"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -743,11 +743,16 @@ async def withdraw_support_contribution(
     contribution_id: str,
     actor: Actor,
 ) -> IncidentDocument:
-    """Pull back an AI-published support contribution. Soft-delete (hidden from kiosk; retained for audit).
+    """Pull back a support contribution from the Fire Officer. Soft-delete (hidden from kiosk;
+    retained for audit).
 
-    Authorization: the support role that owns this AI item (added_by.role match) OR the IC as
-    override. Only AI items (provenance="ai") are withdrawable in v1 — HIC items reflect a
-    human decision and need a different mechanism if they should ever be withdrawable.
+    Authorization (SME, 2026-06-16):
+      - The owning support role (added_by.role match) may withdraw only its own AI item — a HIC
+        item reflects that role's own deliberate decision, so it isn't self-withdrawable here.
+      - The Incident Commander may withdraw ANYTHING the Fire Officer can see, as a command
+        override — including HIC items and Safety Officer / Ops Section Chief safety_bypass items
+        (the "all actionable" rule: the IC must be able to pull back everything reaching the FO).
+        The IC override still requires the IC to hold command (assert_human_in_charge below).
     """
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
@@ -755,11 +760,17 @@ async def withdraw_support_contribution(
     contribution = next((c for c in doc.support_contributions if c.id == contribution_id), None)
     if contribution is None:
         raise ValueError(f"Contribution not found: {contribution_id}")
-    if contribution.provenance != "ai":
-        raise ValueError("Only AI-published recommendations can be withdrawn.")
-    if actor.role != "incident-commander" and actor.role != contribution.added_by.role:
+    is_ic = actor.role == "incident-commander"
+    if not is_ic and actor.role != contribution.added_by.role:
         raise PermissionError(
-            f"Only the {contribution.added_by.role} role (or the Incident Commander) can withdraw this AI recommendation."
+            f"Only the {contribution.added_by.role} role (or the Incident Commander) can withdraw this recommendation."
+        )
+    # The owning support role can only withdraw its own un-attested AI item; HIC override of a
+    # human decision is the IC's prerogative, not the originating role's.
+    if not is_ic and contribution.provenance != "ai":
+        raise ValueError(
+            "Only AI-published recommendations can be withdrawn by the owning role; "
+            "the Incident Commander can override a human-owned item."
         )
     # Server-side HIC gate: withdrawing is a curation action — requires HIC of the acting
     # role (for the IC that means command must have been transferred).
@@ -1089,6 +1100,37 @@ async def stand_down(
             event_type="role_control_released",
             actor=actor,
             payload={"role": role},
+        )
+    )
+    return await replace_incident(doc)
+
+
+async def resume_fire_officer(
+    *,
+    tenant_id: str,
+    incident_id: str,
+    actor: Actor,
+) -> IncidentDocument:
+    """The Fire Officer reconnects to an active incident after an accidental logout/reload.
+
+    The FO is implicitly in charge of the kiosk, so this introduces NO alternate control state
+    (no role_controls entry, no flag) — it simply records the screen-facing act of resuming so
+    the actions taken after reconnecting have clear provenance (SME, 2026-06-16). Append-only
+    `fire_officer_resumed` audit event. Rejected on a locked incident (terminal seal).
+    """
+    doc = await get_incident(tenant_id, incident_id)
+    if doc is None:
+        raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
+    if actor.role != "fire-officer":
+        raise PermissionError("Only the Fire Officer can resume control of the kiosk.")
+    if doc.locked_at is not None:
+        raise PermissionError("This incident is locked — its record is sealed and cannot be resumed.")
+    doc.event_log.append(
+        make_audit_event(
+            incident_id=incident_id,
+            event_type="fire_officer_resumed",
+            actor=actor,
+            payload={"incident_id": incident_id},
         )
     )
     return await replace_incident(doc)
