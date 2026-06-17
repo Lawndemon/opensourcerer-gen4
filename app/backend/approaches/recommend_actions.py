@@ -21,14 +21,25 @@ import logging
 import pathlib
 from typing import Optional
 
+from azure.search.documents.aio import SearchClient
+from azure.search.documents.models import QueryType, VectorizedQuery
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
+from approaches.role_narratives import narrative_for
 from models.incidents import RecommendationCategory, SceneConditionAndAction, SupportContribution
 
 logger = logging.getLogger(__name__)
+
+# Embedding models that accept an explicit output `dimensions` parameter (mirrors
+# Approach.compute_text_embedding). ada-002 predates the parameter.
+_DIMENSIONS_CAPABLE_EMBEDDING_MODELS = {
+    "text-embedding-ada-002": False,
+    "text-embedding-3-small": True,
+    "text-embedding-3-large": True,
+}
 
 
 class _LLMRecommendation(BaseModel):
@@ -77,17 +88,94 @@ class RecommendActionsApproach:
         # only the genuinely-warranted items, returned consistently across re-validations so the
         # support list doesn't thrash mid-incident.
         temperature: float = 0.2,
+        # --- KB retrieval (2026-06-16) ---------------------------------------------------
+        # When a search_client is provided, run() retrieves grounding passages from the FULL
+        # index (no allowed_roles filter — every role queries every document) using a query
+        # built from the scene + the role's narrative, and injects them into the prompt. When
+        # it's None (e.g. search not configured / local dev), retrieval is skipped and the
+        # approach behaves exactly as before — pure-LLM over the scene.
+        search_client: Optional[SearchClient] = None,
+        embedding_model: Optional[str] = None,
+        embedding_deployment: Optional[str] = None,
+        embedding_dimensions: int = 1536,
+        embedding_field: str = "embedding",
+        query_language: str = "en-us",
+        query_speller: str = "lexicon",
+        use_semantic_ranker: bool = False,
+        retrieve_top: int = 5,
     ):
         self.openai_client = openai_client
         self.chatgpt_model = chatgpt_model
         self.chatgpt_deployment = chatgpt_deployment
         self.temperature = temperature
+        self.search_client = search_client
+        self.embedding_model = embedding_model
+        self.embedding_deployment = embedding_deployment
+        self.embedding_dimensions = embedding_dimensions
+        self.embedding_field = embedding_field
+        self.query_language = query_language
+        self.query_speller = query_speller
+        self.use_semantic_ranker = use_semantic_ranker
+        self.retrieve_top = retrieve_top
         self.system_prompt = self._load_prompt()
 
     def _load_prompt(self) -> str:
         if not self.PROMPT_FILE.exists():
             raise FileNotFoundError(f"Recommendations prompt not found at {self.PROMPT_FILE}")
         return self.PROMPT_FILE.read_text(encoding="utf-8")
+
+    async def _embed_query(self, text: str) -> VectorizedQuery:
+        """Embed the query text (mirrors Approach.compute_text_embedding's dimensions handling)."""
+        model = self.embedding_model or "text-embedding-ada-002"
+        extra = {"dimensions": self.embedding_dimensions} if _DIMENSIONS_CAPABLE_EMBEDDING_MODELS.get(model, False) else {}
+        embedding = await self.openai_client.embeddings.create(
+            model=self.embedding_deployment or self.embedding_model,
+            input=text,
+            **extra,
+        )
+        return VectorizedQuery(vector=embedding.data[0].embedding, k=50, fields=self.embedding_field)
+
+    async def _retrieve(self, query_text: str) -> list[dict[str, Optional[str]]]:
+        """Hybrid (text + vector) retrieval from the FULL index — no role/ACL filter applied.
+
+        Returns lightweight source dicts (sourcefile, sourcepage, content). Best-effort: any
+        retrieval failure logs and returns [] so recommendation generation still proceeds
+        (degrades to pure-LLM rather than failing the whole call).
+        """
+        if self.search_client is None:
+            return []
+        try:
+            vector_query = await self._embed_query(query_text)
+            if self.use_semantic_ranker:
+                results = await self.search_client.search(
+                    search_text=query_text,
+                    top=self.retrieve_top,
+                    vector_queries=[vector_query],
+                    query_type=QueryType.SEMANTIC,
+                    query_language=self.query_language,
+                    query_speller=self.query_speller,
+                    semantic_configuration_name="default",
+                    semantic_query=query_text,
+                )
+            else:
+                results = await self.search_client.search(
+                    search_text=query_text,
+                    top=self.retrieve_top,
+                    vector_queries=[vector_query],
+                )
+            sources: list[dict[str, Optional[str]]] = []
+            async for doc in results:
+                sources.append(
+                    {
+                        "sourcefile": doc.get("sourcefile"),
+                        "sourcepage": doc.get("sourcepage"),
+                        "content": doc.get("content"),
+                    }
+                )
+            return sources
+        except Exception as e:  # noqa: BLE001 — retrieval is best-effort grounding, never fatal
+            logger.warning("recommend_actions retrieval failed (degrading to pure-LLM): %s", e)
+            return []
 
     async def run(
         self,
@@ -118,13 +206,38 @@ class RecommendActionsApproach:
             {"role": p.added_by.role, "text": p.text} for p in already_published
         ]
 
+        # --- KB retrieval (full index, no role filter) ----------------------------------
+        # Query = role narrative + scene, so the SAME unfiltered index leans toward this role's
+        # concerns. Backend-first (2026-06-16): we log what each role retrieves so we can judge
+        # whether the role definitions alone surface relevant content; nothing is persisted yet.
+        role_narrative = narrative_for(role)
+        conditions_text = "; ".join(c["text"] for c in compact_conditions)
+        retrieval_query = f"{role_narrative}\nScene: {scene_summary_text}\nConditions: {conditions_text}".strip()
+        kb_sources = await self._retrieve(retrieval_query)
+        logger.info(
+            "recommend_actions retrieval role=%s sources=%d files=%s",
+            role,
+            len(kb_sources),
+            [s.get("sourcepage") or s.get("sourcefile") for s in kb_sources],
+        )
+
+        # Inject the retrieved passages for grounding. The prompt instructs the model to treat
+        # these as governing on conflict (Client>Region>Federal>Domain>model knowledge) and to
+        # only fall back to general knowledge to fill gaps — never suppressing life-safety.
+        kb_for_prompt = [
+            {"source": s.get("sourcepage") or s.get("sourcefile"), "content": s.get("content")}
+            for s in kb_sources
+        ]
+
         user_message = json.dumps(
             {
                 "role": role,
+                "roleNarrative": role_narrative,
                 "sceneSummary": scene_summary_text,
                 "sceneConditionsAndActions": compact_conditions,
                 "alreadyPublished": compact_published,
                 "recentlyDismissed": recently_dismissed,
+                "knowledgeBaseSources": kb_for_prompt,
             },
             ensure_ascii=False,
         )

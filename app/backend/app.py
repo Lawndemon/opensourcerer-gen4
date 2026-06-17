@@ -2086,6 +2086,17 @@ async def setup_clients():
         openai_client=openai_client,
         chatgpt_model=OPENAI_CHATGPT_MODEL,
         chatgpt_deployment=AZURE_OPENAI_CHATGPT_DEPLOYMENT,
+        # KB retrieval (2026-06-16): full-index, no role filter. Reuses the same search client +
+        # embedding config as the chat approach so support recommendations are grounded in the
+        # ingested reference docs (query biased by the acting role's narrative).
+        search_client=search_client,
+        embedding_model=OPENAI_EMB_MODEL,
+        embedding_deployment=AZURE_OPENAI_EMB_DEPLOYMENT,
+        embedding_dimensions=OPENAI_EMB_DIMENSIONS,
+        embedding_field=AZURE_SEARCH_FIELD_NAME_EMBEDDING,
+        query_language=AZURE_SEARCH_QUERY_LANGUAGE,
+        query_speller=AZURE_SEARCH_QUERY_SPELLER,
+        use_semantic_ranker=AZURE_SEARCH_SEMANTIC_RANKER != "disabled",
     )
 
     # ExtractFormsApproach (5d): downstream extractor that runs after ValidateIAPApproach

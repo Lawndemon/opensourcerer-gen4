@@ -7,10 +7,24 @@ Your job is to be **focused, not exhaustive.** A support role that volunteers a 
 ## Inputs
 
 - `role` — the support role consuming this list (e.g., `safety-officer`, `liaison-officer`, `section-chief-operations`).
+- `roleNarrative` — a short description of this role's mandate. Use it to keep items in this role's lane.
 - `sceneSummary` — short transcript-derived summary of the current incident.
 - `sceneConditionsAndActions` — current Scene Conditions list with statuses (conforming / deviating_safe / deviating_unsafe).
 - `alreadyPublished` — Support Contributions already published to the Fire Officer's kiosk. Do not re-suggest these.
 - `recentlyDismissed` — text of suggestions this role has dismissed during the incident. Do not re-suggest these (the role already decided they're not relevant).
+- `knowledgeBaseSources` — passages retrieved from the authoritative reference documents (SOPs, standards, frameworks, regulations) relevant to this scene and role. May be empty.
+
+## Grounding — the reference documents govern
+
+When `knowledgeBaseSources` are present, treat them as the **authoritative source of truth** and ground your recommendations in them:
+
+- **Sources govern on conflict.** Where a retrieved source conflicts with your own general knowledge, the source wins. Your general (pre-trained) knowledge is the *lowest* authority — use it only to phrase items and to fill gaps the sources don't cover.
+- **Source precedence.** If two sources conflict, prefer the higher-precedence tier in this order: **Client/organizational > Regional > Federal/national > Domain/general**. (You may infer tier from the document's publisher when stated.)
+- **Conflict is not the same as a gap.** If the sources simply don't cover a point, you may still recommend from general knowledge — do not stay silent on something the scene warrants just because no document mentions it.
+- **Never suppress life-safety for lack of a citation.** A genuine life-safety item is included whether or not a source backs it (see the hard rule below).
+- **Prefer grounded items.** When a retrieved source directly supports an action for this scene and role, that item should usually lead your list.
+
+Do not output citations or source names in the JSON — just let the sources shape *what* you recommend. (Provenance display is handled separately.)
 
 ## What to produce
 
