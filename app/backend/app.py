@@ -1175,8 +1175,20 @@ async def save_form_content(auth_claims: dict[str, Any], incident_id: str, form_
         updated = await incidents_cosmos.save_form_content(
             tenant_id=tenant_id, incident_id=incident_id, form_id=form_id,
             new_content=body.content, actor=actor,
+            expected_last_updated=body.expected_last_updated,
         )
         return jsonify({"incident": updated.model_dump(by_alias=True)})
+    except incidents_cosmos.FormEditConflictError as ce:
+        # Optimistic-concurrency rejection: someone saved this form after the caller began
+        # editing. 409 with enough context for a graceful "updated by X" message client-side.
+        return jsonify({
+            "error": str(ce),
+            "conflict": True,
+            "lastUpdated": ce.last_updated,
+            "lastUpdatedBy": ce.last_updated_by,
+        }), 409
+    except PermissionError as pe:
+        return jsonify({"error": str(pe)}), 403
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404
     except Exception as error:

@@ -19,11 +19,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Body1, Button, Caption1, Field, Spinner, Textarea, Title2, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { extractForms, formPdfDownloadUrl, getIcsFormSchemas, getIncident, lockIncident, saveFormContent } from "../../api/incidents";
-import type { FormContent, FormFieldsContent, FormSummary, ICS201Content, IcsFormSchemas, IncidentDocument, PlaceholderFormContent } from "../../api/incidentTypes";
+import { extractForms, formPdfDownloadUrl, getIncident, lockIncident, saveFormContent } from "../../api/incidents";
+import type { FormContent, FormSummary, ICS201Content, IncidentDocument, PlaceholderFormContent } from "../../api/incidentTypes";
 import { ACTING_ROLES, getRoleDefinition } from "../../roles";
 import type { ActingRole } from "../../roles";
-import { groupFieldsByRow } from "../../utils/formFieldGrouping";
+import PdfFormViewer from "../../components/PdfFormViewer";
 import { formatFormLabel } from "../../utils/formDisplay";
 
 // Roles whose forms participate in update-all. Site-administrator has no scene-driven forms.
@@ -42,16 +42,6 @@ const CloseoutAdmin = ({ incident, actingRole, onBack, onIncidentChange }: Close
     const [lockBusy, setLockBusy] = useState(false);
     const [lockError, setLockError] = useState<string | null>(null);
     const [confirmingLock, setConfirmingLock] = useState(false);
-    const [schemas, setSchemas] = useState<IcsFormSchemas | null>(null);
-
-    // Load the ICS PDF schemas once on mount. Drives the generic field editor below.
-    useEffect(() => {
-        let cancelled = false;
-        getIcsFormSchemas()
-            .then(s => { if (!cancelled) setSchemas(s); })
-            .catch(() => { /* non-fatal: form_fields editor will show a fallback */ });
-        return () => { cancelled = true; };
-    }, []);
 
     const isLocked = incident.lockedAt != null;
 
@@ -158,7 +148,6 @@ const CloseoutAdmin = ({ incident, actingRole, onBack, onIncidentChange }: Close
                                 actingRole={actingRole}
                                 disabled={isLocked}
                                 onSaved={onIncidentChange}
-                                schemas={schemas}
                             />
                         ))}
                     </div>
@@ -204,10 +193,9 @@ interface FormEditorProps {
     actingRole: ActingRole | string;
     disabled: boolean;
     onSaved: (incident: IncidentDocument) => void;
-    schemas: IcsFormSchemas | null;
 }
 
-const FormEditor = ({ form, incidentId, actingRole, disabled, onSaved, schemas }: FormEditorProps) => {
+const FormEditor = ({ form, incidentId, actingRole, disabled, onSaved }: FormEditorProps) => {
     const [content, setContent] = useState<FormContent>(form.content);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -255,30 +243,49 @@ const FormEditor = ({ form, incidentId, actingRole, disabled, onSaved, schemas }
             </div>
             {expanded && (
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-                    {content.kind === "form_fields" ? (
-                        <FormFieldsFields content={content} disabled={disabled} schemas={schemas} onChange={setContent} />
-                    ) : content.kind === "ics_201" ? (
-                        <ICS201Fields content={content} disabled={disabled} onChange={setContent} />
+                    {form.content.kind === "form_fields" ? (
+                        /* 2026-07-21: PDF-backed forms edit directly ON the rendered official
+                           form (PdfFormViewer harvests into Cosmos via its own Save). The old
+                           field-list editor is retired for these; ICS-201-typed and placeholder
+                           forms keep the classic editors below. Use form.content (live prop),
+                           not the local content state, so saves/regenerations flow through. */
+                        <>
+                            <PdfFormViewer
+                                key={`${form.formId}-${form.lastUpdated}`}
+                                incidentId={incidentId}
+                                formId={form.formId}
+                                content={form.content}
+                                lastUpdated={form.lastUpdated}
+                                editable={!disabled}
+                                actingRole={String(actingRole)}
+                                onSaved={onSaved}
+                            />
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <Button
+                                    appearance="secondary"
+                                    onClick={() => window.open(`${formPdfDownloadUrl(incidentId, form.formId)}?download=1`, "_blank")}
+                                    title="Download the filled official ICS Canada PDF"
+                                >
+                                    Download PDF
+                                </Button>
+                            </div>
+                        </>
                     ) : (
-                        <PlaceholderFields content={content} disabled={disabled} onChange={setContent} />
+                        <>
+                            {content.kind === "ics_201" ? (
+                                <ICS201Fields content={content} disabled={disabled} onChange={setContent} />
+                            ) : content.kind === "placeholder" ? (
+                                <PlaceholderFields content={content} disabled={disabled} onChange={setContent} />
+                            ) : null}
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <Button appearance="primary" onClick={() => void handleSave()} disabled={!dirty || saving || disabled}>
+                                    {saving ? "Saving…" : "Save"}
+                                </Button>
+                                {dirty && <Caption1 style={{ color: "#7A5B00" }}>Unsaved changes</Caption1>}
+                                {error && <Caption1 style={{ color: "#C62828" }}>{error}</Caption1>}
+                            </div>
+                        </>
                     )}
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <Button appearance="primary" onClick={() => void handleSave()} disabled={!dirty || saving || disabled}>
-                            {saving ? "Saving…" : "Save"}
-                        </Button>
-                        {content.kind === "form_fields" && (
-                            <Button
-                                appearance="secondary"
-                                onClick={() => window.open(formPdfDownloadUrl(incidentId, form.formId), "_blank")}
-                                disabled={dirty}
-                                title={dirty ? "Save changes first" : "Download as the official ICS Canada PDF"}
-                            >
-                                Download PDF
-                            </Button>
-                        )}
-                        {dirty && <Caption1 style={{ color: "#7A5B00" }}>Unsaved changes</Caption1>}
-                        {error && <Caption1 style={{ color: "#C62828" }}>{error}</Caption1>}
-                    </div>
                 </div>
             )}
         </div>
@@ -324,75 +331,6 @@ const ICS201Fields = ({
             {longField("Current actions", "currentActions")}
             {longField("Resource summary", "resourceSummary")}
             {shortField("Prepared by", "preparedBy")}
-        </>
-    );
-};
-
-const FormFieldsFields = ({
-    content,
-    disabled,
-    schemas,
-    onChange
-}: {
-    content: FormFieldsContent;
-    disabled: boolean;
-    schemas: IcsFormSchemas | null;
-    onChange: (c: FormFieldsContent) => void;
-}) => {
-    const schema = schemas?.[content.formIdKey];
-    if (!schemas) {
-        return <Caption1 style={{ color: "#666" }}>Loading form schema…</Caption1>;
-    }
-    if (!schema) {
-        return <Caption1 style={{ color: "#C62828" }}>No schema found for form id &ldquo;{content.formIdKey}&rdquo;.</Caption1>;
-    }
-    const setField = (name: string, value: string) =>
-        onChange({ ...content, fields: { ...content.fields, [name]: value } });
-    const grouped = groupFieldsByRow(schema.fields);
-    return (
-        <>
-            <Caption1 style={{ color: "#666", display: "block", marginBottom: 6 }}>
-                {schema.fieldCount} fields · {schema.pageCount} page(s) · official template
-            </Caption1>
-            {/* Header (non-row) fields first */}
-            {grouped.unrowed.map(({ field: f, label }, idx) => (
-                <Field key={`${f.name}-${idx}`} label={label || "(unnamed field)"}>
-                    <Textarea
-                        value={content.fields[f.name] ?? ""}
-                        disabled={disabled}
-                        onChange={(_, data) => setField(f.name, data.value)}
-                        rows={1}
-                    />
-                </Field>
-            ))}
-            {/* Tabular row groups (one section per row, columns within) */}
-            {grouped.rows.map(row => (
-                <div
-                    key={`row-${row.rowNumber}`}
-                    style={{
-                        borderTop: "1px solid #E0E0E0",
-                        paddingTop: 8,
-                        marginTop: 12,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 6
-                    }}
-                >
-                    <Caption1 style={{ color: "#555", fontWeight: 600 }}>
-                        Row {row.rowNumber}
-                    </Caption1>
-                    {row.fields.map(({ field: f, baseLabel }, idx) => (
-                        <Field key={`${f.name}-${idx}`} label={baseLabel || f.name || "(unnamed field)"}>
-                            <Textarea
-                                value={content.fields[f.name] ?? ""}
-                                disabled={disabled}
-                                onChange={(_, data) => setField(f.name, data.value)}
-                                rows={1}
-                            />
-                        </Field>
-                    ))}
-                </div>
-            ))}
         </>
     );
 };

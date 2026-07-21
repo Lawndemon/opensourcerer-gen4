@@ -1269,6 +1269,20 @@ class SceneFrozenError(Exception):
     """
 
 
+class FormEditConflictError(Exception):
+    """Optimistic-concurrency rejection on save_form_content (2026-07-21). Maps to HTTP 409.
+
+    Raised when the caller's expected_last_updated stamp is stale — someone else saved the
+    form (or a regeneration replaced it) after the caller started editing. Carries who made
+    the intervening change so the frontend can say so instead of silently overwriting.
+    """
+
+    def __init__(self, message: str, *, last_updated: str, last_updated_by: str | None):
+        super().__init__(message)
+        self.last_updated = last_updated
+        self.last_updated_by = last_updated_by
+
+
 def _assert_scene_open(doc: "IncidentDocument") -> None:
     if doc.phase != "response":
         raise SceneFrozenError(
@@ -1316,14 +1330,47 @@ async def save_form_content(
     form_id: str,
     new_content,
     actor: Actor,
+    expected_last_updated: str | None = None,
 ) -> IncidentDocument:
-    """Replace a form's content with a manually-edited version. Append-only audit event."""
+    """Replace a form's content with a manually-edited version. Append-only audit event.
+
+    When `expected_last_updated` is supplied and doesn't match the persisted form's stamp,
+    raises FormEditConflictError (→ 409) so a concurrent editor's save is never silently
+    clobbered — the caller reloads the newer content and re-applies their edits.
+    """
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
         raise ValueError(f"Incident not found: tenant={tenant_id} id={incident_id}")
     form = next((f for f in doc.forms if f.form_id == form_id), None)
     if form is None:
         raise ValueError(f"Form not found: {form_id}")
+
+    # Locked-form gate (Dave, 2026-07-21): once a form is locked (Loss Stop locks
+    # Response-phase forms; Close Incident locks the rest), only the IC or Site
+    # Administrator may still edit it during cleanup — enforced HERE, not just in the
+    # UI. The terminal Close-out & Lock seal remains absolute for everyone via the
+    # replace_incident guard (423).
+    if form.status == "locked" and actor.role not in ("incident-commander", "site-administrator"):
+        raise PermissionError(
+            f"Form {form_id} is locked; only the Incident Commander or Site Administrator "
+            "may edit locked forms during cleanup."
+        )
+
+    if expected_last_updated is not None and form.last_updated != expected_last_updated:
+        # Who got there first? Scan the audit log backwards for the last touch on this form
+        # (a manual edit names the form; a bulk form_generated regeneration doesn't).
+        last_editor: str | None = None
+        for event in reversed(doc.event_log):
+            is_this_form_edit = event.type == "form_content_edited" and event.payload.get("form_id") == form_id
+            is_bulk_regen = event.type == "form_generated"
+            if is_this_form_edit or is_bulk_regen:
+                last_editor = "system" if isinstance(event.actor, str) else event.actor.role
+                break
+        raise FormEditConflictError(
+            f"Form {form_id} was updated while you were editing.",
+            last_updated=form.last_updated,
+            last_updated_by=last_editor,
+        )
 
     form.content = new_content
     form.last_updated = _now_iso()

@@ -15,13 +15,13 @@
  * view down the road).
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { Badge, Body1, Button, Caption1, Field, Textarea } from "@fluentui/react-components";
+import { useMemo, useState } from "react";
+import { Badge, Body1, Button, Caption1 } from "@fluentui/react-components";
 
-import { formPdfDownloadUrl, getIcsFormSchemas, saveFormContent } from "../../api/incidents";
-import type { FormSummary, IcsFormSchemas, IncidentDocument } from "../../api/incidentTypes";
+import { formPdfDownloadUrl } from "../../api/incidents";
+import type { FormSummary, IncidentDocument } from "../../api/incidentTypes";
 import type { ActingRole } from "../../roles";
-import { groupFieldsByRow } from "../../utils/formFieldGrouping";
+import PdfFormViewer from "../../components/PdfFormViewer";
 import { formatFormLabel } from "../../utils/formDisplay";
 
 import styles from "./FormTabStrip.module.css";
@@ -130,23 +130,6 @@ const renderFormContent = (form: FormSummary) => {
 
 const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, editable = false, incidentId, actingRole, onSaved }: FormTabStripProps) => {
     const [openFormId, setOpenFormId] = useState<string | null>(null);
-    const [schemas, setSchemas] = useState<IcsFormSchemas | null>(null);
-    const [editingFields, setEditingFields] = useState<Record<string, string>>({});
-    const [saving, setSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
-    // PDF-first (2026-07-21): form_fields tabs open on the populated official PDF; the
-    // inline field editor is an explicit flip (support roles only), not the default.
-    const [showEditor, setShowEditor] = useState(false);
-
-    // Load schemas once on mount when editable. Drives the inline field editor for form_fields.
-    useEffect(() => {
-        if (!editable) return;
-        let cancelled = false;
-        getIcsFormSchemas()
-            .then(s => { if (!cancelled) setSchemas(s); })
-            .catch(() => { /* non-fatal: fallback message shows */ });
-        return () => { cancelled = true; };
-    }, [editable]);
 
     const visibleForms = useMemo(
         () => (currentRole ? forms.filter(f => f.role === currentRole) : forms),
@@ -182,10 +165,7 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                             role="tab"
                             aria-selected={isOpen}
                             className={`${styles.tab} ${isOpen ? styles.tabOpen : ""}`}
-                            onClick={() => {
-                                setOpenFormId(isOpen ? null : f.formId);
-                                setShowEditor(false);
-                            }}
+                            onClick={() => setOpenFormId(isOpen ? null : f.formId)}
                         >
                             <span className={styles.tabTitle}>{formatFormLabel(f)}</span>
                         </button>
@@ -225,17 +205,14 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                             className={styles.overlayBody}
                             onClick={openForm.content.kind === "form_fields" && incidentId ? e => e.stopPropagation() : undefined}
                         >
-                            {openForm.content.kind === "form_fields" && incidentId && !showEditor ? (
-                                /* PDF-first: the populated official ICS Canada form IS the view.
-                                   lastUpdated in key + query string busts the browser cache after
-                                   every regeneration/save. */
+                            {openForm.content.kind === "form_fields" && incidentId ? (
+                                /* PDF-first + edit-in-place (2026-07-21): the populated official
+                                   ICS Canada form renders via PdfFormViewer with editable field
+                                   overlays. Saves harvest into Cosmos through saveFormContent, so
+                                   edits are shared across roles and audit-logged — the old
+                                   field-list editor is gone. */
                                 <div className={styles.pdfPane}>
                                     <div className={styles.pdfToolbar}>
-                                        {editable && actingRole && (
-                                            <Button appearance="secondary" size="small" onClick={() => setShowEditor(true)} disabled={locked}>
-                                                Edit fields
-                                            </Button>
-                                        )}
                                         <Button
                                             appearance="secondary"
                                             size="small"
@@ -243,111 +220,22 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                                         >
                                             Open full screen
                                         </Button>
-                                        <Caption1 className={styles.pdfHint}>Official ICS Canada form — populated from the incident</Caption1>
+                                        <Caption1 className={styles.pdfHint}>
+                                            Official ICS Canada form — populated from the incident
+                                            {editable && !locked && openForm.status !== "locked" ? "; type directly on the form" : ""}
+                                        </Caption1>
                                     </div>
-                                    <iframe
+                                    <PdfFormViewer
                                         key={`${openForm.formId}-${openForm.lastUpdated}`}
-                                        src={`${formPdfDownloadUrl(incidentId, openForm.formId)}?v=${encodeURIComponent(openForm.lastUpdated)}`}
-                                        title={formatFormLabel(openForm)}
-                                        className={styles.pdfFrame}
+                                        incidentId={incidentId}
+                                        formId={openForm.formId}
+                                        content={openForm.content}
+                                        lastUpdated={openForm.lastUpdated}
+                                        editable={editable && !locked && openForm.status !== "locked" && !!actingRole}
+                                        actingRole={actingRole}
+                                        onSaved={onSaved}
                                     />
                                 </div>
-                            ) : editable && openForm.content.kind === "form_fields" && incidentId && actingRole ? (
-                                (() => {
-                                    const ff = openForm.content;
-                                    const schema = schemas?.[ff.formIdKey];
-                                    if (!schemas) return <Caption1>Loading form schema…</Caption1>;
-                                    if (!schema) return <Caption1>No schema for &ldquo;{ff.formIdKey}&rdquo;.</Caption1>;
-                                    const current: Record<string, string> = { ...ff.fields, ...editingFields };
-                                    const setField = (name: string, value: string) =>
-                                        setEditingFields(prev => ({ ...prev, [name]: value }));
-                                    const dirty = schema.fields.some(f => (current[f.name] ?? "") !== (ff.fields[f.name] ?? ""));
-                                    const onSave = async () => {
-                                        if (saving) return;
-                                        setSaving(true); setSaveError(null);
-                                        try {
-                                            const merged: Record<string, string> = { ...ff.fields, ...editingFields };
-                                            const updated = await saveFormContent(incidentId, openForm.formId, {
-                                                content: { ...ff, fields: merged },
-                                                actingRole,
-                                                userId: "form-popup"
-                                            });
-                                            setEditingFields({});
-                                            onSaved?.(updated);
-                                            // Land back on the PDF so the editor is a detour, not a destination.
-                                            setShowEditor(false);
-                                        } catch (e) {
-                                            setSaveError(e instanceof Error ? e.message : "Save failed.");
-                                        } finally {
-                                            setSaving(false);
-                                        }
-                                    };
-                                    const grouped = groupFieldsByRow(schema.fields);
-                                    return (
-                                        <>
-                                            <Caption1 style={{ color: "#666", display: "block", marginBottom: 8 }}>
-                                                {schema.fieldCount} fields · {schema.pageCount} page(s) · official template
-                                            </Caption1>
-                                            {/* Header (non-row) fields first */}
-                                            {grouped.unrowed.map(({ field: f, label }, idx) => (
-                                                <Field key={`${f.name}-${idx}`} label={label || "(unnamed field)"}>
-                                                    <Textarea
-                                                        value={current[f.name] ?? ""}
-                                                        disabled={saving || locked}
-                                                        onChange={(_, data) => setField(f.name, data.value)}
-                                                        rows={1}
-                                                    />
-                                                </Field>
-                                            ))}
-                                            {/* Tabular row groups (one section per row) */}
-                                            {grouped.rows.map(row => (
-                                                <div
-                                                    key={`row-${row.rowNumber}`}
-                                                    style={{
-                                                        borderTop: "1px solid #E0E0E0",
-                                                        paddingTop: 8,
-                                                        marginTop: 12,
-                                                        display: "flex",
-                                                        flexDirection: "column",
-                                                        gap: 6
-                                                    }}
-                                                >
-                                                    <Caption1 style={{ color: "#555", fontWeight: 600 }}>
-                                                        Row {row.rowNumber}
-                                                    </Caption1>
-                                                    {row.fields.map(({ field: f, baseLabel }, idx) => (
-                                                        <Field
-                                                            key={`${f.name}-${idx}`}
-                                                            label={baseLabel || f.name || "(unnamed field)"}
-                                                        >
-                                                            <Textarea
-                                                                value={current[f.name] ?? ""}
-                                                                disabled={saving || locked}
-                                                                onChange={(_, data) => setField(f.name, data.value)}
-                                                                rows={1}
-                                                            />
-                                                        </Field>
-                                                    ))}
-                                                </div>
-                                            ))}
-                                            <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
-                                                <Button appearance="primary" onClick={() => void onSave()} disabled={!dirty || saving || locked}>
-                                                    {saving ? "Saving…" : "Save"}
-                                                </Button>
-                                                <Button
-                                                    appearance="secondary"
-                                                    onClick={() => { setEditingFields({}); setShowEditor(false); }}
-                                                    disabled={saving}
-                                                    title="Back to the populated PDF view (discards unsaved edits)"
-                                                >
-                                                    View PDF
-                                                </Button>
-                                                {dirty && <Caption1 style={{ color: "#7A5B00" }}>Unsaved changes</Caption1>}
-                                                {saveError && <Caption1 style={{ color: "#C62828" }}>{saveError}</Caption1>}
-                                            </div>
-                                        </>
-                                    );
-                                })()
                             ) : (
                                 renderFormContent(openForm)
                             )}

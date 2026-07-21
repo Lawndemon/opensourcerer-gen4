@@ -639,6 +639,10 @@ class SaveFormContentRequest(_IncidentBase):
     content: FormContent
     acting_role: str
     user_id: str
+    # Optimistic-concurrency stamp (2026-07-21): the form's last_updated the editor started
+    # from. When supplied and stale, the save is rejected 409 so a concurrent editor's work
+    # is never silently overwritten. Omitted = legacy last-write-wins behavior.
+    expected_last_updated: Optional[str] = None
 
 
 class WithdrawContributionRequest(_IncidentBase):

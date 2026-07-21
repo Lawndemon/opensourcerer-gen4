@@ -9,8 +9,15 @@ If necessary, edit this file to ensure it accurately reflects the current state 
 
 * app: Contains the main application code, including frontend and backend.
   * app/backend: Contains the Python backend code, written with Quart framework.
+    * app/backend/incidents: The incident-centric core (Fire Officer kiosk / IMT workflow — this project's real product; see BACKLOG.md)
+      * app/backend/incidents/cosmosdb.py: Incident document persistence + all state-transition functions (append-only event log, Loss Stop scene freeze, Transfer of Command, HIC gates, lock/close, save_form_content with optimistic concurrency + locked-form gate)
+      * app/backend/incidents/routing.py: Server-side twin of frontend recommendationRouting.ts (HIC + routing rules — change BOTH or neither)
+      * app/backend/incidents/form_templates.py: Role → ICS forms mapping (FORM_TEMPLATES), ROLE_TITLES, stable_form_id
+      * app/backend/incidents/pdf_filler.py: Fills the official ICS Canada AcroForm PDFs; merges field_curation.json onto schemas.json in load_schemas(); ai_fillable_fields() drives the AI fill prompt
+      * app/backend/incidents/ics_pdf_templates/: The 11 official ICS Canada PDFs + machine-scraped schemas.json + hand-curated field_curation.json (labels/guidance/ai_fill per field — the single source of truth for editor labels AND AI fill)
     * app/backend/approaches: Contains the different approaches
       * app/backend/approaches/approach.py: Base class for all approaches
+      * app/backend/approaches/validate_iap.py, extract_forms.py, recommend_actions.py, refine_condition.py: Incident-pipeline LLM approaches (scene extraction, per-form AI fill via prompts/extraction/fill_form_fields.md, support recommendations, condition refinement)
       * app/backend/approaches/chatreadretrieveread.py: Chat approach, includes query rewriting step first
       * app/backend/approaches/promptmanager.py: Manages loading and rendering of Jinja2 prompt templates
       * app/backend/approaches/prompts/query_rewrite.system.jinja2: Jinja2 template used to rewrite the query based off search history into a better search query
@@ -43,7 +50,12 @@ If necessary, edit this file to ensure it accurately reflects the current state 
   * app/functions: Azure Functions used for cloud ingestion custom skills (document extraction, figure processing, text processing). Each function bundles a synchronized copy of `prepdocslib`; run `python scripts/copy_prepdocslib.py` to refresh the local copies if you modify the library.
   * app/frontend: Contains the React frontend code, built with TypeScript, built with vite.
     * app/frontend/src/api: Contains the API client code for communicating with the backend.
+      * app/frontend/src/api/incidents.ts: Incident API client — every call attaches getBearerAuthHeaders() (self-refreshing Easy Auth token; do NOT add cookie-only fetches, they go stale after ~1h)
     * app/frontend/src/components: Contains the React components for the frontend.
+      * app/frontend/src/components/PdfFormViewer.tsx: Edit-in-PDF form surface (pdfjs-dist canvas + HTML field overlay); harvests edits to Cosmos via saveFormContent with conflict detection. Used by FormTabStrip (form tabs) and CloseoutAdmin.
+    * app/frontend/src/pages/incidentKiosk: Fire Officer kiosk (voice + single-button, never keyboard) incl. FormTabStrip (PDF-first form tabs)
+    * app/frontend/src/pages/incidentList: IMT/support views, CloseoutAdmin (cleanup + lock), RecommendationsPanel
+    * app/frontend/src/recommendationRouting.ts: Frontend twin of backend incidents/routing.py (change BOTH or neither)
     * app/frontend/src/locales: Contains the translation files for internationalization.
       * app/frontend/src/locales/da/translation.json: Danish translations
       * app/frontend/src/locales/en/translation.json: English translations

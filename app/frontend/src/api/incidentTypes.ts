@@ -287,6 +287,9 @@ export interface SaveFormContentRequest {
     content: FormContent;
     actingRole: ActingRole | string;
     userId: string;
+    /** Optimistic-concurrency stamp: the form's lastUpdated the editor started from.
+     *  Stale stamp → 409 with {conflict: true, lastUpdatedBy} instead of a silent overwrite. */
+    expectedLastUpdated?: string;
 }
 
 export interface WithdrawContributionRequest {
