@@ -41,12 +41,17 @@ interface FormTabStripProps {
      */
     generating?: boolean;
     /**
-     * If true, form_fields content opens as an editable inline editor in the overlay
-     * (with Save + Download PDF buttons). Used on non-FO kiosks (IC + support views).
-     * The FO kiosk leaves this off and uses CloseoutAdmin for form editing.
+     * If true, form_fields content offers an "Edit fields" flip into the inline field
+     * editor (with Save + Download PDF buttons). Used on non-FO kiosks (IC + support
+     * views). The FO kiosk leaves this off and uses CloseoutAdmin for form editing.
      */
     editable?: boolean;
-    /** Required when editable=true — needed for the save + download endpoints. */
+    /**
+     * Enables the PDF-first overlay for form_fields forms (the populated official ICS
+     * Canada PDF renders embedded when a tab opens — Dave, 2026-07-21: "the PDF is the
+     * thing"). Required when editable=true (save endpoint) and for PDF render/download.
+     * Ephemeral (unpersisted) incidents omit it and fall back to the summary card.
+     */
     incidentId?: string;
     /** Required when editable=true — recorded on the form_content_edited audit event. */
     actingRole?: ActingRole | string;
@@ -91,13 +96,15 @@ const renderFormContent = (form: FormSummary) => {
         );
     }
     if (form.content.kind === "form_fields") {
+        // Fallback card for unpersisted incidents only — persisted incidents render the
+        // populated official PDF instead (see the pdfPane branch in the overlay).
         const filled = Object.values(form.content.fields).filter(v => (v ?? "").trim().length > 0).length;
         const total = Object.keys(form.content.fields).length;
         return (
             <div className={styles.placeholderForm}>
                 <Caption1 className={styles.fieldLabel}>{form.content.formType}</Caption1>
                 <Body1 className={styles.empty}>
-                    Official ICS Canada template{total > 0 ? ` — ${filled}/${total} fields filled` : ""}. Edit and download as PDF from the Closeout page.
+                    Official ICS Canada template{total > 0 ? ` — ${filled}/${total} fields filled` : ""}. The filled PDF renders here once the incident is persisted.
                 </Body1>
             </div>
         );
@@ -127,6 +134,9 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
     const [editingFields, setEditingFields] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    // PDF-first (2026-07-21): form_fields tabs open on the populated official PDF; the
+    // inline field editor is an explicit flip (support roles only), not the default.
+    const [showEditor, setShowEditor] = useState(false);
 
     // Load schemas once on mount when editable. Drives the inline field editor for form_fields.
     useEffect(() => {
@@ -172,7 +182,10 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                             role="tab"
                             aria-selected={isOpen}
                             className={`${styles.tab} ${isOpen ? styles.tabOpen : ""}`}
-                            onClick={() => setOpenFormId(isOpen ? null : f.formId)}
+                            onClick={() => {
+                                setOpenFormId(isOpen ? null : f.formId);
+                                setShowEditor(false);
+                            }}
                         >
                             <span className={styles.tabTitle}>{formatFormLabel(f)}</span>
                         </button>
@@ -210,9 +223,36 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                         </div>
                         <div
                             className={styles.overlayBody}
-                            onClick={editable && openForm.content.kind === "form_fields" ? e => e.stopPropagation() : undefined}
+                            onClick={openForm.content.kind === "form_fields" && incidentId ? e => e.stopPropagation() : undefined}
                         >
-                            {editable && openForm.content.kind === "form_fields" && incidentId && actingRole ? (
+                            {openForm.content.kind === "form_fields" && incidentId && !showEditor ? (
+                                /* PDF-first: the populated official ICS Canada form IS the view.
+                                   lastUpdated in key + query string busts the browser cache after
+                                   every regeneration/save. */
+                                <div className={styles.pdfPane}>
+                                    <div className={styles.pdfToolbar}>
+                                        {editable && actingRole && (
+                                            <Button appearance="secondary" size="small" onClick={() => setShowEditor(true)} disabled={locked}>
+                                                Edit fields
+                                            </Button>
+                                        )}
+                                        <Button
+                                            appearance="secondary"
+                                            size="small"
+                                            onClick={() => window.open(formPdfDownloadUrl(incidentId, openForm.formId), "_blank")}
+                                        >
+                                            Open full screen
+                                        </Button>
+                                        <Caption1 className={styles.pdfHint}>Official ICS Canada form — populated from the incident</Caption1>
+                                    </div>
+                                    <iframe
+                                        key={`${openForm.formId}-${openForm.lastUpdated}`}
+                                        src={`${formPdfDownloadUrl(incidentId, openForm.formId)}?v=${encodeURIComponent(openForm.lastUpdated)}`}
+                                        title={formatFormLabel(openForm)}
+                                        className={styles.pdfFrame}
+                                    />
+                                </div>
+                            ) : editable && openForm.content.kind === "form_fields" && incidentId && actingRole ? (
                                 (() => {
                                     const ff = openForm.content;
                                     const schema = schemas?.[ff.formIdKey];
@@ -234,6 +274,8 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                                             });
                                             setEditingFields({});
                                             onSaved?.(updated);
+                                            // Land back on the PDF so the editor is a detour, not a destination.
+                                            setShowEditor(false);
                                         } catch (e) {
                                             setSaveError(e instanceof Error ? e.message : "Save failed.");
                                         } finally {
@@ -294,11 +336,11 @@ const FormTabStrip = ({ forms, currentRole, locked = false, generating = false, 
                                                 </Button>
                                                 <Button
                                                     appearance="secondary"
-                                                    onClick={() => window.open(formPdfDownloadUrl(incidentId, openForm.formId), "_blank")}
-                                                    disabled={dirty}
-                                                    title={dirty ? "Save changes first" : "Download as the official ICS Canada PDF"}
+                                                    onClick={() => { setEditingFields({}); setShowEditor(false); }}
+                                                    disabled={saving}
+                                                    title="Back to the populated PDF view (discards unsaved edits)"
                                                 >
-                                                    Download PDF
+                                                    View PDF
                                                 </Button>
                                                 {dirty && <Caption1 style={{ color: "#7A5B00" }}>Unsaved changes</Caption1>}
                                                 {saveError && <Caption1 style={{ color: "#C62828" }}>{saveError}</Caption1>}

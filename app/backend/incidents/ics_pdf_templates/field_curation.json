@@ -1,0 +1,2231 @@
+{
+  "_readme": [
+    "Hand-curated overlay on the machine-generated schemas.json (BACKLOG: ICS forms Phase 3).",
+    "Per form (key = schemas.json key), per AcroForm field name:",
+    "  label    — human-readable label shown in the form editor (overrides the scraped /TU label)",
+    "  guidance — what belongs in this field; included verbatim in the AI fill prompt",
+    "  ai_fill  — true when the fill LLM should attempt to populate this field. Fields that",
+    "             require a human decision (signatures, attachment checkboxes, page numbers)",
+    "             stay false and are left for the editor.",
+    "Merged into load_schemas() output by incidents/pdf_filler.py, so the /api/ics-forms/schemas",
+    "endpoint and the fill prompt both read from this single source of truth."
+  ],
+  "ics_202": {
+    "fields": {
+      "1 Incident Name_5": {
+        "label": "1. Incident Name",
+        "guidance": "Short incident name, max ~35 characters (single-line box): address or landmark plus incident type, e.g. 'Maple St Structure Fire'.",
+        "ai_fill": true
+      },
+      "Date From": {
+        "label": "2. Operational Period — Date From",
+        "guidance": "Start date of this operational period. Use the incident start date (current date if the transcript gives no other).",
+        "ai_fill": true
+      },
+      "Date To": {
+        "label": "2. Operational Period — Date To",
+        "guidance": "End date of this operational period. Leave blank if not established.",
+        "ai_fill": true
+      },
+      "Time From": {
+        "label": "2. Operational Period — Time From",
+        "guidance": "Start time (24h) of this operational period. Use the incident start time if stated.",
+        "ai_fill": true
+      },
+      "Time To": {
+        "label": "2. Operational Period — Time To",
+        "guidance": "End time (24h) of this operational period. Leave blank if not established.",
+        "ai_fill": true
+      },
+      "3 Objectives": {
+        "label": "3. Objective(s)",
+        "guidance": "Numbered incident objectives for this operational period, ordered life safety first, then incident stabilization, then property conservation. Ground each objective in the scene conditions; keep them specific and achievable (e.g. '1. Confirm primary search complete in exposure Bravo. 2. Contain fire to building of origin.').",
+        "ai_fill": true
+      },
+      "4 Operational Period Command Emphasis": {
+        "label": "4. Operational Period Command Emphasis",
+        "guidance": "The commander's key emphasis for the period: the dominant safety concern or tactical priority (e.g. 'Defensive operations only — no interior attack; maintain collapse zones.').",
+        "ai_fill": true
+      },
+      "General Situational Awareness": {
+        "label": "4a. General Situational Awareness",
+        "guidance": "Situational factors all personnel must know: weather, hazards, access constraints, utilities status. Only include what the evidence supports.",
+        "ai_fill": true
+      },
+      "Yes": {
+        "label": "5. Site Safety Plan Required — Yes",
+        "guidance": "Check when a site safety plan is required (hazmat, structural collapse risk, or any scene with red/unsafe conditions). Exactly one of Yes/No should be checked.",
+        "ai_fill": true
+      },
+      "No": {
+        "label": "5. Site Safety Plan Required — No",
+        "guidance": "Check when no site safety plan is required. Exactly one of Yes/No should be checked.",
+        "ai_fill": true
+      },
+      "5 Site Safety Plan Required Yes No Approved Site Safety Plans Located at": {
+        "label": "5a. Approved Site Safety Plan(s) Located At",
+        "guidance": "Location of the approved site safety plan documents. Fill only if stated; otherwise leave blank.",
+        "ai_fill": true
+      },
+      "ICS 203": {
+        "label": "6. IAP Attachment — ICS 203 Organization Assignment List",
+        "ai_fill": false
+      },
+      "ICS 204": {
+        "label": "6. IAP Attachment — ICS 204 Assignment List",
+        "ai_fill": false
+      },
+      "ICS 205": {
+        "label": "6. IAP Attachment — ICS 205 Radio Communications Plan",
+        "ai_fill": false
+      },
+      "ICS 205A": {
+        "label": "6. IAP Attachment — ICS 205A Communications List",
+        "ai_fill": false
+      },
+      "ICS 206": {
+        "label": "6. IAP Attachment — ICS 206 Medical Plan",
+        "ai_fill": false
+      },
+      "ICS 207": {
+        "label": "6. IAP Attachment — ICS 207 Incident Organization Chart",
+        "ai_fill": false
+      },
+      "ICS 208": {
+        "label": "6. IAP Attachment — ICS 208 Safety Message/Plan",
+        "ai_fill": false
+      },
+      "Map/Chart": {
+        "label": "6. IAP Attachment — Map/Chart",
+        "ai_fill": false
+      },
+      "Weather Forecast/Tides/Current": {
+        "label": "6. IAP Attachment — Weather Forecast/Tides/Currents",
+        "ai_fill": false
+      },
+      "Check 1": {
+        "label": "6. IAP Attachment — Other (row 1)",
+        "ai_fill": false
+      },
+      "Other Attachments 1": {
+        "label": "6. Other Attachment — description (row 1)",
+        "ai_fill": false
+      },
+      "Check 2": {
+        "label": "6. IAP Attachment — Other (row 2)",
+        "ai_fill": false
+      },
+      "Other Attachments 2": {
+        "label": "6. Other Attachment — description (row 2)",
+        "ai_fill": false
+      },
+      "Check 3": {
+        "label": "6. IAP Attachment — Other (row 3)",
+        "ai_fill": false
+      },
+      "Other Attachments 3": {
+        "label": "6. Other Attachment — description (row 3)",
+        "ai_fill": false
+      },
+      "Check 4": {
+        "label": "6. IAP Attachment — Other (row 4)",
+        "ai_fill": false
+      },
+      "Other Attachments 4": {
+        "label": "6. Other Attachment — description (row 4)",
+        "ai_fill": false
+      },
+      "7 Prepared by Name": {
+        "label": "7. Prepared By — Name",
+        "guidance": "Name of the person preparing this form. Fill only if a name is explicitly stated in the evidence; never invent one.",
+        "ai_fill": true
+      },
+      "PositionTitle_5": {
+        "label": "7. Prepared By — Position/Title",
+        "guidance": "ICS position of the preparer. For this form, 'Planning Section Chief' or 'Incident Commander' as the evidence supports.",
+        "ai_fill": true
+      },
+      "Signature_5": {
+        "label": "7. Prepared By — Signature",
+        "ai_fill": false
+      },
+      "8 Approved by Incident Commander Name": {
+        "label": "8. Approved By Incident Commander — Name",
+        "guidance": "Name of the approving Incident Commander. Fill only if explicitly stated; never invent one.",
+        "ai_fill": true
+      },
+      "Signature_6": {
+        "label": "8. Approved By — Signature",
+        "ai_fill": false
+      },
+      "IAP Page": {
+        "label": "IAP Page Number",
+        "ai_fill": false
+      },
+      "DateTime_5": {
+        "label": "Date/Time Prepared",
+        "guidance": "Date and time this form was prepared. Use the current date/time provided in the context.",
+        "ai_fill": true
+      }
+    }
+  },
+  "ics_208": {
+    "fields": {
+      "3 INCIDENT NAME": {
+        "label": "1. Incident Name",
+        "guidance": "Short incident name, max ~35 characters: address or landmark plus incident type.",
+        "ai_fill": true
+      },
+      "Date from": {
+        "label": "2. Operational Period — Date From",
+        "guidance": "Start date of this operational period (current date if the transcript gives no other).",
+        "ai_fill": true
+      },
+      "Date to": {
+        "label": "2. Operational Period — Date To",
+        "guidance": "End date of this operational period. Leave blank if not established.",
+        "ai_fill": true
+      },
+      "Time from": {
+        "label": "2. Operational Period — Time From",
+        "guidance": "Start time (24h) of this operational period.",
+        "ai_fill": true
+      },
+      "Time to": {
+        "label": "2. Operational Period — Time To",
+        "guidance": "End time (24h). Leave blank if not established.",
+        "ai_fill": true
+      },
+      "3. SAFETY MESSAGE": {
+        "label": "3. Safety Message / Safety Plan / Site Safety Plan",
+        "guidance": "The safety message for all personnel: enumerate the scene's hazards (red/unsafe conditions first), the protective measures in effect (PPE, accountability, collapse zones, utility control), and any expanded safety-plan direction. Ground every hazard in the scene conditions; standard fire-service safety doctrine may fill gaps.",
+        "ai_fill": true
+      },
+      "3": {
+        "label": "(internal field — leave blank)",
+        "ai_fill": false
+      },
+      "Yes": {
+        "label": "4. Site Safety Plan Required — Yes",
+        "guidance": "Check when a site safety plan is required (hazmat, collapse risk, or any red/unsafe scene condition). Exactly one of Yes/No should be checked.",
+        "ai_fill": true
+      },
+      "No": {
+        "label": "4. Site Safety Plan Required — No",
+        "guidance": "Check when no site safety plan is required. Exactly one of Yes/No should be checked.",
+        "ai_fill": true
+      },
+      "Approved Site Safety Plan(s) Located At:": {
+        "label": "4a. Approved Site Safety Plan(s) Located At",
+        "guidance": "Location of approved site safety plan documents. Fill only if stated; otherwise leave blank.",
+        "ai_fill": true
+      },
+      "PREPARED BY (Name and Position)": {
+        "label": "5. Prepared By — Name and Position",
+        "guidance": "ICS position of the preparer (normally 'Safety Officer'); include a personal name only if explicitly stated in the evidence.",
+        "ai_fill": true
+      },
+      "Date/Time:": {
+        "label": "5. Date Prepared",
+        "guidance": "Date this form was prepared — use the current date provided in the context.",
+        "ai_fill": true
+      },
+      "Text15": {
+        "label": "5. Time Prepared",
+        "guidance": "Time (24h) this form was prepared — use the current time provided in the context.",
+        "ai_fill": true
+      }
+    }
+  },
+  "ics_215a": {
+    "fields": {
+      "1 Incident Name": {
+        "label": "1. Incident Name",
+        "guidance": "Short incident name, max ~35 characters.",
+        "ai_fill": true
+      },
+      "Text1": {
+        "label": "2. Date Prepared",
+        "guidance": "Date this form was prepared — use the current date provided in the context.",
+        "ai_fill": true
+      },
+      "Text2": {
+        "label": "2. Time Prepared",
+        "guidance": "Time (24h) this form was prepared — use the current time provided in the context.",
+        "ai_fill": true
+      },
+      "Text3": {
+        "label": "3. Operational Period — Date From",
+        "guidance": "Start date of this operational period.",
+        "ai_fill": true
+      },
+      "Text4": {
+        "label": "3. Operational Period — Date To",
+        "guidance": "End date. Leave blank if not established.",
+        "ai_fill": true
+      },
+      "Text5": {
+        "label": "3. Operational Period — Time From",
+        "guidance": "Start time (24h).",
+        "ai_fill": true
+      },
+      "Text6": {
+        "label": "3. Operational Period — Time To",
+        "guidance": "End time (24h). Leave blank if not established.",
+        "ai_fill": true
+      },
+      "Name.0": {
+        "label": "7. Prepared By (Safety Officer) — Name",
+        "guidance": "Safety Officer's personal name — fill only if explicitly stated; never invent.",
+        "ai_fill": true
+      },
+      "Name.1": {
+        "label": "7. Prepared By (Operations Section Chief) — Name",
+        "guidance": "Operations Section Chief's personal name — fill only if explicitly stated; never invent.",
+        "ai_fill": true
+      },
+      "Name": {
+        "label": "(internal field — leave blank)",
+        "ai_fill": false
+      },
+      "5 Incident AreaRow1": {
+        "label": "4. Incident Area (Row 1)",
+        "ai_fill": true,
+        "guidance": "Operational area/zone this row analyzes, e.g. 'Interior — main structure', 'Roof', 'Exposure Bravo'. Fill rows top-down, one row per distinct area with hazards; leave unused rows blank."
+      },
+      "6 HazardsRisksRow1": {
+        "label": "5. Hazards/Risks (Row 1)",
+        "ai_fill": true,
+        "guidance": "The hazards/risks present in that area, drawn from the scene conditions (red/unsafe items first, then yellow)."
+      },
+      "7 MitigationsRow1": {
+        "label": "6. Mitigations (Row 1)",
+        "ai_fill": true,
+        "guidance": "Control measures for those hazards per standard fire-service practice (PPE, exclusion zones, ventilation, utility control, RIT, etc.)."
+      },
+      "5 Incident AreaRow2": {
+        "label": "4. Incident Area (Row 2)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow2": {
+        "label": "5. Hazards/Risks (Row 2)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow2": {
+        "label": "6. Mitigations (Row 2)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow3": {
+        "label": "4. Incident Area (Row 3)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow3": {
+        "label": "5. Hazards/Risks (Row 3)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow3": {
+        "label": "6. Mitigations (Row 3)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow4": {
+        "label": "4. Incident Area (Row 4)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow4": {
+        "label": "5. Hazards/Risks (Row 4)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow4": {
+        "label": "6. Mitigations (Row 4)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow5": {
+        "label": "4. Incident Area (Row 5)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow5": {
+        "label": "5. Hazards/Risks (Row 5)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow5": {
+        "label": "6. Mitigations (Row 5)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow6": {
+        "label": "4. Incident Area (Row 6)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow6": {
+        "label": "5. Hazards/Risks (Row 6)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow6": {
+        "label": "6. Mitigations (Row 6)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow7": {
+        "label": "4. Incident Area (Row 7)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow7": {
+        "label": "5. Hazards/Risks (Row 7)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow7": {
+        "label": "6. Mitigations (Row 7)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow8": {
+        "label": "4. Incident Area (Row 8)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow8": {
+        "label": "5. Hazards/Risks (Row 8)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow8": {
+        "label": "6. Mitigations (Row 8)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow9": {
+        "label": "4. Incident Area (Row 9)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow9": {
+        "label": "5. Hazards/Risks (Row 9)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow9": {
+        "label": "6. Mitigations (Row 9)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow10": {
+        "label": "4. Incident Area (Row 10)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow10": {
+        "label": "5. Hazards/Risks (Row 10)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow10": {
+        "label": "6. Mitigations (Row 10)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow11": {
+        "label": "4. Incident Area (Row 11)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow11": {
+        "label": "5. Hazards/Risks (Row 11)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow11": {
+        "label": "6. Mitigations (Row 11)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow12": {
+        "label": "4. Incident Area (Row 12)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow12": {
+        "label": "5. Hazards/Risks (Row 12)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow12": {
+        "label": "6. Mitigations (Row 12)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow13": {
+        "label": "4. Incident Area (Row 13)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow13": {
+        "label": "5. Hazards/Risks (Row 13)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow13": {
+        "label": "6. Mitigations (Row 13)",
+        "ai_fill": true
+      },
+      "5 Incident AreaRow14": {
+        "label": "4. Incident Area (Row 14)",
+        "ai_fill": true
+      },
+      "6 HazardsRisksRow14": {
+        "label": "5. Hazards/Risks (Row 14)",
+        "ai_fill": true
+      },
+      "7 MitigationsRow14": {
+        "label": "6. Mitigations (Row 14)",
+        "ai_fill": true
+      }
+    }
+  },
+  "ics_214": {
+    "fields": {
+      "1 INCIDENT NAME": {
+        "label": "1. Incident Name",
+        "guidance": "Short incident name, max ~35 characters.",
+        "ai_fill": true
+      },
+      "2 DATE PREPARED": {
+        "label": "2. Date Prepared",
+        "guidance": "Use the current date provided in the context.",
+        "ai_fill": true
+      },
+      "3 TIME PREPARED": {
+        "label": "3. Time Prepared",
+        "guidance": "Use the current time (24h) provided in the context.",
+        "ai_fill": true
+      },
+      "4. NAME": {
+        "label": "4. Name (log keeper)",
+        "guidance": "Personal name of the individual maintaining this log - fill only if explicitly stated; never invent.",
+        "ai_fill": true
+      },
+      "4": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "5. ICS POSITION": {
+        "label": "5. ICS Position",
+        "guidance": "Leave blank - the system stamps the owning role's position on this field.",
+        "ai_fill": false
+      },
+      "5": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "Text56": {
+        "label": "6. Operational Period - Date From (page 1)",
+        "guidance": "Start date of this operational period.",
+        "ai_fill": true
+      },
+      "Text19": {
+        "label": "6. Operational Period - Time From",
+        "guidance": "Start time (24h).",
+        "ai_fill": true
+      },
+      "Text57": {
+        "label": "6. Operational Period - Date To (page 1)",
+        "guidance": "End date. Leave blank if not established.",
+        "ai_fill": true
+      },
+      "Text20": {
+        "label": "6. Operational Period - Time To",
+        "guidance": "End time (24h). Leave blank if not established.",
+        "ai_fill": true
+      },
+      "Text58": {
+        "label": "6. Operational Period - Date From (page 2)",
+        "guidance": "Same value as the page-1 Date From.",
+        "ai_fill": true
+      },
+      "Text59": {
+        "label": "6. Operational Period - Date To (page 2)",
+        "guidance": "Same value as the page-1 Date To.",
+        "ai_fill": true
+      },
+      "9. PREPARED BY (Name and Position)": {
+        "label": "9. Prepared By - Name and Position",
+        "guidance": "ICS position of the log keeper; include a personal name only if explicitly stated.",
+        "ai_fill": true
+      },
+      "9": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "Text1": {
+        "label": "Page number (page 1)",
+        "ai_fill": false
+      },
+      "Text2": {
+        "label": "Page count (page 1 'of')",
+        "ai_fill": false
+      },
+      "Text3": {
+        "label": "Page number (page 2)",
+        "ai_fill": false
+      },
+      "Text4": {
+        "label": "Page count (page 2 'of')",
+        "ai_fill": false
+      },
+      "NameRow1": {
+        "label": "7. Personnel Assigned - Name (Row 1)",
+        "ai_fill": true,
+        "guidance": "Personnel names - only those explicitly stated in the evidence (crew/unit staffing). Leave unused rows blank."
+      },
+      "ICS PositionRow1": {
+        "label": "7. Personnel Assigned - ICS Position (Row 1)",
+        "ai_fill": true,
+        "guidance": "That person's ICS position/assignment, if stated."
+      },
+      "Home BaseRow1": {
+        "label": "7. Personnel Assigned - Home Base (Row 1)",
+        "ai_fill": true,
+        "guidance": "That person's home base/station, if stated."
+      },
+      "NameRow2": {
+        "label": "7. Personnel Assigned - Name (Row 2)",
+        "ai_fill": true
+      },
+      "ICS PositionRow2": {
+        "label": "7. Personnel Assigned - ICS Position (Row 2)",
+        "ai_fill": true
+      },
+      "Home BaseRow2": {
+        "label": "7. Personnel Assigned - Home Base (Row 2)",
+        "ai_fill": true
+      },
+      "NameRow3": {
+        "label": "7. Personnel Assigned - Name (Row 3)",
+        "ai_fill": true
+      },
+      "ICS PositionRow3": {
+        "label": "7. Personnel Assigned - ICS Position (Row 3)",
+        "ai_fill": true
+      },
+      "Home BaseRow3": {
+        "label": "7. Personnel Assigned - Home Base (Row 3)",
+        "ai_fill": true
+      },
+      "NameRow4": {
+        "label": "7. Personnel Assigned - Name (Row 4)",
+        "ai_fill": true
+      },
+      "ICS PositionRow4": {
+        "label": "7. Personnel Assigned - ICS Position (Row 4)",
+        "ai_fill": true
+      },
+      "Home BaseRow4": {
+        "label": "7. Personnel Assigned - Home Base (Row 4)",
+        "ai_fill": true
+      },
+      "NameRow5": {
+        "label": "7. Personnel Assigned - Name (Row 5)",
+        "ai_fill": true
+      },
+      "ICS PositionRow5": {
+        "label": "7. Personnel Assigned - ICS Position (Row 5)",
+        "ai_fill": true
+      },
+      "Home BaseRow5": {
+        "label": "7. Personnel Assigned - Home Base (Row 5)",
+        "ai_fill": true
+      },
+      "NameRow6": {
+        "label": "7. Personnel Assigned - Name (Row 6)",
+        "ai_fill": true
+      },
+      "ICS PositionRow6": {
+        "label": "7. Personnel Assigned - ICS Position (Row 6)",
+        "ai_fill": true
+      },
+      "Home BaseRow6": {
+        "label": "7. Personnel Assigned - Home Base (Row 6)",
+        "ai_fill": true
+      },
+      "NameRow7": {
+        "label": "7. Personnel Assigned - Name (Row 7)",
+        "ai_fill": true
+      },
+      "ICS PositionRow7": {
+        "label": "7. Personnel Assigned - ICS Position (Row 7)",
+        "ai_fill": true
+      },
+      "Home BaseRow7": {
+        "label": "7. Personnel Assigned - Home Base (Row 7)",
+        "ai_fill": true
+      },
+      "NameRow8": {
+        "label": "7. Personnel Assigned - Name (Row 8)",
+        "ai_fill": true
+      },
+      "ICS PositionRow8": {
+        "label": "7. Personnel Assigned - ICS Position (Row 8)",
+        "ai_fill": true
+      },
+      "Home BaseRow8": {
+        "label": "7. Personnel Assigned - Home Base (Row 8)",
+        "ai_fill": true
+      },
+      "NameRow9": {
+        "label": "7. Personnel Assigned - Name (Row 9)",
+        "ai_fill": true
+      },
+      "ICS PositionRow9": {
+        "label": "7. Personnel Assigned - ICS Position (Row 9)",
+        "ai_fill": true
+      },
+      "Home BaseRow9": {
+        "label": "7. Personnel Assigned - Home Base (Row 9)",
+        "ai_fill": true
+      },
+      "NameRow10": {
+        "label": "7. Personnel Assigned - Name (Row 10)",
+        "ai_fill": true
+      },
+      "ICS PositionRow10": {
+        "label": "7. Personnel Assigned - ICS Position (Row 10)",
+        "ai_fill": true
+      },
+      "Home BaseRow10": {
+        "label": "7. Personnel Assigned - Home Base (Row 10)",
+        "ai_fill": true
+      },
+      "NameRow11": {
+        "label": "7. Personnel Assigned - Name (Row 11)",
+        "ai_fill": true
+      },
+      "ICS PositionRow11": {
+        "label": "7. Personnel Assigned - ICS Position (Row 11)",
+        "ai_fill": true
+      },
+      "Home BaseRow11": {
+        "label": "7. Personnel Assigned - Home Base (Row 11)",
+        "ai_fill": true
+      },
+      "NameRow12": {
+        "label": "7. Personnel Assigned - Name (Row 12)",
+        "ai_fill": true
+      },
+      "ICS PositionRow12": {
+        "label": "7. Personnel Assigned - ICS Position (Row 12)",
+        "ai_fill": true
+      },
+      "Home BaseRow12": {
+        "label": "7. Personnel Assigned - Home Base (Row 12)",
+        "ai_fill": true
+      },
+      "NameRow13": {
+        "label": "7. Personnel Assigned - Name (Row 13)",
+        "ai_fill": true
+      },
+      "ICS PositionRow13": {
+        "label": "7. Personnel Assigned - ICS Position (Row 13)",
+        "ai_fill": true
+      },
+      "Home BaseRow13": {
+        "label": "7. Personnel Assigned - Home Base (Row 13)",
+        "ai_fill": true
+      },
+      "TimeRow1": {
+        "label": "8. Activity Log - Time (Row 1)",
+        "ai_fill": true,
+        "guidance": "Chronological major-events log from the transcript, earliest first, one event per row. Time in 24h; leave blank when the time is not stated or inferable."
+      },
+      "Major EventsRow1": {
+        "label": "8. Activity Log - Major Event (Row 1)",
+        "ai_fill": true,
+        "guidance": "The event/action for that time: dispatches, arrivals, assignments, condition changes, command decisions. Concise radio-log register."
+      },
+      "TimeRow2": {
+        "label": "8. Activity Log - Time (Row 2)",
+        "ai_fill": true
+      },
+      "Major EventsRow2": {
+        "label": "8. Activity Log - Major Event (Row 2)",
+        "ai_fill": true
+      },
+      "TimeRow3": {
+        "label": "8. Activity Log - Time (Row 3)",
+        "ai_fill": true
+      },
+      "Major EventsRow3": {
+        "label": "8. Activity Log - Major Event (Row 3)",
+        "ai_fill": true
+      },
+      "TimeRow4": {
+        "label": "8. Activity Log - Time (Row 4)",
+        "ai_fill": true
+      },
+      "Major EventsRow4": {
+        "label": "8. Activity Log - Major Event (Row 4)",
+        "ai_fill": true
+      },
+      "TimeRow5": {
+        "label": "8. Activity Log - Time (Row 5)",
+        "ai_fill": true
+      },
+      "Major EventsRow5": {
+        "label": "8. Activity Log - Major Event (Row 5)",
+        "ai_fill": true
+      },
+      "TimeRow6": {
+        "label": "8. Activity Log - Time (Row 6)",
+        "ai_fill": true
+      },
+      "Major EventsRow6": {
+        "label": "8. Activity Log - Major Event (Row 6)",
+        "ai_fill": true
+      },
+      "TimeRow7": {
+        "label": "8. Activity Log - Time (Row 7)",
+        "ai_fill": true
+      },
+      "Major EventsRow7": {
+        "label": "8. Activity Log - Major Event (Row 7)",
+        "ai_fill": true
+      },
+      "TimeRow8": {
+        "label": "8. Activity Log - Time (Row 8)",
+        "ai_fill": true
+      },
+      "Major EventsRow8": {
+        "label": "8. Activity Log - Major Event (Row 8)",
+        "ai_fill": true
+      },
+      "TimeRow9": {
+        "label": "8. Activity Log - Time (Row 9)",
+        "ai_fill": true
+      },
+      "Major EventsRow9": {
+        "label": "8. Activity Log - Major Event (Row 9)",
+        "ai_fill": true
+      },
+      "TimeRow10": {
+        "label": "8. Activity Log - Time (Row 10)",
+        "ai_fill": true
+      },
+      "Major EventsRow10": {
+        "label": "8. Activity Log - Major Event (Row 10)",
+        "ai_fill": true
+      },
+      "TimeRow11": {
+        "label": "8. Activity Log - Time (Row 11)",
+        "ai_fill": true
+      },
+      "Major EventsRow11": {
+        "label": "8. Activity Log - Major Event (Row 11)",
+        "ai_fill": true
+      },
+      "TimeRow12": {
+        "label": "8. Activity Log - Time (Row 12)",
+        "ai_fill": true
+      },
+      "Major EventsRow12": {
+        "label": "8. Activity Log - Major Event (Row 12)",
+        "ai_fill": true
+      },
+      "TimeRow13": {
+        "label": "8. Activity Log - Time (Row 13)",
+        "ai_fill": true
+      },
+      "Major EventsRow13": {
+        "label": "8. Activity Log - Major Event (Row 13)",
+        "ai_fill": true
+      },
+      "TimeRow14": {
+        "label": "8. Activity Log - Time (Row 14)",
+        "ai_fill": true
+      },
+      "Major EventsRow14": {
+        "label": "8. Activity Log - Major Event (Row 14)",
+        "ai_fill": true
+      },
+      "TimeRow15": {
+        "label": "8. Activity Log - Time (Row 15)",
+        "ai_fill": true
+      },
+      "Major EventsRow15": {
+        "label": "8. Activity Log - Major Event (Row 15)",
+        "ai_fill": true
+      },
+      "Text37": {
+        "label": "8. Activity Log - Time (Row 16, page 2)",
+        "ai_fill": false
+      },
+      "Text5": {
+        "label": "8. Activity Log - Major Event (Row 16, page 2)",
+        "ai_fill": false
+      },
+      "Text38": {
+        "label": "8. Activity Log - Time (Row 17, page 2)",
+        "ai_fill": false
+      },
+      "Text6": {
+        "label": "8. Activity Log - Major Event (Row 17, page 2)",
+        "ai_fill": false
+      },
+      "Text39": {
+        "label": "8. Activity Log - Time (Row 18, page 2)",
+        "ai_fill": false
+      },
+      "Text7": {
+        "label": "8. Activity Log - Major Event (Row 18, page 2)",
+        "ai_fill": false
+      },
+      "Text40": {
+        "label": "8. Activity Log - Time (Row 19, page 2)",
+        "ai_fill": false
+      },
+      "Text8": {
+        "label": "8. Activity Log - Major Event (Row 19, page 2)",
+        "ai_fill": false
+      },
+      "Text41": {
+        "label": "8. Activity Log - Time (Row 20, page 2)",
+        "ai_fill": false
+      },
+      "Text9": {
+        "label": "8. Activity Log - Major Event (Row 20, page 2)",
+        "ai_fill": false
+      },
+      "Text42": {
+        "label": "8. Activity Log - Time (Row 21, page 2)",
+        "ai_fill": false
+      },
+      "Text10": {
+        "label": "8. Activity Log - Major Event (Row 21, page 2)",
+        "ai_fill": false
+      },
+      "Text43": {
+        "label": "8. Activity Log - Time (Row 22, page 2)",
+        "ai_fill": false
+      },
+      "Text11": {
+        "label": "8. Activity Log - Major Event (Row 22, page 2)",
+        "ai_fill": false
+      },
+      "Text44": {
+        "label": "8. Activity Log - Time (Row 23, page 2)",
+        "ai_fill": false
+      },
+      "Text12": {
+        "label": "8. Activity Log - Major Event (Row 23, page 2)",
+        "ai_fill": false
+      },
+      "Text45": {
+        "label": "8. Activity Log - Time (Row 24, page 2)",
+        "ai_fill": false
+      },
+      "Text13": {
+        "label": "8. Activity Log - Major Event (Row 24, page 2)",
+        "ai_fill": false
+      },
+      "Text46": {
+        "label": "8. Activity Log - Time (Row 25, page 2)",
+        "ai_fill": false
+      },
+      "Text14": {
+        "label": "8. Activity Log - Major Event (Row 25, page 2)",
+        "ai_fill": false
+      },
+      "Text47": {
+        "label": "8. Activity Log - Time (Row 26, page 2)",
+        "ai_fill": false
+      },
+      "Text15": {
+        "label": "8. Activity Log - Major Event (Row 26, page 2)",
+        "ai_fill": false
+      },
+      "Text48": {
+        "label": "8. Activity Log - Time (Row 27, page 2)",
+        "ai_fill": false
+      },
+      "Text16": {
+        "label": "8. Activity Log - Major Event (Row 27, page 2)",
+        "ai_fill": false
+      },
+      "Text49": {
+        "label": "8. Activity Log - Time (Row 28, page 2)",
+        "ai_fill": false
+      },
+      "Text17": {
+        "label": "8. Activity Log - Major Event (Row 28, page 2)",
+        "ai_fill": false
+      },
+      "Text50": {
+        "label": "8. Activity Log - Time (Row 29, page 2)",
+        "ai_fill": false
+      },
+      "Text18": {
+        "label": "8. Activity Log - Major Event (Row 29, page 2)",
+        "ai_fill": false
+      },
+      "Text51": {
+        "label": "8. Activity Log - Time (Row 30, page 2)",
+        "ai_fill": false
+      },
+      "Text21": {
+        "label": "8. Activity Log - Major Event (Row 30, page 2)",
+        "ai_fill": false
+      },
+      "Text52": {
+        "label": "8. Activity Log - Time (Row 31, page 2)",
+        "ai_fill": false
+      },
+      "Text22": {
+        "label": "8. Activity Log - Major Event (Row 31, page 2)",
+        "ai_fill": false
+      },
+      "Text53": {
+        "label": "8. Activity Log - Time (Row 32, page 2)",
+        "ai_fill": false
+      },
+      "Text23": {
+        "label": "8. Activity Log - Major Event (Row 32, page 2)",
+        "ai_fill": false
+      },
+      "Text54": {
+        "label": "8. Activity Log - Time (Row 33, page 2)",
+        "ai_fill": false
+      },
+      "Text24": {
+        "label": "8. Activity Log - Major Event (Row 33, page 2)",
+        "ai_fill": false
+      },
+      "Text55": {
+        "label": "8. Activity Log - Time (Row 34, page 2)",
+        "ai_fill": false
+      },
+      "Text25": {
+        "label": "8. Activity Log - Major Event (Row 34, page 2)",
+        "ai_fill": false
+      },
+      "Text60": {
+        "label": "8. Activity Log - Time (Row 35, page 2)",
+        "ai_fill": false
+      },
+      "Text26": {
+        "label": "8. Activity Log - Major Event (Row 35, page 2)",
+        "ai_fill": false
+      },
+      "Text61": {
+        "label": "8. Activity Log - Time (Row 36, page 2)",
+        "ai_fill": false
+      },
+      "Text27": {
+        "label": "8. Activity Log - Major Event (Row 36, page 2)",
+        "ai_fill": false
+      },
+      "Text62": {
+        "label": "8. Activity Log - Time (Row 37, page 2)",
+        "ai_fill": false
+      },
+      "Text28": {
+        "label": "8. Activity Log - Major Event (Row 37, page 2)",
+        "ai_fill": false
+      },
+      "Text63": {
+        "label": "8. Activity Log - Time (Row 38, page 2)",
+        "ai_fill": false
+      },
+      "Text29": {
+        "label": "8. Activity Log - Major Event (Row 38, page 2)",
+        "ai_fill": false
+      },
+      "Text64": {
+        "label": "8. Activity Log - Time (Row 39, page 2)",
+        "ai_fill": false
+      },
+      "Text30": {
+        "label": "8. Activity Log - Major Event (Row 39, page 2)",
+        "ai_fill": false
+      },
+      "Text65": {
+        "label": "8. Activity Log - Time (Row 40, page 2)",
+        "ai_fill": false
+      },
+      "Text31": {
+        "label": "8. Activity Log - Major Event (Row 40, page 2)",
+        "ai_fill": false
+      },
+      "Text66": {
+        "label": "8. Activity Log - Time (Row 41, page 2)",
+        "ai_fill": false
+      },
+      "Text32": {
+        "label": "8. Activity Log - Major Event (Row 41, page 2)",
+        "ai_fill": false
+      },
+      "Text67": {
+        "label": "8. Activity Log - Time (Row 42, page 2)",
+        "ai_fill": false
+      },
+      "Text33": {
+        "label": "8. Activity Log - Major Event (Row 42, page 2)",
+        "ai_fill": false
+      },
+      "Text68": {
+        "label": "8. Activity Log - Time (Row 43, page 2)",
+        "ai_fill": false
+      },
+      "Text34": {
+        "label": "8. Activity Log - Major Event (Row 43, page 2)",
+        "ai_fill": false
+      },
+      "Text69": {
+        "label": "8. Activity Log - Time (Row 44, page 2)",
+        "ai_fill": false
+      },
+      "Text35": {
+        "label": "8. Activity Log - Major Event (Row 44, page 2)",
+        "ai_fill": false
+      },
+      "Text70": {
+        "label": "8. Activity Log - Time (Row 45, page 2)",
+        "ai_fill": false
+      },
+      "Text36": {
+        "label": "8. Activity Log - Major Event (Row 45, page 2)",
+        "ai_fill": false
+      }
+    }
+  },
+  "ics_201": {
+    "fields": {
+      "1 INCIDENT NAME": {
+        "label": "1. Incident Name",
+        "guidance": "Short incident name, max ~35 characters: address or landmark plus incident type.",
+        "ai_fill": true
+      },
+      "2 DATE PREPARED": {
+        "label": "2. Date Prepared",
+        "guidance": "Use the current date provided in the context.",
+        "ai_fill": true
+      },
+      "3 TIME PREPARED": {
+        "label": "3. Time Prepared",
+        "guidance": "Use the current time (24h) provided in the context.",
+        "ai_fill": true
+      },
+      "4. MAP SKETCH": {
+        "label": "4. Map/Sketch (drawn by hand - leave blank)",
+        "ai_fill": false
+      },
+      "4": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "5. SITUATION SUMMARY AND SAFETY BRIEFING": {
+        "label": "5. Situation Summary and Safety Briefing",
+        "guidance": "The incident briefing: what is happening, where, the hazards to responder and public safety, and the safety briefing points. Ground it in the scene summary and conditions; red/unsafe items lead.",
+        "ai_fill": true
+      },
+      "5": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "6. PREPARED BY Name and Position": {
+        "label": "6. Prepared By - Name and Position (page 1)",
+        "guidance": "ICS position of the preparer (normally the initial Incident Commander / Fire Officer); personal name only if explicitly stated.",
+        "ai_fill": true
+      },
+      "6": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "7. CURRENT AND PLANNED OBJECTIVES": {
+        "label": "7. Current and Planned Objectives",
+        "guidance": "Numbered objectives ordered life safety, incident stabilization, property conservation - grounded in the scene conditions.",
+        "ai_fill": true
+      },
+      "7": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "9. CURRENT ORGANIZATION": {
+        "label": "9. Current Organization",
+        "guidance": "Text outline of the current ICS organization: Incident Commander and any assigned positions/units the evidence states (e.g. 'IC: Fire Officer; Ops: Engine 3 crew'). Leave blank if no organization is evident.",
+        "ai_fill": true
+      },
+      "9": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "9. PREPARED BY Name and Position": {
+        "label": "Prepared By - Name and Position (page 2)",
+        "guidance": "Same as page-1 Prepared By.",
+        "ai_fill": true
+      },
+      "11. PREPARED BY Name and Position": {
+        "label": "Prepared By - Name and Position (page 3)",
+        "guidance": "Same as page-1 Prepared By.",
+        "ai_fill": true
+      },
+      "11": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "13. PREPARED BY Name and Position": {
+        "label": "Prepared By - Name and Position (page 4)",
+        "guidance": "Same as page-1 Prepared By.",
+        "ai_fill": true
+      },
+      "13": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "Time Row 1": {
+        "label": "8. Current/Planned Actions - Time (Row 1)",
+        "ai_fill": true,
+        "guidance": "Chronological actions taken or planned, earliest first, one per row. Time 24h; leave blank if not stated."
+      },
+      "Action Row 1": {
+        "label": "8. Current/Planned Actions - Action (Row 1)",
+        "ai_fill": true,
+        "guidance": "The action for that time: attack lines, search, ventilation, exposures, utilities, requests for resources."
+      },
+      "Time Row 2": {
+        "label": "8. Current/Planned Actions - Time (Row 2)",
+        "ai_fill": true
+      },
+      "Action Row 2": {
+        "label": "8. Current/Planned Actions - Action (Row 2)",
+        "ai_fill": true
+      },
+      "Time Row 3": {
+        "label": "8. Current/Planned Actions - Time (Row 3)",
+        "ai_fill": true
+      },
+      "Action Row 3": {
+        "label": "8. Current/Planned Actions - Action (Row 3)",
+        "ai_fill": true
+      },
+      "Time Row 4": {
+        "label": "8. Current/Planned Actions - Time (Row 4)",
+        "ai_fill": true
+      },
+      "Action Row 4": {
+        "label": "8. Current/Planned Actions - Action (Row 4)",
+        "ai_fill": true
+      },
+      "Time Row 5": {
+        "label": "8. Current/Planned Actions - Time (Row 5)",
+        "ai_fill": true
+      },
+      "Action Row 5": {
+        "label": "8. Current/Planned Actions - Action (Row 5)",
+        "ai_fill": true
+      },
+      "Time Row 6": {
+        "label": "8. Current/Planned Actions - Time (Row 6)",
+        "ai_fill": true
+      },
+      "Action Row 6": {
+        "label": "8. Current/Planned Actions - Action (Row 6)",
+        "ai_fill": true
+      },
+      "Time Row 7": {
+        "label": "8. Current/Planned Actions - Time (Row 7)",
+        "ai_fill": true
+      },
+      "Action Row 7": {
+        "label": "8. Current/Planned Actions - Action (Row 7)",
+        "ai_fill": true
+      },
+      "Time Row 8": {
+        "label": "8. Current/Planned Actions - Time (Row 8)",
+        "ai_fill": true
+      },
+      "Action Row 8": {
+        "label": "8. Current/Planned Actions - Action (Row 8)",
+        "ai_fill": true
+      },
+      "Time Row 9": {
+        "label": "8. Current/Planned Actions - Time (Row 9)",
+        "ai_fill": true
+      },
+      "Action Row 9": {
+        "label": "8. Current/Planned Actions - Action (Row 9)",
+        "ai_fill": true
+      },
+      "Time Row 10": {
+        "label": "8. Current/Planned Actions - Time (Row 10)",
+        "ai_fill": true
+      },
+      "Action Row 10": {
+        "label": "8. Current/Planned Actions - Action (Row 10)",
+        "ai_fill": true
+      },
+      "Time Row 11": {
+        "label": "8. Current/Planned Actions - Time (Row 11)",
+        "ai_fill": true
+      },
+      "Action Row 11": {
+        "label": "8. Current/Planned Actions - Action (Row 11)",
+        "ai_fill": true
+      },
+      "Time Row 12": {
+        "label": "8. Current/Planned Actions - Time (Row 12)",
+        "ai_fill": true
+      },
+      "Action Row 12": {
+        "label": "8. Current/Planned Actions - Action (Row 12)",
+        "ai_fill": true
+      },
+      "Time Row 13": {
+        "label": "8. Current/Planned Actions - Time (Row 13)",
+        "ai_fill": true
+      },
+      "Action Row 13": {
+        "label": "8. Current/Planned Actions - Action (Row 13)",
+        "ai_fill": true
+      },
+      "Time Row 14": {
+        "label": "8. Current/Planned Actions - Time (Row 14)",
+        "ai_fill": true
+      },
+      "Action Row 14": {
+        "label": "8. Current/Planned Actions - Action (Row 14)",
+        "ai_fill": true
+      },
+      "Time Row 15": {
+        "label": "8. Current/Planned Actions - Time (Row 15)",
+        "ai_fill": true
+      },
+      "Action Row 15": {
+        "label": "8. Current/Planned Actions - Action (Row 15)",
+        "ai_fill": true
+      },
+      "Time Row 16": {
+        "label": "8. Current/Planned Actions - Time (Row 16)",
+        "ai_fill": true
+      },
+      "Action Row 16": {
+        "label": "8. Current/Planned Actions - Action (Row 16)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow1": {
+        "label": "10. Resource Summary - Resources Ordered (Row 1)",
+        "ai_fill": true,
+        "guidance": "Resource type ordered/assigned (e.g. 'Engine company', 'Ladder', 'EMS unit', 'Mutual aid tanker'). One resource per row from the evidence."
+      },
+      "Resource IdentificationRow1": {
+        "label": "10. Resource Summary - Identification (Row 1)",
+        "ai_fill": true,
+        "guidance": "Unit designator if stated (e.g. 'Engine 3'). Never invent designators."
+      },
+      "ETARow1": {
+        "label": "10. Resource Summary - ETA (Row 1)",
+        "ai_fill": true,
+        "guidance": "ETA if stated."
+      },
+      "On SceneRow1": {
+        "label": "10. Resource Summary - On Scene (Row 1)",
+        "ai_fill": true,
+        "guidance": "'Yes' when the resource is on scene per the evidence."
+      },
+      "Resources OrderedRow2": {
+        "label": "10. Resource Summary - Resources Ordered (Row 2)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow2": {
+        "label": "10. Resource Summary - Identification (Row 2)",
+        "ai_fill": true
+      },
+      "ETARow2": {
+        "label": "10. Resource Summary - ETA (Row 2)",
+        "ai_fill": true
+      },
+      "On SceneRow2": {
+        "label": "10. Resource Summary - On Scene (Row 2)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow3": {
+        "label": "10. Resource Summary - Resources Ordered (Row 3)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow3": {
+        "label": "10. Resource Summary - Identification (Row 3)",
+        "ai_fill": true
+      },
+      "ETARow3": {
+        "label": "10. Resource Summary - ETA (Row 3)",
+        "ai_fill": true
+      },
+      "On SceneRow3": {
+        "label": "10. Resource Summary - On Scene (Row 3)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow4": {
+        "label": "10. Resource Summary - Resources Ordered (Row 4)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow4": {
+        "label": "10. Resource Summary - Identification (Row 4)",
+        "ai_fill": true
+      },
+      "ETARow4": {
+        "label": "10. Resource Summary - ETA (Row 4)",
+        "ai_fill": true
+      },
+      "On SceneRow4": {
+        "label": "10. Resource Summary - On Scene (Row 4)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow5": {
+        "label": "10. Resource Summary - Resources Ordered (Row 5)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow5": {
+        "label": "10. Resource Summary - Identification (Row 5)",
+        "ai_fill": true
+      },
+      "ETARow5": {
+        "label": "10. Resource Summary - ETA (Row 5)",
+        "ai_fill": true
+      },
+      "On SceneRow5": {
+        "label": "10. Resource Summary - On Scene (Row 5)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow6": {
+        "label": "10. Resource Summary - Resources Ordered (Row 6)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow6": {
+        "label": "10. Resource Summary - Identification (Row 6)",
+        "ai_fill": true
+      },
+      "ETARow6": {
+        "label": "10. Resource Summary - ETA (Row 6)",
+        "ai_fill": true
+      },
+      "On SceneRow6": {
+        "label": "10. Resource Summary - On Scene (Row 6)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow7": {
+        "label": "10. Resource Summary - Resources Ordered (Row 7)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow7": {
+        "label": "10. Resource Summary - Identification (Row 7)",
+        "ai_fill": true
+      },
+      "ETARow7": {
+        "label": "10. Resource Summary - ETA (Row 7)",
+        "ai_fill": true
+      },
+      "On SceneRow7": {
+        "label": "10. Resource Summary - On Scene (Row 7)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow8": {
+        "label": "10. Resource Summary - Resources Ordered (Row 8)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow8": {
+        "label": "10. Resource Summary - Identification (Row 8)",
+        "ai_fill": true
+      },
+      "ETARow8": {
+        "label": "10. Resource Summary - ETA (Row 8)",
+        "ai_fill": true
+      },
+      "On SceneRow8": {
+        "label": "10. Resource Summary - On Scene (Row 8)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow9": {
+        "label": "10. Resource Summary - Resources Ordered (Row 9)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow9": {
+        "label": "10. Resource Summary - Identification (Row 9)",
+        "ai_fill": true
+      },
+      "ETARow9": {
+        "label": "10. Resource Summary - ETA (Row 9)",
+        "ai_fill": true
+      },
+      "On SceneRow9": {
+        "label": "10. Resource Summary - On Scene (Row 9)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow10": {
+        "label": "10. Resource Summary - Resources Ordered (Row 10)",
+        "ai_fill": true
+      },
+      "Resource IdentificationRow10": {
+        "label": "10. Resource Summary - Identification (Row 10)",
+        "ai_fill": true
+      },
+      "ETARow10": {
+        "label": "10. Resource Summary - ETA (Row 10)",
+        "ai_fill": true
+      },
+      "On SceneRow10": {
+        "label": "10. Resource Summary - On Scene (Row 10)",
+        "ai_fill": true
+      },
+      "Resources OrderedRow11": {
+        "label": "10. Resource Summary - Resources Ordered (Row 11)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow11": {
+        "label": "10. Resource Summary - Identification (Row 11)",
+        "ai_fill": false
+      },
+      "ETARow11": {
+        "label": "10. Resource Summary - ETA (Row 11)",
+        "ai_fill": false
+      },
+      "On SceneRow11": {
+        "label": "10. Resource Summary - On Scene (Row 11)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow12": {
+        "label": "10. Resource Summary - Resources Ordered (Row 12)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow12": {
+        "label": "10. Resource Summary - Identification (Row 12)",
+        "ai_fill": false
+      },
+      "ETARow12": {
+        "label": "10. Resource Summary - ETA (Row 12)",
+        "ai_fill": false
+      },
+      "On SceneRow12": {
+        "label": "10. Resource Summary - On Scene (Row 12)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow13": {
+        "label": "10. Resource Summary - Resources Ordered (Row 13)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow13": {
+        "label": "10. Resource Summary - Identification (Row 13)",
+        "ai_fill": false
+      },
+      "ETARow13": {
+        "label": "10. Resource Summary - ETA (Row 13)",
+        "ai_fill": false
+      },
+      "On SceneRow13": {
+        "label": "10. Resource Summary - On Scene (Row 13)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow14": {
+        "label": "10. Resource Summary - Resources Ordered (Row 14)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow14": {
+        "label": "10. Resource Summary - Identification (Row 14)",
+        "ai_fill": false
+      },
+      "ETARow14": {
+        "label": "10. Resource Summary - ETA (Row 14)",
+        "ai_fill": false
+      },
+      "On SceneRow14": {
+        "label": "10. Resource Summary - On Scene (Row 14)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow15": {
+        "label": "10. Resource Summary - Resources Ordered (Row 15)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow15": {
+        "label": "10. Resource Summary - Identification (Row 15)",
+        "ai_fill": false
+      },
+      "ETARow15": {
+        "label": "10. Resource Summary - ETA (Row 15)",
+        "ai_fill": false
+      },
+      "On SceneRow15": {
+        "label": "10. Resource Summary - On Scene (Row 15)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow16": {
+        "label": "10. Resource Summary - Resources Ordered (Row 16)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow16": {
+        "label": "10. Resource Summary - Identification (Row 16)",
+        "ai_fill": false
+      },
+      "ETARow16": {
+        "label": "10. Resource Summary - ETA (Row 16)",
+        "ai_fill": false
+      },
+      "On SceneRow16": {
+        "label": "10. Resource Summary - On Scene (Row 16)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow17": {
+        "label": "10. Resource Summary - Resources Ordered (Row 17)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow17": {
+        "label": "10. Resource Summary - Identification (Row 17)",
+        "ai_fill": false
+      },
+      "ETARow17": {
+        "label": "10. Resource Summary - ETA (Row 17)",
+        "ai_fill": false
+      },
+      "On SceneRow17": {
+        "label": "10. Resource Summary - On Scene (Row 17)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow18": {
+        "label": "10. Resource Summary - Resources Ordered (Row 18)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow18": {
+        "label": "10. Resource Summary - Identification (Row 18)",
+        "ai_fill": false
+      },
+      "ETARow18": {
+        "label": "10. Resource Summary - ETA (Row 18)",
+        "ai_fill": false
+      },
+      "On SceneRow18": {
+        "label": "10. Resource Summary - On Scene (Row 18)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow19": {
+        "label": "10. Resource Summary - Resources Ordered (Row 19)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow19": {
+        "label": "10. Resource Summary - Identification (Row 19)",
+        "ai_fill": false
+      },
+      "ETARow19": {
+        "label": "10. Resource Summary - ETA (Row 19)",
+        "ai_fill": false
+      },
+      "On SceneRow19": {
+        "label": "10. Resource Summary - On Scene (Row 19)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow20": {
+        "label": "10. Resource Summary - Resources Ordered (Row 20)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow20": {
+        "label": "10. Resource Summary - Identification (Row 20)",
+        "ai_fill": false
+      },
+      "ETARow20": {
+        "label": "10. Resource Summary - ETA (Row 20)",
+        "ai_fill": false
+      },
+      "On SceneRow20": {
+        "label": "10. Resource Summary - On Scene (Row 20)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow21": {
+        "label": "10. Resource Summary - Resources Ordered (Row 21)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow21": {
+        "label": "10. Resource Summary - Identification (Row 21)",
+        "ai_fill": false
+      },
+      "ETARow21": {
+        "label": "10. Resource Summary - ETA (Row 21)",
+        "ai_fill": false
+      },
+      "On SceneRow21": {
+        "label": "10. Resource Summary - On Scene (Row 21)",
+        "ai_fill": false
+      },
+      "Resources OrderedRow22": {
+        "label": "10. Resource Summary - Resources Ordered (Row 22)",
+        "ai_fill": false
+      },
+      "Resource IdentificationRow22": {
+        "label": "10. Resource Summary - Identification (Row 22)",
+        "ai_fill": false
+      },
+      "ETARow22": {
+        "label": "10. Resource Summary - ETA (Row 22)",
+        "ai_fill": false
+      },
+      "On SceneRow22": {
+        "label": "10. Resource Summary - On Scene (Row 22)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow1": {
+        "label": "10. Resource Summary - Location/Assignment (Row 1)",
+        "ai_fill": true,
+        "guidance": "Where the resource is located / what it is assigned to (e.g. Side Alpha attack, staging, water supply)."
+      },
+      "LocationAssignmentRow2": {
+        "label": "10. Resource Summary - Location/Assignment (Row 2)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow3": {
+        "label": "10. Resource Summary - Location/Assignment (Row 3)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow4": {
+        "label": "10. Resource Summary - Location/Assignment (Row 4)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow5": {
+        "label": "10. Resource Summary - Location/Assignment (Row 5)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow6": {
+        "label": "10. Resource Summary - Location/Assignment (Row 6)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow7": {
+        "label": "10. Resource Summary - Location/Assignment (Row 7)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow8": {
+        "label": "10. Resource Summary - Location/Assignment (Row 8)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow9": {
+        "label": "10. Resource Summary - Location/Assignment (Row 9)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow10": {
+        "label": "10. Resource Summary - Location/Assignment (Row 10)",
+        "ai_fill": true
+      },
+      "LocationAssignmentRow11": {
+        "label": "10. Resource Summary - Location/Assignment (Row 11)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow12": {
+        "label": "10. Resource Summary - Location/Assignment (Row 12)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow13": {
+        "label": "10. Resource Summary - Location/Assignment (Row 13)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow14": {
+        "label": "10. Resource Summary - Location/Assignment (Row 14)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow15": {
+        "label": "10. Resource Summary - Location/Assignment (Row 15)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow16": {
+        "label": "10. Resource Summary - Location/Assignment (Row 16)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow17": {
+        "label": "10. Resource Summary - Location/Assignment (Row 17)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow18": {
+        "label": "10. Resource Summary - Location/Assignment (Row 18)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow19": {
+        "label": "10. Resource Summary - Location/Assignment (Row 19)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow20": {
+        "label": "10. Resource Summary - Location/Assignment (Row 20)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow21": {
+        "label": "10. Resource Summary - Location/Assignment (Row 21)",
+        "ai_fill": false
+      },
+      "LocationAssignmentRow22": {
+        "label": "10. Resource Summary - Location/Assignment (Row 22)",
+        "ai_fill": false
+      }
+    }
+  },
+  "ics_203": {
+    "fields": {
+      "1 INCIDENT NAME": {
+        "label": "1. Incident Name",
+        "guidance": "Short incident name, max ~35 characters.",
+        "ai_fill": true
+      },
+      "2 DATE": {
+        "label": "2. Date Prepared",
+        "guidance": "Use the current date provided in the context.",
+        "ai_fill": true
+      },
+      "3 TIME": {
+        "label": "3. Time Prepared",
+        "guidance": "Use the current time (24h) provided in the context.",
+        "ai_fill": true
+      },
+      "Text17.0.0": {
+        "label": "4. Operational Period - Date From",
+        "guidance": "Start date of this operational period.",
+        "ai_fill": true
+      },
+      "Text17.2": {
+        "label": "4. Operational Period - Time From",
+        "guidance": "Start time (24h).",
+        "ai_fill": true
+      },
+      "Text17.0.1": {
+        "label": "4. Operational Period - Date To",
+        "guidance": "End date. Leave blank if not established.",
+        "ai_fill": true
+      },
+      "Text17.1": {
+        "label": "4. Operational Period - Time To",
+        "guidance": "End time (24h). Leave blank if not established.",
+        "ai_fill": true
+      },
+      "Text17.0": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "Text17": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "5. INCIDENT COMMAND AND STAFF Inident Cmndr/Unified Cmndrs A": {
+        "label": "5. Incident Commander / Unified Command - A",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent. The initial IC role (e.g. 'Fire Officer (initial IC)') may be entered when evident.",
+        "ai_fill": true
+      },
+      "5. INCIDENT COMMAND AND STAFF Inident Cmndr/Unified Cmndrs B": {
+        "label": "5. Incident Commander / Unified Command - B",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "5. INCIDENT COMMAND AND STAFF Inident Cmndr/Unified Cmndrs C": {
+        "label": "5. Incident Commander / Unified Command - C",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "5. INCIDENT COMMAND AND STAFF Deputy": {
+        "label": "5. Command Staff - Deputy IC",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "5. INCIDENT COMMAND AND STAFF Safety Officer": {
+        "label": "5. Command Staff - Safety Officer",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "5. INCIDENT COMMAND AND STAFF Information Officer": {
+        "label": "5. Command Staff - Information Officer",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "5. INCIDENT COMMAND AND STAFF Liaison Officer": {
+        "label": "5. Command Staff - Liaison Officer",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "5": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "7. PLANNING SECTION Chief": {
+        "label": "7. Planning Section - Chief",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "7. PLANNING SECTION Deputy": {
+        "label": "7. Planning Section - Deputy",
+        "ai_fill": true
+      },
+      "7. PLANNING SECTION Resources Unit": {
+        "label": "7. Planning Section - Resources Unit",
+        "ai_fill": true
+      },
+      "7. PLANNING SECTION Situation Unit": {
+        "label": "7. Planning Section - Situation Unit",
+        "ai_fill": true
+      },
+      "7. PLANNING SECTION Documentation Unit": {
+        "label": "7. Planning Section - Documentation Unit",
+        "ai_fill": true
+      },
+      "7. PLANNING SECTION Demobilization Unit": {
+        "label": "7. Planning Section - Demobilization Unit",
+        "ai_fill": true
+      },
+      "7. PLANNING SECTION Technical Specialists": {
+        "label": "7. Planning Section - Technical Specialists",
+        "ai_fill": true
+      },
+      "7. PLANNING SECTION Position1": {
+        "label": "7. Planning Section - Additional Position 1",
+        "ai_fill": false
+      },
+      "7. PLANNING SECTION Name1": {
+        "label": "7. Planning Section - Additional Name 1",
+        "ai_fill": false
+      },
+      "7. PLANNING SECTION Position2": {
+        "label": "7. Planning Section - Additional Position 2",
+        "ai_fill": false
+      },
+      "7. PLANNING SECTION Name2": {
+        "label": "7. Planning Section - Additional Name 2",
+        "ai_fill": false
+      },
+      "7. PLANNING SECTION Position3": {
+        "label": "7. Planning Section - Additional Position 3",
+        "ai_fill": false
+      },
+      "7. PLANNING SECTION Name3": {
+        "label": "7. Planning Section - Additional Name 3",
+        "ai_fill": false
+      },
+      "7": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "8. LOGISTICS SECTION Chief": {
+        "label": "8. Logistics Section - Chief",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "8. LOGISTICS SECTION Deputy": {
+        "label": "8. Logistics Section - Deputy",
+        "ai_fill": true
+      },
+      "8": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "a. SUPPORT BRANCH Director": {
+        "label": "8a. Support Branch - Director",
+        "ai_fill": false
+      },
+      "a. SUPPORT BRANCH Supply Unit": {
+        "label": "8a. Support Branch - Supply Unit",
+        "ai_fill": false
+      },
+      "a. SUPPORT BRANCH Facilities Unit": {
+        "label": "8a. Support Branch - Facilities Unit",
+        "ai_fill": false
+      },
+      "a. SUPPORT BRANCH Ground Support Unit": {
+        "label": "8a. Support Branch - Ground Support Unit",
+        "ai_fill": false
+      },
+      "b. SERVICE BRANCH Director": {
+        "label": "8b. Service Branch - Director",
+        "ai_fill": false
+      },
+      "b. SERVICE BRANCH Communications Unit": {
+        "label": "8b. Service Branch - Communications Unit",
+        "ai_fill": false
+      },
+      "b. SERVICE BRANCH Medical Unit": {
+        "label": "8b. Service Branch - Medical Unit",
+        "ai_fill": false
+      },
+      "b. SERVICE BRANCH Food Unit": {
+        "label": "8b. Service Branch - Food Unit",
+        "ai_fill": false
+      },
+      "9. OPERATIONS SECTION Chief": {
+        "label": "9. Operations Section - Chief",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "9. OPERATIONS SECTION Deputy": {
+        "label": "9. Operations Section - Deputy",
+        "ai_fill": true
+      },
+      "9": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "10 FINANCIALADMINISTRATION SECTION Chief": {
+        "label": "10. Finance/Administration Section - Chief",
+        "guidance": "Person assigned to this position - fill only if a name is explicitly stated in the evidence; never invent.",
+        "ai_fill": true
+      },
+      "10 FINANCIALADMINISTRATION SECTION Deputy": {
+        "label": "10. Finance/Administration Section - Deputy",
+        "ai_fill": true
+      },
+      "10 FINANCIALADMINISTRATION SECTION Time Unit": {
+        "label": "10. Finance/Administration - Time Unit",
+        "ai_fill": false
+      },
+      "10 FINANCIALADMINISTRATION SECTION Procurement Unit": {
+        "label": "10. Finance/Administration - Procurement Unit",
+        "ai_fill": false
+      },
+      "10 FINANCIALADMINISTRATION SECTION Compensation/Claims": {
+        "label": "10. Finance/Administration - Compensation/Claims Unit",
+        "ai_fill": false
+      },
+      "10 FINANCIALADMINISTRATION SECTION Cost Unit": {
+        "label": "10. Finance/Administration - Cost Unit",
+        "ai_fill": false
+      },
+      "PREPARED BY (Resources Only)": {
+        "label": "Prepared By (Resources Unit)",
+        "guidance": "ICS position of the preparer; personal name only if explicitly stated.",
+        "ai_fill": true
+      },
+      "a. BRANCH": {
+        "label": "9a. Branch I - Name",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Branch Director": {
+        "label": "9a. Branch I - Director",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Deputy": {
+        "label": "9a. Branch I - Deputy",
+        "ai_fill": false
+      },
+      "a": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "b. BRANCH": {
+        "label": "9b. Branch II - Name",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Branch Director": {
+        "label": "9b. Branch II - Director",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Deputy": {
+        "label": "9b. Branch II - Deputy",
+        "ai_fill": false
+      },
+      "b": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "c. BRANCH": {
+        "label": "9c. Branch III - Name",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Branch Director": {
+        "label": "9c. Branch III - Director",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Deputy": {
+        "label": "9c. Branch III - Deputy",
+        "ai_fill": false
+      },
+      "c": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "d. AIR OPERATIONS BRANCH Air Operations Br. Dir": {
+        "label": "9d. Air Operations Branch - Director",
+        "ai_fill": false
+      },
+      "d. AIR OPERATIONS BRANCH Air Operations Br": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "d. AIR OPERATIONS BRANCH Position1": {
+        "label": "9d. Air Operations - Additional Position 1",
+        "ai_fill": false
+      },
+      "d. AIR OPERATIONS BRANCH Position2": {
+        "label": "9d. Air Operations - Additional Position 2",
+        "ai_fill": false
+      },
+      "d": {
+        "label": "(internal field - leave blank)",
+        "ai_fill": false
+      },
+      "AgencyRow1": {
+        "label": "6. Agency Representative - Agency (Row 1)",
+        "ai_fill": true,
+        "guidance": "Outside agencies involved (mutual aid departments, EMS, police, utilities) as stated in the evidence. One per row; leave unused rows blank."
+      },
+      "AgencyRow2": {
+        "label": "6. Agency Representative - Agency (Row 2)",
+        "ai_fill": true
+      },
+      "AgencyRow3": {
+        "label": "6. Agency Representative - Agency (Row 3)",
+        "ai_fill": true
+      },
+      "AgencyRow4": {
+        "label": "6. Agency Representative - Agency (Row 4)",
+        "ai_fill": true
+      },
+      "AgencyRow5": {
+        "label": "6. Agency Representative - Agency (Row 5)",
+        "ai_fill": true
+      },
+      "AgencyRow6": {
+        "label": "6. Agency Representative - Agency (Row 6)",
+        "ai_fill": true
+      },
+      "AgencyRow7": {
+        "label": "6. Agency Representative - Agency (Row 7)",
+        "ai_fill": true
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Division Row1": {
+        "label": "a. BRANCH Division  Row1",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Division Row2": {
+        "label": "a. BRANCH Division  Row2",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Division Row3": {
+        "label": "a. BRANCH Division  Row3",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Division Row4": {
+        "label": "a. BRANCH Division  Row4",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Division Row5": {
+        "label": "a. BRANCH Division  Row5",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Group Row1": {
+        "label": "a. BRANCH Group  Row1",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Group Row2": {
+        "label": "a. BRANCH Group  Row2",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Group Row3": {
+        "label": "a. BRANCH Group  Row3",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Group Row4": {
+        "label": "a. BRANCH Group  Row4",
+        "ai_fill": false
+      },
+      "a. BRANCH - DIVISIONS/GROUPS Division/Group Group Row5": {
+        "label": "a. BRANCH Group  Row5",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Division Row1": {
+        "label": "b. BRANCH Division  Row1",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Division Row2": {
+        "label": "b. BRANCH Division  Row2",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Division Row3": {
+        "label": "b. BRANCH Division  Row3",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Division Row4": {
+        "label": "b. BRANCH Division  Row4",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Division Row5": {
+        "label": "b. BRANCH Division  Row5",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Row1": {
+        "label": "b. BRANCH Division/Group  Row1",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Row2": {
+        "label": "b. BRANCH Division/Group  Row2",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Row3": {
+        "label": "b. BRANCH Division/Group  Row3",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Row4": {
+        "label": "b. BRANCH Division/Group  Row4",
+        "ai_fill": false
+      },
+      "b. BRANCH - DIVISIONS/GROUPS Division/Group Row5": {
+        "label": "b. BRANCH Division/Group  Row5",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Division Row1": {
+        "label": "c. BRANCH Division  Row1",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Division Row2": {
+        "label": "c. BRANCH Division  Row2",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Division Row3": {
+        "label": "c. BRANCH Division  Row3",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Division Row4": {
+        "label": "c. BRANCH Division  Row4",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Division Row5": {
+        "label": "c. BRANCH Division  Row5",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Row1": {
+        "label": "c. BRANCH Division/Group  Row1",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Row2": {
+        "label": "c. BRANCH Division/Group  Row2",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Row3": {
+        "label": "c. BRANCH Division/Group  Row3",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Row4": {
+        "label": "c. BRANCH Division/Group  Row4",
+        "ai_fill": false
+      },
+      "c. BRANCH - DIVISIONS/GROUPS Division/Group Row5": {
+        "label": "c. BRANCH Division/Group  Row5",
+        "ai_fill": false
+      },
+      "d. AIR OPERATIONS BRANCH Air Tactical Group Sup Row1": {
+        "label": "d. AIR OPERATIONS BRANCH Air Tactical Group Sup Row1",
+        "ai_fill": false
+      },
+      "d. AIR OPERATIONS BRANCH Air Tactical Group Sup Row2": {
+        "label": "d. AIR OPERATIONS BRANCH Air Tactical Group Sup Row2",
+        "ai_fill": false
+      },
+      "d. AIR OPERATIONS BRANCH Row1": {
+        "label": "d. AIR OPERATIONS BRANCH Row1",
+        "ai_fill": false
+      },
+      "d. AIR OPERATIONS BRANCH Row2": {
+        "label": "d. AIR OPERATIONS BRANCH Row2",
+        "ai_fill": false
+      },
+      "Representative Row1": {
+        "label": "6. Agency Representative - Name (Row 1)",
+        "ai_fill": true,
+        "guidance": "That agency's representative - name only if explicitly stated."
+      },
+      "Representative Row2": {
+        "label": "6. Agency Representative - Name (Row 2)",
+        "ai_fill": true
+      },
+      "Representative Row3": {
+        "label": "6. Agency Representative - Name (Row 3)",
+        "ai_fill": true
+      },
+      "Representative Row4": {
+        "label": "6. Agency Representative - Name (Row 4)",
+        "ai_fill": true
+      },
+      "Representative Row5": {
+        "label": "6. Agency Representative - Name (Row 5)",
+        "ai_fill": true
+      },
+      "Representative Row6": {
+        "label": "6. Agency Representative - Name (Row 6)",
+        "ai_fill": true
+      },
+      "Representative Row7": {
+        "label": "6. Agency Representative - Name (Row 7)",
+        "ai_fill": true
+      }
+    }
+  }
+}

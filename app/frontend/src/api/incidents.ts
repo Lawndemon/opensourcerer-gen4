@@ -2,14 +2,18 @@
  * API client for the incident endpoints (Fire Officer kiosk).
  *
  * Uses relative URLs so the request lands at the same origin as the SPA. Authentication is
- * handled by Container Apps' built-in auth (Easy Auth), which sends the AppServiceAuthSession
- * cookie automatically — no Authorization header needed when `isUsingAppServicesLogin` is true.
+ * handled by Container Apps' built-in auth (Easy Auth): the AppServiceAuthSession cookie rides
+ * along via `credentials: "include"`, AND every call attaches a fresh bearer token via
+ * getBearerAuthHeaders() (2026-07-21). The bearer matters: Easy Auth's injected
+ * x-ms-token-aad-access-token header goes stale after ~1h and the backend's OBO exchange then
+ * 403s — getBearerAuthHeaders() transparently refreshes via `.auth/refresh`, exactly like the
+ * chat API's getToken() path always did.
  *
- * For environments where Easy Auth isn't in front (e.g., local dev with USE_LOGIN=false), this
- * mirrors the chat API pattern: include `credentials: "include"` so any session cookie is sent
- * along with cross-origin-aware fetches.
+ * For environments where Easy Auth isn't in front (e.g., local dev with USE_LOGIN=false),
+ * getBearerAuthHeaders() returns {} and behavior is unchanged.
  */
 
+import { getBearerAuthHeaders } from "../authConfig";
 import type {
     AddCustomRecommendationRequest,
     AttestContributionRequest,
@@ -62,7 +66,7 @@ export async function validateIAP(request: ValidateIAPRequest, signal?: AbortSig
     const url = `${BACKEND_URI}/api/incidents/${encodeURIComponent(request.incidentId)}/validate-iap`;
     const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await getBearerAuthHeaders()) },
         body: JSON.stringify(request),
         credentials: "include",
         signal
@@ -78,7 +82,7 @@ export async function validateIAP(request: ValidateIAPRequest, signal?: AbortSig
 async function postJson<T>(url: string, body: unknown, signal?: AbortSignal): Promise<T> {
     const response = await fetch(`${BACKEND_URI}${url}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await getBearerAuthHeaders()) },
         body: JSON.stringify(body),
         credentials: "include",
         signal
@@ -96,7 +100,7 @@ async function jsonRequest<T>(method: "GET" | "DELETE", url: string, body?: unkn
         method,
         credentials: "include",
         signal,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json", ...(await getBearerAuthHeaders()) }
     };
     if (body !== undefined) init.body = JSON.stringify(body);
     const response = await fetch(`${BACKEND_URI}${url}`, init);
@@ -224,7 +228,7 @@ export async function saveFormContent(incidentId: string, formId: string, reques
  * Used by the generic FormFieldsContent editor to build inputs from the field list.
  */
 export async function getIcsFormSchemas(signal?: AbortSignal): Promise<IcsFormSchemas> {
-    const res = await fetch("/api/ics-forms/schemas", { credentials: "include", signal });
+    const res = await fetch("/api/ics-forms/schemas", { credentials: "include", signal, headers: await getBearerAuthHeaders() });
     if (!res.ok) throw new IncidentApiError(`Failed to load ICS form schemas: ${res.status}`, res.status, undefined);
     return res.json();
 }

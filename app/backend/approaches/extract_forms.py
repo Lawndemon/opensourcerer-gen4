@@ -24,16 +24,19 @@ split into parallel per-role or per-form-type calls for quality.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import pathlib
+from datetime import datetime
 from typing import Optional
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import TypeAdapter
 
-from incidents.form_templates import FORM_TEMPLATES, stable_form_id
+from incidents.form_templates import FORM_TEMPLATES, ROLE_TITLES, stable_form_id
+from incidents.pdf_filler import ai_fillable_fields, get_form_schema
 from models.incidents import FormFieldsContent, FormSummary, ICS201Content, SceneConditionAndAction, SceneSummary
 
 logger = logging.getLogger(__name__)
@@ -80,6 +83,12 @@ class ExtractFormsApproach:
         / "extraction"
         / "extract_forms.md"
     )
+    FILL_PROMPT_FILE = (
+        pathlib.Path(__file__).parent.parent
+        / "prompts"
+        / "extraction"
+        / "fill_form_fields.md"
+    )
 
     def __init__(
         self,
@@ -94,11 +103,17 @@ class ExtractFormsApproach:
         self.chatgpt_deployment = chatgpt_deployment
         self.temperature = temperature
         self.system_prompt = self._load_prompt()
+        self.fill_system_prompt = self._load_fill_prompt()
 
     def _load_prompt(self) -> str:
         if not self.PROMPT_FILE.exists():
             raise FileNotFoundError(f"Forms extraction prompt not found at {self.PROMPT_FILE}")
         return self.PROMPT_FILE.read_text(encoding="utf-8")
+
+    def _load_fill_prompt(self) -> str:
+        if not self.FILL_PROMPT_FILE.exists():
+            raise FileNotFoundError(f"Form fill prompt not found at {self.FILL_PROMPT_FILE}")
+        return self.FILL_PROMPT_FILE.read_text(encoding="utf-8")
 
     async def run(
         self,
@@ -208,7 +223,140 @@ class ExtractFormsApproach:
                 )
             canonical.append(llm_form)
 
+        # Phase 3 (2026-07-21): AI fill for PDF-backed forms that have curated field maps
+        # (incidents/ics_pdf_templates/field_curation.json). One LLM call per distinct
+        # form_id_key, run concurrently; the result is merged onto every role's copy of that
+        # form. A failed fill logs and leaves that form blank — never fails the extraction.
+        await self._fill_curated_pdf_forms(
+            canonical,
+            incident_id=incident_id,
+            transcript=transcript,
+            scene_summary=scene_summary,
+            scene_conditions_and_actions=scene_conditions_and_actions,
+        )
+
         return canonical
+
+    async def _fill_curated_pdf_forms(
+        self,
+        canonical: list[FormSummary],
+        *,
+        incident_id: str,
+        transcript: str,
+        scene_summary: SceneSummary,
+        scene_conditions_and_actions: list[SceneConditionAndAction],
+    ) -> None:
+        """Populate FormFieldsContent.fields via one fill call per distinct curated form."""
+        # Distinct PDF-backed forms present in this run that have curated fillable fields.
+        fill_keys: list[str] = []
+        for form in canonical:
+            if isinstance(form.content, FormFieldsContent):
+                key = form.content.form_id_key
+                if key not in fill_keys and ai_fillable_fields(key):
+                    fill_keys.append(key)
+        if not fill_keys:
+            return
+
+        results = await asyncio.gather(
+            *(
+                self._fill_one_form(
+                    form_id_key=key,
+                    transcript=transcript,
+                    scene_summary=scene_summary,
+                    scene_conditions_and_actions=scene_conditions_and_actions,
+                )
+                for key in fill_keys
+            ),
+            return_exceptions=True,
+        )
+
+        for key, result in zip(fill_keys, results):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    "AI fill failed for form %s on incident %s (form left blank): %s",
+                    key,
+                    incident_id,
+                    result,
+                )
+                continue
+            for form in canonical:
+                if isinstance(form.content, FormFieldsContent) and form.content.form_id_key == key:
+                    # Merge over any seed values (e.g. the ICS-201 typed mapping); the
+                    # dedicated fill wins where both provide a value.
+                    form.content.fields = {**form.content.fields, **result}
+                    # ICS-214 is one shared fill across every role's Activity Log copy;
+                    # each copy carries its own role's position (curation marks the field
+                    # ai_fill=false so the LLM never competes with this stamp).
+                    if key == "ics_214":
+                        form.content.fields["5. ICS POSITION"] = ROLE_TITLES.get(form.role, form.role)
+
+    async def _fill_one_form(
+        self,
+        *,
+        form_id_key: str,
+        transcript: str,
+        scene_summary: SceneSummary,
+        scene_conditions_and_actions: list[SceneConditionAndAction],
+    ) -> dict[str, str]:
+        """One LLM call: fill the curated fields of one official ICS form. Returns {name: value}."""
+        schema = get_form_schema(form_id_key)
+        fillable = ai_fillable_fields(form_id_key)
+        field_lines = "\n".join(
+            f"- {f['name']} | {f.get('label') or f['name']} | {f.get('type', 'text')} | {f.get('guidance', '')}"
+            for f in fillable
+        )
+        user_message = (
+            f"## Form\n\n{schema.get('title', form_id_key)} ({form_id_key})\n\n"
+            f"## Current date/time\n\n{datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
+            "## Fillable fields (fieldName | label | type | guidance)\n\n"
+            f"{field_lines}\n\n"
+            "## Scene Summary\n\n"
+            f"{scene_summary.text}\n\n"
+            "## Scene Conditions and Actions\n\n"
+            f"{self._scene_block(scene_conditions_and_actions)}\n\n"
+            "## Raw transcript\n\n"
+            f"{transcript}\n"
+        )
+        messages: list[ChatCompletionMessageParam] = [
+            {"role": "system", "content": self.fill_system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+        completion = await self.openai_client.chat.completions.create(
+            model=self.chatgpt_deployment or self.chatgpt_model,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=self.temperature,
+        )
+        raw_content = completion.choices[0].message.content
+        if not raw_content:
+            raise RuntimeError(f"LLM returned empty content filling {form_id_key}")
+        envelope = json.loads(raw_content)
+        raw_fields = envelope.get("fields", {})
+        if not isinstance(raw_fields, dict):
+            raise RuntimeError(f"Fill output for {form_id_key} has no 'fields' object")
+        # Keep only known fillable field names; coerce values to strings; drop empties.
+        known = {f["name"] for f in fillable}
+        return {
+            name: str(value).strip()
+            for name, value in raw_fields.items()
+            if name in known and value is not None and str(value).strip()
+        }
+
+    @staticmethod
+    def _scene_block(scene_conditions_and_actions: list[SceneConditionAndAction]) -> str:
+        """Condense scene items to one line each so prompts stay compact."""
+        scene_lines = []
+        for c in scene_conditions_and_actions:
+            removed = " [REMOVED]" if c.removed else ""
+            scene_lines.append(
+                f"- [{c.type}/{c.status}] {c.text}{removed}"
+                + (
+                    f"\n    published: {c.published_plan_context}"
+                    if c.published_plan_context
+                    else ""
+                )
+            )
+        return "\n".join(scene_lines) if scene_lines else "(no scene items yet)"
 
     def _format_user_message(
         self,
@@ -230,19 +378,7 @@ class ExtractFormsApproach:
             )
         forms_block = "\n".join(form_lines)
 
-        # Scene conditions: condensed to one line each so the prompt stays compact.
-        scene_lines = []
-        for c in scene_conditions_and_actions:
-            removed = " [REMOVED]" if c.removed else ""
-            scene_lines.append(
-                f"- [{c.type}/{c.status}] {c.text}{removed}"
-                + (
-                    f"\n    published: {c.published_plan_context}"
-                    if c.published_plan_context
-                    else ""
-                )
-            )
-        scene_block = "\n".join(scene_lines) if scene_lines else "(no scene items yet)"
+        scene_block = self._scene_block(scene_conditions_and_actions)
 
         return (
             f"Incident ID: {incident_id}\n\n"

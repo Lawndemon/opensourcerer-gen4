@@ -178,3 +178,37 @@
     font-style: italic;
     opacity: 0.55;
 }
+
+/* ------------------------------------------------------------------------ */
+/* PDF-first form view (2026-07-21) — the populated official ICS Canada PDF  */
+/* is the default overlay content for PDF-backed forms.                     */
+/* ------------------------------------------------------------------------ */
+
+.pdfPane {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+    min-height: 68vh;
+    cursor: default; /* interacting with the PDF must not read as tap-to-close */
+}
+
+.pdfToolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.pdfHint {
+    opacity: 0.55;
+    margin-left: auto;
+}
+
+.pdfFrame {
+    flex: 1;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    background-color: #ffffff; /* PDF viewers flash white anyway; avoid a dark-void frame */
+}

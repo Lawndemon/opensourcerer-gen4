@@ -798,6 +798,7 @@ const IncidentKiosk = () => {
                         currentRole="fire-officer"
                         locked={locked}
                         generating={formsGenerating}
+                        incidentId={state.persisted ? state.incidentId : undefined}
                     />
                 </div>
 

@@ -1137,10 +1137,15 @@ async def export_form_pdf(auth_claims: dict[str, Any], incident_id: str, form_id
         from quart import Response
         pdf_bytes = fill_form_pdf(form.content.form_id_key, form.content.fields)
         filename = f"{form.content.form_id_key}-{incident_id}.pdf"
+        # Inline by default so the PDF renders in the browser's built-in viewer (the
+        # PDF-first form tabs embed this endpoint in an iframe — `attachment` would
+        # force a download and hand off to Adobe instead). ?download=1 opts back in
+        # to a file download for callers that genuinely want one.
+        disposition = "attachment" if request.args.get("download") else "inline"
         return Response(
             pdf_bytes,
             mimetype="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
         )
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404

@@ -163,6 +163,28 @@ const getAppServicesToken = (): Promise<AppServicesToken | null> => {
 
 export const isUsingAppServicesLogin = (await getAppServicesToken()) != null;
 
+/**
+ * Bearer Authorization headers for same-origin API calls (incidents, forms, etc.).
+ *
+ * Why this exists (2026-07-21): under Container Apps Easy Auth, the platform injects the
+ * user's AAD access token as `x-ms-token-aad-access-token` on proxied requests — but that
+ * injected token goes stale after ~1h unless something calls `.auth/refresh`. The chat API
+ * always attached a fresh bearer via getToken(); the incidents client relied on the
+ * injected header alone, so long sessions started 403ing (`@authenticated` OBO failure).
+ * Routing every incidents call through here (a) sends a fresh Authorization header, which
+ * the backend prefers over the injected one, and (b) refreshes the Easy Auth token store
+ * as a side effect, which also keeps cookie-authenticated loads (the PDF iframe) alive.
+ *
+ * Returns {} outside app-services auth (e.g. local dev) — behavior unchanged there.
+ */
+export const getBearerAuthHeaders = async (): Promise<Record<string, string>> => {
+    const appServicesToken = await getAppServicesToken();
+    if (appServicesToken) {
+        return { Authorization: `Bearer ${appServicesToken.access_token}` };
+    }
+    return {};
+};
+
 // Sign out of app services
 // Learn more at https://learn.microsoft.com/azure/app-service/configure-authentication-customize-sign-in-out#sign-out-of-a-session
 export const appServicesLogout = () => {

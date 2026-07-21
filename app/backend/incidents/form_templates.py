@@ -49,6 +49,21 @@ class FormTemplate:
     form_id_key: str | None = None  # schema key in ics_pdf_templates/schemas.json (PDF-backed forms only)
 
 
+# Display titles for the ActingRole ids that carry forms. Used to stamp role-identity
+# fields on shared forms (e.g. ICS-214's "5. ICS POSITION" — one AI fill is shared across
+# all roles' copies of the form, then each copy gets its owner's position stamped).
+ROLE_TITLES: dict[str, str] = {
+    "fire-officer": "Fire Officer",
+    "incident-commander": "Incident Commander",
+    "safety-officer": "Safety Officer",
+    "liaison-officer": "Liaison Officer",
+    "information-officer": "Information Officer",
+    "section-chief-operations": "Operations Section Chief",
+    "section-chief-planning": "Planning Section Chief",
+    "section-chief-logistics": "Logistics Section Chief",
+    "section-chief-finance": "Finance/Administration Section Chief",
+}
+
 # Per-role mapping derived from ICS Canada doctrine + SME Planning P deck.
 # Order within a role's group is presentation order on the tab strip.
 FORM_TEMPLATES: list[FormTemplate] = [
