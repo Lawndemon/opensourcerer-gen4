@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Body1, Button, Caption1, Spinner, Title3 } from "@fluentui/react-components";
 import { ArrowLeft24Regular, ArrowSync24Regular, LockClosed24Regular } from "@fluentui/react-icons";
 
-import { assignRoleAction, closeIncident, commentRoleAction, extractForms, getIncident, icDecision, removeCondition, resolveRoleAction, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP, withdrawSupportContribution } from "../../api/incidents";
+import { assignRoleAction, attestContribution, closeIncident, commentRoleAction, extractForms, getIncident, icDecision, removeCondition, resolveRoleAction, standDownRoleControl, takeRoleControl, transferOfCommand, validateIAP, withdrawSupportContribution } from "../../api/incidents";
 import type { IncidentDocument, SceneConditionAndAction } from "../../api/incidentTypes";
 import type { ActingRole } from "../../roles";
 import { getRoleDefinition } from "../../roles";
@@ -354,7 +354,24 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                 const updated = await withdrawSupportContribution(incident.id, contributionId, { actingRole, userId: "support-view" });
                 setIncident(updated);
             } catch (e) {
-                setActionError(e instanceof Error ? e.message : "Could not withdraw contribution.");
+                setActionError(e instanceof Error ? e.message : "Could not reject contribution.");
+            }
+        },
+        [actingRole, incident.id]
+    );
+
+    // IC confirm (SME, 2026-06-17): take ownership of an AI item the FO is already seeing —
+    // flips its source AI -> HIC in place. The item stays on the FO list; it just becomes
+    // human-owned. Backend allows the IC-in-command to attest any role's item.
+    const handleConfirmContribution = useCallback(
+        async (contributionId: string) => {
+            if (!actingRole) return;
+            setActionError(null);
+            try {
+                const updated = await attestContribution(incident.id, contributionId, { actingRole, userId: "support-view" });
+                setIncident(updated);
+            } catch (e) {
+                setActionError(e instanceof Error ? e.message : "Could not confirm contribution.");
             }
         },
         [actingRole, incident.id]
@@ -632,8 +649,11 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                             <Title3>Visible to the Fire Officer</Title3>
                             <Caption1 className={kioskStyles.panelSubheading}>
                                 Everything currently on the Fire Officer's kiosk: AI-surfaced, IC-approved, and
-                                Safety / Operations items that bypass straight to the kiosk.
-                                {commandTransferred ? " You can withdraw any item." : " Take command to withdraw items."}
+                                Safety / Operations items that bypass straight to the kiosk. Taking command does not
+                                change this list.
+                                {commandTransferred
+                                    ? " Confirm an AI item to take ownership of it (AI → HIC), or Reject to remove it from the kiosk."
+                                    : " Take command to confirm or reject items."}
                             </Caption1>
                         </div>
                         {foVisibleForIc.length === 0 ? (
@@ -653,9 +673,16 @@ const IncidentSupportView = ({ incident: initialIncident, onBack }: IncidentSupp
                                             <Caption1 style={{ marginLeft: 6, opacity: 0.7 }}>{c.provenance === "ai" ? "AI" : "HIC"}</Caption1>
                                         </Body1>
                                         {commandTransferred && !isLocked && (
-                                            <Button size="small" appearance="subtle" onClick={() => void handleWithdrawContribution(c.id)}>
-                                                Withdraw
-                                            </Button>
+                                            <>
+                                                {c.provenance === "ai" && (
+                                                    <Button size="small" appearance="primary" onClick={() => void handleConfirmContribution(c.id)}>
+                                                        Confirm
+                                                    </Button>
+                                                )}
+                                                <Button size="small" appearance="subtle" onClick={() => void handleWithdrawContribution(c.id)}>
+                                                    Reject
+                                                </Button>
+                                            </>
                                         )}
                                     </div>
                                 ))}

@@ -662,11 +662,14 @@ async def attest_support_contribution(
     target = next((c for c in doc.support_contributions if c.id == contribution_id), None)
     if target is None:
         raise ValueError(f"Support contribution not found: {contribution_id}")
-    # Server-side HIC gate: only the named human in charge of the originating role may
-    # attest — attestation IS the act of that human taking ownership.
-    if actor.role != target.added_by.role:
+    # Server-side HIC gate: the named human in charge of the originating role may attest its
+    # own item, OR the Incident Commander may confirm any FO-visible item once in command
+    # (Dave, 2026-06-17 — the IC curates the kiosk list in place after takeover). Either way,
+    # attestation IS a human taking ownership of an AI-suggested recommendation.
+    is_ic = actor.role == "incident-commander"
+    if not is_ic and actor.role != target.added_by.role:
         raise PermissionError(
-            f"Only the {target.added_by.role} role can attest this recommendation."
+            f"Only the {target.added_by.role} role (or the Incident Commander) can attest this recommendation."
         )
     assert_human_in_charge(doc, actor.role)
     if target.provenance == "hic":
@@ -979,7 +982,14 @@ async def transition_command_to_ic(
     is already with the IC is a no-op and won't duplicate events.
 
     Engaging command transfer flips scene-type authority to the IC and (caller-side) activates
-    the IC content gate — support/AI recommendations route through the IC before the kiosk.
+    the IC content gate for NEW recommendations — items raised after takeover route through the
+    IC before the kiosk (see `_initial_ic_status`).
+
+    Existing contributions are deliberately left untouched (Dave, 2026-06-17, reversing the
+    2026-05-27 "re-validate everything at takeover" rule): the Fire Officer's list must NOT
+    change at the moment of takeover. The IC instead curates those items in place from the
+    "Visible to the Fire Officer" pane — Confirm (attest AI→HIC) or Reject (withdraw) — so the
+    kiosk only changes on a deliberate IC action, never automatically at Transfer of Command.
     """
     doc = await get_incident(tenant_id, incident_id)
     if doc is None:
@@ -990,23 +1000,6 @@ async def transition_command_to_ic(
 
     doc.command_transferred_at = _now_iso()
 
-    # Re-classify EVERY existing not_gated support contribution (AI + HIC) so the IC can
-    # re-validate them all (Dave 2026-05-27). Direct-to-FO roles (Safety Officer + Ops Section
-    # Chief) go safety_bypass and stay visible to the FO; everything else becomes pending. Items
-    # already decided
-    # (approved / rejected / safety_bypass) and withdrawn items are not touched.
-    reclassified_to_pending: list[str] = []
-    reclassified_to_safety_bypass: list[str] = []
-    for contribution in doc.support_contributions:
-        if contribution.ic_status != "not_gated":
-            continue
-        if contribution.added_by.role in _DIRECT_TO_FO_ROLES:
-            contribution.ic_status = "safety_bypass"
-            reclassified_to_safety_bypass.append(contribution.id)
-        else:
-            contribution.ic_status = "pending"
-            reclassified_to_pending.append(contribution.id)
-
     doc.event_log.append(
         make_audit_event(
             incident_id=incident_id,
@@ -1015,8 +1008,6 @@ async def transition_command_to_ic(
             payload={
                 "from": "fire-officer",
                 "to": actor.role,
-                "reclassified_to_pending": reclassified_to_pending,
-                "reclassified_to_safety_bypass": reclassified_to_safety_bypass,
             },
         )
     )
