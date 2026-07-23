@@ -795,6 +795,10 @@ Dave's observation from testing: some form content **cannot come from the incide
 
 **WITHDRAWN by Dave 2026-07-21, hours after filing:** with the PDF-first tabs, "we can now work directly within the PDF" — direct in-PDF editing makes a bespoke add-entry affordance unnecessary. _The original caveat (browser-viewer edits were local-only) was resolved the same day: see Round 4 — PdfFormViewer harvests in-PDF edits into Cosmos with full audit + cross-role sharing._
 
+### Go-to-market collateral — pitch deck v1 shipped; company rename + website pending SME reaction (Dave, 2026-07-23)
+
+**Pitch deck iteration 1 committed** at `marketing/Emergency_Response_Assistant_Overview.pptx` (ten slides, EMC1-branded, every claim demo-backed; built 2026-07-23). **Gate: SME reviews the deck before further marketing investment.** Then, per Dave: (1) **new company name** — "EMC1" is interim; rebrand touches the deck, LICENSE/NOTICE copyright holder, and azure.yaml naming when it lands; (2) **website** — not started, scope after the name exists. Deck refresh ideas already noted: real EMC1-successor logo replaces the placeholder flame; slide 7's mocked ICS-202 swaps for a screenshot from the deployed app once a demo incident produces a pretty one.
+
 ### ICS-209 needs a source — no official PDF template in the SME set (noted 2026-07-21)
 
 Dave's test flagged 209 (Incident Status Summary, on IC + Planning) as "very brief, no PDF option" — correct: it has no AcroForm template in `ics_pdf_templates/`, so it renders legacy placeholder sections. Options: acquire the official ICS Canada 209 PDF (Dave/SME), or hand-build a faithful layout (the one place the ground-up approach is still needed, along with 213/206/218/OF-288/226/219). Until then it stays a placeholder.
